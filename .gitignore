@@ -40,3 +40,14 @@ odm_frames/
 docs/Trackers/**/*.zip
 docs/Trackers/**/*.exe
 docs/Trackers/**/*.msi
+
+# Manufacturer manuals for the hut hardware -- camera, router, weather station,
+# Victron power kit, horn relays. They were tracked while this repository was
+# private; from v1.000 it is public, and republishing other companies' copyrighted
+# documents is not ours to do. They stay on disk in the race office and in the
+# club's private archive; they are simply not tracked here.
+#
+# The club's OWN drawings are tracked, and the two negations below keep them so.
+docs/hardware/**/*.pdf
+!docs/hardware/wiring/Hut Wiring Diagram - V0.2.pdf
+!docs/hardware/horn/Horn Control Box.pdf
