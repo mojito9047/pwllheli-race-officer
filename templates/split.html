@@ -1,0 +1,41 @@
+<!doctype html>
+<!-- Copyright © 2026 CapeNet Ltd. All Rights Reserved. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Split screen · Pwllheli Race Officer</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
+  {% include 'partials/theme_links.html' %}
+</head>
+<body class="split-screen-page">
+  <div class="split-screen-layout" aria-label="Race officer split screen">
+    <section class="split-screen-pane split-screen-admin" aria-label="Race officer admin pane">
+      <div class="split-screen-bar">
+        <strong>Race officer</strong>
+        <span>/admin</span>
+        <a href="{{ admin_url }}" target="_blank" rel="noopener">Open</a>
+      </div>
+      <iframe
+        src="{{ admin_url }}"
+        title="Race officer admin dashboard"
+        class="split-screen-frame"
+        loading="eager"></iframe>
+    </section>
+    <section class="split-screen-pane split-screen-public" aria-label="Public competitor pane">
+      <div class="split-screen-bar">
+        <strong>Competitors</strong>
+        <span>public page</span>
+        <a href="{{ public_url }}" target="_blank" rel="noopener">Open</a>
+      </div>
+      <iframe
+        src="{{ public_url }}"
+        title="Public competitor page"
+        class="split-screen-frame"
+        loading="eager"></iframe>
+    </section>
+  </div>
+</body>
+</html>

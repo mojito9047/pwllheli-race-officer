@@ -1,0 +1,331 @@
+<!doctype html>
+<!-- Copyright © 2026 CapeNet Ltd. All Rights Reserved. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="300">
+  <title>Pwllheli Sailing Club - Competitor information</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
+  {% include 'partials/theme_links.html' %}
+</head>
+<body class="public-page{% if mobile_view %} public-mobile{% endif %}">
+<header>
+  <a class="public-club-brand" href="{{ url_for('competitor_current_race') }}" aria-label="Pwllheli Sailing Club competitor information">
+    <img src="{{ url_for('static', filename='img/psc_public_header.png') }}" alt="Clwb Hwylio Pwllheli Sailing Club">
+  </a>
+</header>
+<main>
+<section class="race-header race-summary public-summary">
+  <div class="race-summary-main">
+    <h2>{% if current_series %}{{ current_series.name }}{% else %}Race information{% endif %}</h2>
+    {% if current_race %}
+      <p><strong>Current race:</strong> {{ current_race.name }} · <strong>First start:</strong> {{ dt_full_display(current_race_card.first_start_time) if current_race_card else 'Not set' }}</p>
+      {# The page that FOLLOWS the current race, not a link pinned to today's id:
+         a competitor who sails a race and finishes is otherwise left on it when
+         the race officer moves on. #}
+      <p class="public-action-row"><a class="button" href="{{ url_for('competitor_current_race_sheet') }}">Go to current race</a></p>
+    {% else %}
+      <p class="muted">No current race has been created yet.</p>
+    {% endif %}
+  </div>
+  {# The same wind instrument the race officer sees, plus the current race's
+     countdown, so both are visible without opening a tab or a race page. #}
+  <div class="public-wind-instrument">
+    {# No status target here on purpose: the gauge's status line would carry raw
+       weather-station messages, which the public pages keep to themselves. With
+       no wind the dial simply reads —° / — kt. The Wind tab has the detail. #}
+    {% with gauge_id='publicWindGauge', gauge_class='public-wind-gauge' %}
+      {% include 'partials/wind_gauge.html' %}
+    {% endwith %}
+    <p class="small muted" id="publicWindGaugeStatus">Wind at the start hut</p>
+  </div>
+  {% if current_race and current_race_card %}
+  <div class="countdown" id="publicHomeCountdown"
+       data-start="{{ current_race_card.first_start_time }}"
+       data-race-finished="{{ 1 if current_race_card.status == 'Finished' else 0 }}"
+       data-postponed="{{ current_race_card.postponed_flag or '' }}"
+       data-postponement-ends-at="{{ current_race_card.postponement_ends_at or '' }}">
+    <span class="label">Race status</span>
+    <span class="time" id="publicHomeCountdownTime">--:--</span>
+    <span class="state" id="publicHomeCountdownState">Waiting</span>
+  </div>
+  {% endif %}
+</section>
+
+{# Three tabs: the races list, the wind history (which gets the room to be a
+   tall plot) and the hut camera, which starts when its tab is opened. #}
+<section class="race-tabs card public-tabs" id="competitorHomeTabs">
+  <nav class="tab-nav" aria-label="Competitor information tabs">
+    <button type="button" class="tab-button active" data-tab="htab-races">Races</button>
+    <button type="button" class="tab-button" data-tab="htab-wind">Wind</button>
+    <button type="button" class="tab-button" data-tab="htab-camera">Live camera</button>
+  </nav>
+
+  <div class="tab-pane active" id="htab-races">
+    <div id="competitorRacesPanel">
+    <div class="section-head">
+      <div>
+        <h3>Races in {{ race_year }}</h3>
+        <p class="muted">Series are rolled up; the current series is open. Select a race to see its start information, chart and results.</p>
+      </div>
+    </div>
+    {% if race_groups %}
+      {% for group in race_groups %}
+      <details class="subsection"{% if group.open %} open{% endif %}>
+        <summary>{{ group.title }} <span class="small muted">· {{ group.race_count }} race{{ '' if group.race_count == 1 else 's' }}{% if group.is_current_series %} · current series{% endif %}</span></summary>
+        {# The standings the race office last put out. A link rather than the
+           results themselves: this is the published document, the same one the
+           club website points at, so a competitor and the website are reading
+           the same page. #}
+        {% if group.published %}
+        <p class="small published-link"><a href="{{ group.published.stable_url }}" target="_blank" rel="noopener">Published results</a>
+          <span class="muted">&mdash; as at {{ dt_full_display(group.published.published_at) or group.published.published_at }}</span></p>
+        {% endif %}
+        <table class="compact stack-table">
+          <thead><tr><th>Race</th><th>First start</th><th>Status</th><th>Entries</th><th>Link</th></tr></thead>
+          <tbody>
+          {% for item in group.cards %}
+            <tr class="{% if item.is_current %}highlight-row{% endif %}">
+              <td data-label="Race"><strong>{{ item.race.name }}</strong>{% if item.is_current %}<br><span class="small muted">Current race</span>{% endif %}</td>
+              <td data-label="First start">{{ dt_full_display(item.first_start_time) or 'Not set' }}</td>
+              <td data-label="Status">{{ item.status }}</td>
+              <td data-label="Entries">{{ item.entry_count }}{% if item.finished_count %} · {{ item.finished_count }} finished{% endif %}</td>
+              <td data-label="Link"><a class="button small secondary" href="{{ item.public_url }}">Open</a></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </details>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <span class="empty-state-icon">{% include 'icons/flag.svg' %}</span>
+        <h3>No races are available yet</h3>
+        <p>Check back closer to race day for start times and results.</p>
+      </div>
+    {% endif %}
+    </div>
+  </div>
+
+  <div class="tab-pane" id="htab-wind">
+    <div id="competitorWindPanel">
+    <div class="section-head">
+      <div>
+        <h3>Start hut wind</h3>
+        <p class="muted">The wind is measured at the start hut and may differ from the wind on the race course.</p>
+      </div>
+      <label>History
+        <select id="homeHistoryMinutes">
+          <option value="5">5 min</option>
+          <option value="10" selected>10 min</option>
+          <option value="15">15 min</option>
+          <option value="30">30 min</option>
+          <option value="60">60 min</option>
+        </select>
+      </label>
+    </div>
+    <div class="weather-controls">
+      <span class="wind-chip" id="homeLatestTwd">TWD at hut {{ '%.0f°T'|format(latest_wind.twd) if latest_wind and latest_wind.twd is not none else '—' }}</span>
+      <span class="wind-chip" id="homeLatestTws">TWS at hut {{ '%.1f kt'|format(latest_wind.tws) if latest_wind and latest_wind.tws is not none else '—' }}</span>
+      <span class="wind-chip" id="homeLatestGust">Gust at hut {{ '%.1f kt'|format(latest_wind.gust) if latest_wind and latest_wind.gust is not none else '—' }}</span>
+      <span class="muted small" id="homeWeatherMessage">{{ weather_status.message }}</span>
+    </div>
+    <canvas id="homeWindHistoryCanvas" class="wind-history-canvas tall" width="900" height="560" aria-label="Wind history plot"></canvas>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="htab-camera">
+    <div id="competitorCameraPanel">
+    {# Header kept compact — on a phone it collapses to a single line (see CSS)
+       so the video can fill the width. The Watch-live button is gone: the video
+       now plays inline, so the panel itself is the live view. #}
+    <div class="section-head camera-head">
+      <div>
+        <h3>Live start hut camera</h3>
+        <p class="muted">The view from the start hut, while this tab is open.</p>
+      </div>
+    </div>
+    {# Refreshing snapshots while the relay's on-demand stream spins up, then the
+       live stream itself. See static/live_camera.js. #}
+    <div class="live-video-frame-wrap live-camera" id="publicCameraWrap"
+         data-snapshot-src="{{ public_live_image.src }}"
+         data-snapshot-refresh-ms="{{ public_live_image.refresh_ms }}"
+         {% if public_live_stream_url %}data-stream-page="{{ public_live_stream_url }}"{% endif %}
+         data-snapshot-note="{% if public_live_stream_url %}Still pictures while the live stream starts…{% else %}Updated every few seconds.{% endif %}"
+         data-starting-note="Live stream starting — still pictures until it is ready…"
+         data-stream-note="Live video from the start hut.">
+      <img id="publicCameraFrame" class="live-video-frame live-camera-snapshot" data-provider="{{ public_live_image.provider }}" alt="Live camera preview with public branding">
+      <p class="live-camera-note small muted">{% if public_live_stream_url %}Still pictures while the live stream starts…{% else %}Updated every few seconds.{% endif %}</p>
+    </div>
+    </div>
+  </div>
+</section>
+</main>
+
+{# For the postponement wording only — four pages saying "Postponed" four
+   slightly different ways is how the flag rules drifted the first time. #}
+<script src="{{ url_for('static', filename='signal_flags.js') }}?v={{ app_version }}"></script>
+<script src="{{ url_for('static', filename='countdown.js') }}?v={{ app_version }}"></script>
+<script src="{{ url_for('static', filename='live_camera.js') }}?v={{ app_version }}"></script>
+<script src="{{ url_for('static', filename='wind_gauge.js') }}?v={{ app_version }}"></script>
+<script src="{{ url_for('static', filename='wind_history.js') }}?v={{ app_version }}"></script>
+<script>
+// Home-page tabs. The wind plot sizes itself from its container, and the camera
+// only fetches frames while its own tab is open, so an idle viewer costs the hut
+// nothing.
+(function () {
+  const buttons = Array.from(document.querySelectorAll('#competitorHomeTabs .tab-button'));
+  const panes = Array.from(document.querySelectorAll('#competitorHomeTabs .tab-pane'));
+  if (!buttons.length) return;
+  const onShown = {};   // tab id -> callbacks to run when it becomes visible
+  const onHidden = {};  // tab id -> callbacks to run when it is left
+  window.PwllheliHomeTabs = {
+    onShow: (tabId, fn) => { (onShown[tabId] = onShown[tabId] || []).push(fn); },
+    onHide: (tabId, fn) => { (onHidden[tabId] = onHidden[tabId] || []).push(fn); },
+    active: () => (panes.find(p => p.classList.contains('active')) || {}).id || '',
+  };
+  // rememberInUrl is false on first load: writing the fragment then makes the
+  // browser jump past the header to the tabs, which is disorienting.
+  function show(tabId, rememberInUrl) {
+    if (!document.getElementById(tabId)) tabId = 'htab-races';
+    const leaving = window.PwllheliHomeTabs.active();
+    buttons.forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+    panes.forEach(p => p.classList.toggle('active', p.id === tabId));
+    if (rememberInUrl && location.hash !== '#' + tabId) history.replaceState(null, '', '#' + tabId);
+    if (leaving && leaving !== tabId) (onHidden[leaving] || []).forEach(fn => fn());
+    (onShown[tabId] || []).forEach(fn => fn());
+  }
+  window.PwllheliHomeTabs.show = show;
+  buttons.forEach(b => b.addEventListener('click', () => show(b.dataset.tab, true)));
+  show((location.hash || '#htab-races').slice(1), false);
+})();
+
+(function () {
+  // Countdown to the current race's first start, in the same words the race
+  // page uses. It reads the server-rendered start time, so nothing is polled.
+  const box = document.getElementById('publicHomeCountdown');
+  if (!box) return;
+  const timeEl = document.getElementById('publicHomeCountdownTime');
+  const stateEl = document.getElementById('publicHomeCountdownState');
+  const startIso = box.dataset.start || '';
+  const finished = box.dataset.raceFinished === '1';
+
+  function tick() {
+    if (finished) {
+      timeEl.textContent = 'Finished';
+      stateEl.textContent = 'Race finished';
+      return;
+    }
+    // The club's landing page, and the first thing most people look at. A race
+    // under AP keeps its scheduled time, so counting down to it here would tell
+    // the whole fleet a gun is coming that is not.
+    const postponed = window.SignalFlags
+      ? SignalFlags.postponedNow(box.dataset.postponed, box.dataset.postponementEndsAt)
+      : '';
+    if (postponed) {
+      timeEl.textContent = '--:--';
+      stateEl.textContent = window.SignalFlags
+        ? SignalFlags.postponedLabel(postponed) : 'Postponed';
+      return;
+    }
+    const start = new Date(startIso);
+    if (!startIso || Number.isNaN(start.getTime())) {
+      timeEl.textContent = '--:--';
+      stateEl.textContent = 'Start not set';
+      return;
+    }
+    const diff = Math.round((start.getTime() - Date.now()) / 1000);
+    timeEl.textContent = (diff < 0 ? '+' : '-') + roCountdownBody(Math.abs(diff));
+    stateEl.textContent = diff > 0 ? 'Counting down' : 'Race started';
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
+
+{# This page is rendered once and then left open — on phones, and on whatever is
+   showing in the clubhouse. The current race, its first start and the clock that
+   counts to it all come from the server, so until now a race officer setting the
+   first warning signal left every open copy reading "Not set" with a dead clock.
+   Five seconds rather than the race page's two: nothing here is to the second. #}
+(function () {
+  const initial = {{ home_signature|tojson if home_signature is defined else 'null'|safe }};
+  if (!initial) return;
+  let reloading = false;
+  async function check() {
+    if (reloading) return;
+    try {
+      const res = await fetch('/public/current/state', {headers: {'Accept': 'application/json'},
+                                                        cache: 'no-store'});
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.ok || !data.signature || data.signature === initial) return;
+      reloading = true;
+      const next = new URL(window.location.href);
+      next.searchParams.set('_', String(Date.now()));
+      window.location.replace(next.toString());
+    } catch (err) { /* try again in five seconds */ }
+  }
+  setInterval(check, 5000);
+  setTimeout(check, 1000);
+})();
+
+(function () {
+  const canvas = document.getElementById('homeWindHistoryCanvas');
+  const minsSelect = document.getElementById('homeHistoryMinutes');
+  const msg = document.getElementById('homeWeatherMessage');
+  const latestTwd = document.getElementById('homeLatestTwd');
+  const latestTws = document.getElementById('homeLatestTws');
+  const latestGust = document.getElementById('homeLatestGust');
+  const WindHistory = window.PwllheliWindHistory;
+  // A hidden canvas has no width, so the plot is drawn (and redrawn) when the
+  // Wind tab is actually on screen.
+  const plotHeight = () => (window.innerWidth <= 700 ? 420 : 560);
+
+  async function refreshWind() {
+    const minutes = Number(minsSelect ? minsSelect.value : 10) || 10;
+    const visible = !canvas.closest('.tab-pane') || canvas.closest('.tab-pane').classList.contains('active');
+    try {
+      const res = await fetch(`/api/weather/history?minutes=${minutes}`, {headers:{'Accept':'application/json'}, cache:'no-store'});
+      const data = await res.json();
+      if (msg) msg.textContent = data.message || '';
+      const w = data.current || null;
+      if (w) {
+        const twd = w.twd !== null && w.twd !== undefined ? `${WindHistory.norm360(w.twd).toFixed(0)}°T` : '—';
+        const tws = w.tws !== null && w.tws !== undefined ? `${Number(w.tws).toFixed(1)} kt` : '—';
+        const gust = w.gust !== null && w.gust !== undefined ? `${Number(w.gust).toFixed(1)} kt` : '—';
+        if (latestTwd) latestTwd.textContent = 'TWD at hut ' + twd;
+        if (latestTws) latestTws.textContent = 'TWS at hut ' + tws;
+        if (latestGust) latestGust.textContent = 'Gust at hut ' + gust;
+      }
+      if (visible) WindHistory.draw(canvas, data.samples || [], data.server_now, minutes, {cssHeight: plotHeight()});
+    } catch (err) {
+      if (msg) msg.textContent = 'Could not read wind history.';
+      if (visible) WindHistory.draw(canvas, [], Date.now()/1000, minutes, {cssHeight: plotHeight()});
+    }
+  }
+  if (minsSelect) minsSelect.addEventListener('change', refreshWind);
+  if (window.PwllheliHomeTabs) window.PwllheliHomeTabs.onShow('htab-wind', () => setTimeout(refreshWind, 30));
+  refreshWind();
+  setInterval(refreshWind, 5000);
+  window.addEventListener('resize', refreshWind);
+})();
+
+(function () {
+  const camera = document.getElementById('publicCameraWrap');
+  if (!camera || !window.PwllheliLiveCamera) return;
+  const live = window.PwllheliLiveCamera;
+  if (window.PwllheliHomeTabs) {
+    window.PwllheliHomeTabs.onShow('htab-camera', () => live.start(camera));
+    window.PwllheliHomeTabs.onHide('htab-camera', () => live.stop(camera));
+    if (window.PwllheliHomeTabs.active() === 'htab-camera') live.start(camera);
+  } else {
+    live.start(camera);
+  }
+})();
+</script>
+<footer class="public-footer">Pwllheli Race Officer v{{ app_version }} · Provisional information for competitors. Race officer decisions and published results remain authoritative. · <a href="/documentation/competitor-guide" target="_blank" rel="noopener">Competitor's guide (PDF)</a> · <a href="{{ source_url }}" target="_blank" rel="noopener">Source on GitHub</a> · Copyright © 2026 CapeNet Ltd. All Rights Reserved.</footer>
+</body>
+</html>

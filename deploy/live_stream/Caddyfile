@@ -1,0 +1,227 @@
+# Caddy on the relay (Proxmox LXC) — the single public front door for the club.
+# Behind a Cloudflare Tunnel: pro.pwllhelisailingclub.org -> this Caddy on :80,
+# with Cloudflare terminating TLS at its edge (so plain HTTP locally).
+#
+#   pro.pwllhelisailingclub.org/live   -> the live-stream watch page (site/index.html)
+#   pro.pwllhelisailingclub.org/hut/*  -> MediaMTX HLS (segments cached at the edge)
+#   pro.pwllhelisailingclub.org/*      -> the hut app (via its own hut-origin tunnel),
+#                                         with a holding page when the hut is offline
+#
+# This replaces the previous separate front-door PC and the standalone
+# live.pwllhelisailingclub.org host: point the pro tunnel at this machine.
+
+{
+	# Record the real visitor IP in the access log. This Caddy sits behind the
+	# Cloudflare Tunnel, so the direct peer is cloudflared on loopback; trust it
+	# and take the client IP from the header Cloudflare sets, otherwise every
+	# request would log as 127.0.0.1.
+	servers {
+		trusted_proxies static private_ranges
+		client_ip_headers CF-Connecting-IP
+	}
+}
+
+# --- Traccar's own web UI: give it a hostname of its own ---------------------
+# Traccar's UI is a single-page app whose assets and API calls are all
+# ROOT-absolute (/assets/index-*.js, /styles.css, /manifest.webmanifest,
+# /api/socket), so it CANNOT be served under the /traccar/* sub-path in the site
+# below: the browser asks this Caddy for /assets/... , that falls through to the
+# hut app, 404s, and the UI hangs for ever on its loading spinner. (The hut app's
+# API pull works on the sub-path only because the app prefixes /traccar itself.)
+# A separate host means nothing has to be stripped or rewritten.
+#
+# Two steps to enable it:
+#   1. Cloudflare: add a second public hostname to the same tunnel —
+#      traccar.pwllhelisailingclub.org -> service http://localhost:80 (this Caddy).
+#   2. Protect it. This publishes a login page to the internet: put Cloudflare
+#      Access in front of the hostname, or at minimum change Traccar's default
+#      admin password and turn Registration off (Traccar → Settings → Server).
+# Do NOT reuse track.pwllhelisailingclub.org for this: that name is a DNS-only
+# A record pointing straight at whichever machine runs Traccar — this one — so the
+# trackers can open a raw TCP socket to it, while a tunnel hostname must be a CNAME
+# to the tunnel. One name cannot be both.
+#
+# Because it is DNS-only it reaches this machine with Cloudflare nowhere in the
+# path, so every port the firewall leaves open here is open to the internet under
+# that name. In August 2026 port 80 was one of them, and the block below answered
+# on it: http://track.pwllhelisailingclub.org/admin/login served the race office's
+# login form in clear text. See "Port 80 must be closed to the internet" in
+# README.md — the fix is the firewall, not this file.
+# The http:// prefix binds this to :80 and disables automatic HTTPS (Cloudflare
+# terminates TLS at its edge). Until the hostname exists this block is simply
+# never matched, so it is harmless to leave in place.
+http://traccar.pwllhelisailingclub.org {
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 20MiB
+			roll_keep 14
+			roll_keep_for 2160h
+		}
+		format json
+	}
+	reverse_proxy localhost:8082
+}
+
+# Reached through the Cloudflare tunnel, which runs on this machine and connects
+# over localhost -- so this port has no business being open to the internet. It
+# was, and the fall-through to the hut app at the end of this block published the
+# race office login page on a raw IP in clear text. Close 80/tcp in the firewall
+# (and in the VPS provider's), or bind this block to 127.0.0.1:80.
+:80 {
+	# --- Access log: all visitors (hut app, competitor pages, /live, /hut playlists) ---
+	# Each JSON line's request>client_ip is the real visitor (see global block).
+	# The high-volume HLS .ts segments are skipped below, and are anyway mostly
+	# served from Cloudflare's cache and never reach here. IPs are personal data:
+	# retention is bounded by roll_keep_for; keep /var/log/caddy root-only.
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 20MiB
+			roll_keep 14
+			roll_keep_for 2160h
+		}
+		format json
+	}
+
+	# --- Live-stream watch page: /live ---
+	redir /live /live/
+	handle_path /live/* {
+		root * {$SITE_ROOT:/opt/relay/site}
+		file_server
+		# small page; keep it fresh, and allow the club website to iframe it
+		header Cache-Control "no-cache"
+		header -X-Frame-Options
+		# Who may embed this page. 'self' covers the app when it is served through
+		# this same front door (pro.…), which is how competitors reach it. The
+		# localhost entries are for the app running directly on a PC — the hut
+		# machine's own race sheet at http://localhost:5050 and a developer's test
+		# server — which are a different origin and would otherwise be refused.
+		#
+		# The .co.uk entries are the club's own website, which embeds the camera on
+		# its front page (deploy/embed/). A browser blocks a frame from an origin
+		# not listed here and shows nothing, so leaving it out is not a soft
+		# failure — the club site would show an empty box. Both the bare domain
+		# and www are listed because either may serve the page and they are
+		# separate origins.
+		header Content-Security-Policy "frame-ancestors 'self' https://*.pwllhelisailingclub.org https://pwllhelisailingclub.co.uk https://www.pwllhelisailingclub.co.uk http://localhost:5050 http://127.0.0.1:5050"
+	}
+
+	# --- MediaMTX HLS: /hut/* (prefix preserved so the cookie-check redirect works) ---
+	# Segments are made cacheable (strip Set-Cookie + a clean Cache-Control) so
+	# Cloudflare fans them out; the playlist is never cached.
+	@hlssegment path /hut/*.ts /hut/*.mp4 /hut/*.m4s
+	handle @hlssegment {
+		log_skip
+		reverse_proxy {$MEDIAMTX_UPSTREAM:localhost:8888} {
+			header_down -Set-Cookie
+			header_down Cache-Control "public, max-age=10"
+		}
+	}
+	handle /hut/* {
+		reverse_proxy {$MEDIAMTX_UPSTREAM:localhost:8888} {
+			header_down Cache-Control "no-cache"
+		}
+	}
+
+	# --- GPS tracking: /traccar/* -> Traccar (device tracking server) ------------
+	# The hut app pulls boat positions from Traccar's REST API over this path
+	# (outbound from the hut — no inbound port on the hut). Traccar's own login
+	# gates its web UI/API; the hut app authenticates with a Bearer API token.
+	# Traccar itself listens for the GL530MG trackers on its Queclink protocol
+	# port (default 5027/tcp), which is port-forwarded on the home router to this
+	# LXC — that is the one inbound port this feature needs (not via Caddy).
+	# handle_path strips the /traccar prefix, so the hut app's
+	# `.../traccar/api/positions` reaches Traccar as `/api/positions`.
+	# API ONLY. Traccar's web UI does not work through this path (its assets are
+	# root-absolute) — it gets its own hostname, see the site block above.
+	handle_path /traccar/* {
+		reverse_proxy localhost:8082
+	}
+
+	# --- Analytics report: /stats (GoAccess HTML) — DISABLED by default ----------
+	# Visitor analytics are private, so this MUST stay behind authentication.
+	# To enable:
+	#   1. Generate the report on a schedule into the site root (see README), e.g.
+	#      a cron every 10 min:
+	#        goaccess /var/log/caddy/access.log --log-format=CADDY -o /opt/relay/site/stats.html
+	#   2. Make a password hash:  caddy hash-password   (paste it below).
+	#   3. Uncomment this block and reload. (On Caddy < 2.8 use 'basicauth'.)
+	# handle /stats* {
+	# 	basic_auth {
+	# 		admin PASTE_BCRYPT_HASH_HERE
+	# 	}
+	# 	root * {$SITE_ROOT:/opt/relay/site}
+	# 	rewrite * /stats.html
+	# 	file_server
+	# 	header Cache-Control "no-store"
+	# 	log_skip
+	# }
+
+	# --- Virtual Race Officer commands: the one slow thing the hut serves --------
+	# These two endpoints wait on a language model, which answers in 3 to 8
+	# seconds. Everything else the hut serves is well under a second, so the
+	# 5-second response-header timeout below was invisible until this page
+	# existed — and then it cut off every command that took longer, returning 504
+	# to somebody on the water while the hut carried on and *completed the
+	# command*. The hut's own slow-request log has them all finishing 200 at
+	# 3.3-7.9 s; the 504 arriving in five seconds was this timeout, not the hut.
+	#
+	# So these get their own patience: longer than the app's own 30-second model
+	# timeout plus a margin, so the app is always the thing that gives up first
+	# and can say why. Ordinary pages keep the tight timeout, which is what makes
+	# the holding page appear promptly when the hut really is down.
+	# Two paths, so a named matcher: `handle` itself takes one matcher token.
+	@vro path /api/assistant/* /admin/api/assistant/*
+	handle @vro {
+		reverse_proxy https://hut-origin.pwllhelisailingclub.org {
+			header_up Host hut-origin.pwllhelisailingclub.org
+			transport http {
+				tls_server_name hut-origin.pwllhelisailingclub.org
+				dial_timeout 3s
+				response_header_timeout 45s
+			}
+			# 503 is deliberately not here: the app uses it to say the Virtual
+			# Race Officer has no interpreter configured, and that answer has to
+			# reach the page as itself rather than as a holding page. Nor 500 —
+			# these endpoints answer in JSON and the page shows what they say.
+			@vro_down status 502 520 521 522 523 524 525 526 530
+			handle_response @vro_down {
+				root * {$SITE_ROOT:/opt/relay/site}
+				rewrite * /hut_offline.html
+				file_server
+			}
+		}
+	}
+
+	# --- Everything else: the hut race app, with a holding page when it's down ---
+	# (No header overrides here — pass the app's own responses/headers through.)
+	handle {
+		reverse_proxy https://hut-origin.pwllhelisailingclub.org {
+			header_up Host hut-origin.pwllhelisailingclub.org
+			transport http {
+				tls_server_name hut-origin.pwllhelisailingclub.org
+				dial_timeout 3s
+				response_header_timeout 5s
+			}
+			# 500 is deliberately not here. A 500 means the hut *is* available and
+			# answered — it failed one request — so "the hut is not available" is
+			# both wrong and diagnosis-hostile: a one-character SQL bug in the
+			# add-user form presented to an administrator as the whole hut being
+			# down, and the app's own log was the only place the truth existed.
+			# The gateway statuses below, and the connection failures caught by
+			# handle_errors, are the ones that really do mean the hut is not there.
+			@hut_down status 502 503 504 520 521 522 523 524 525 526 530
+			handle_response @hut_down {
+				root * {$SITE_ROOT:/opt/relay/site}
+				rewrite * /hut_offline.html
+				file_server
+			}
+		}
+	}
+
+	# Connection refused / TLS / timeout reaching the hut -> holding page too.
+	handle_errors {
+		root * {$SITE_ROOT:/opt/relay/site}
+		rewrite * /hut_offline.html
+		file_server
+	}
+}

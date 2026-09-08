@@ -1,0 +1,88 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Races - Pwllheli Race Officer{% endblock %}
+{% block page_heading %}Races{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="section-head">
+    <div>
+      <h2>Races</h2>
+      <p>All race sheets grouped by series, with standalone races in their own roll-up.</p>
+    </div>
+    <a class="button" href="{{ url_for('new_race') }}">New race</a>
+  </div>
+</section>
+
+<section class="race-rollups">
+  {% if series_groups or standalone_races %}
+    {% for group in series_groups %}
+      {# Open the one holding the current race, not the standalone group. #}
+      <details class="race-rollup card" {% if current_series_id and group.series.id == current_series_id %}open{% endif %}>
+        <summary>
+          <span><strong>{{ group.series.name }}</strong>{% if group.series.description %}<small>{{ group.series.description }}</small>{% endif %}</span>
+          <span class="race-rollup-count">{{ group.races|length }} race{{ '' if group.races|length == 1 else 's' }}</span>
+        </summary>
+        <div class="race-rollup-actions">
+          <a class="button small secondary" href="{{ url_for('series_detail', series_id=group.series.id) }}">Open series</a>
+          <a class="button small secondary" href="{{ url_for('new_race', series_id=group.series.id) }}">New race in this series</a>
+        </div>
+        {% if group.races %}
+          <table>
+            <thead><tr><th>First warning</th><th>Name</th><th>Course</th><th>Created</th><th></th></tr></thead>
+            <tbody>
+            {% for r in group.races %}
+              <tr>
+                <td>{{ dt_full_display(r.start_time) or 'Not set' }}</td>
+                <td><strong>{{ r.name }}</strong>{% if r.id == current_race_id %} <span class="small muted">current</span>{% endif %}</td>
+                <td>{% if r.custom_course_json %}Made up{% elif not r.course_set %}<em class="muted">not set</em>{% else %}{{ r.course_no }}{% endif %}</td>
+                <td>{{ dt_full_display(r.created_at) or r.created_at }}</td>
+                <td><a href="{{ url_for('race_detail', race_id=r.id) }}">Open</a></td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p>No races in this series yet.</p>
+        {% endif %}
+      </details>
+    {% endfor %}
+
+    <details class="race-rollup card" {% if current_race_id and not current_series_id %}open{% endif %}>
+      <summary>
+        <span><strong>Standalone races</strong><small>Race sheets not assigned to a series</small></span>
+        <span class="race-rollup-count">{{ standalone_races|length }} race{{ '' if standalone_races|length == 1 else 's' }}</span>
+      </summary>
+      <div class="race-rollup-actions">
+        <a class="button small secondary" href="{{ url_for('new_race') }}">New standalone race</a>
+      </div>
+      {% if standalone_races %}
+        <table>
+          <thead><tr><th>First warning</th><th>Name</th><th>Course</th><th>Created</th><th></th></tr></thead>
+          <tbody>
+          {% for r in standalone_races %}
+            <tr>
+              <td>{{ dt_full_display(r.start_time) or 'Not set' }}</td>
+              <td><strong>{{ r.name }}</strong>{% if r.id == current_race_id %} <span class="small muted">current</span>{% endif %}</td>
+              <td>{% if r.custom_course_json %}Made up{% elif not r.course_set %}<em class="muted">not set</em>{% else %}{{ r.course_no }}{% endif %}</td>
+              <td>{{ dt_full_display(r.created_at) or r.created_at }}</td>
+              <td><a href="{{ url_for('race_detail', race_id=r.id) }}">Open</a></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>No standalone races.</p>
+      {% endif %}
+    </details>
+  {% else %}
+    <section class="card">
+      <div class="empty-state">
+        <span class="empty-state-icon">{% include 'icons/flag.svg' %}</span>
+        <h3>No races or series yet</h3>
+        <p>Create your first race sheet to set a course, start time and entries.</p>
+        <a class="button" href="{{ url_for('new_race') }}">Create the first race</a>
+      </div>
+    </section>
+  {% endif %}
+</section>
+{% endblock %}

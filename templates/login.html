@@ -1,0 +1,86 @@
+<!doctype html>
+<!-- Pwllheli Race Officer v{{ app_version }} · Copyright © 2026 CapeNet Ltd. All Rights Reserved. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login - Pwllheli Race Officer</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
+  {% include 'partials/theme_links.html' %}
+  <script>
+  window.RO_CSRF_TOKEN = {{ csrf_token()|tojson }};
+  (function () {
+    const token = window.RO_CSRF_TOKEN;
+    function isUnsafeMethod(method) {
+      return !['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(String(method || 'GET').toUpperCase());
+    }
+    function isSameOrigin(input) {
+      try {
+        const raw = (typeof input === 'string') ? input : input.url;
+        return new URL(raw, window.location.href).origin === window.location.origin;
+      } catch (e) {
+        return true;
+      }
+    }
+    document.addEventListener('submit', function (ev) {
+      const form = ev.target;
+      if (!form || form.tagName !== 'FORM') return;
+      if (!isUnsafeMethod(form.method || 'GET')) return;
+      if (!form.querySelector('input[name="_csrf_token"]')) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = '_csrf_token';
+        input.value = token;
+        form.appendChild(input);
+      }
+    }, true);
+    if (window.fetch) {
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = function (input, init) {
+        const options = Object.assign({}, init || {});
+        const method = (options.method || (input && input.method) || 'GET').toUpperCase();
+        if (isUnsafeMethod(method) && isSameOrigin(input)) {
+          const headers = new Headers(options.headers || (input && input.headers) || {});
+          headers.set('X-CSRFToken', token);
+          options.headers = headers;
+        }
+        return originalFetch(input, options);
+      };
+    }
+  })();
+  </script>
+</head>
+<body class="login-page">
+<main class="login-main">
+  <section class="card login-card">
+    <h1>Pwllheli Race Officer</h1>
+    <p class="muted">Sign in to manage races, boats, settings and hardware.</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <section class="messages">
+          {% for category, message in messages %}
+            <div class="message {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </section>
+      {% endif %}
+    {% endwith %}
+    <form method="post" class="stacked">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="next" value="{{ next_url }}">
+      <label>Username
+        <input name="username" autocomplete="username" required autofocus>
+      </label>
+      <label>Password
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit">Log in</button>
+    </form>
+    <p class="small muted">First-run admin credentials are generated locally on the race-office PC and are not shown on the public login page.</p>
+    <p class="small"><a href="{{ url_for('competitor_current_race') }}">Competitor current-race page</a></p>
+  </section>
+</main>
+<footer class="login-footer">Pwllheli Race Officer v{{ app_version }} · Copyright © 2026 CapeNet Ltd. All Rights Reserved.</footer>
+</body>
+</html>

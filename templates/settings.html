@@ -1,0 +1,940 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Settings - Pwllheli Race Officer{% endblock %}
+{% block content %}
+<section class="card settings-savebar" id="settings">
+  <div class="section-head">
+    <div>
+      <h2>Settings</h2>
+      {% if can_edit_settings %}
+      <p class="muted">Settings are grouped into collapsible sections. Open the section you need, make changes, then save.</p>
+      {% else %}
+      <p class="muted">You are signed in as a race officer, so Settings are read-only. Ask an administrator to make changes. To change your own password, use <a href="{{ url_for('account_page') }}">My account</a>.</p>
+      {% endif %}
+    </div>
+    {% if can_edit_settings %}
+    <button type="submit" form="settingsSaveForm">Save settings</button>
+    {% else %}
+    <span class="pill readonly-pill">Read-only · administrator access required</span>
+    {% endif %}
+  </div>
+</section>
+<form id="settingsSaveForm" method="post" action="{{ url_for('settings_save') }}"></form>
+<fieldset class="settings-fieldset"{% if not can_edit_settings %} disabled{% endif %}>
+
+<details class="card settings-section" id="users">
+  <summary><h3>Users</h3><span>App login accounts</span></summary>
+  <p class="muted">These users can access the race officer app. The public competitor page does not require a login.</p>
+  <p class="muted small">Roles: <strong>Admin</strong> changes everything. <strong>Race officer</strong> runs races and sees Settings read-only.
+    <strong>Mark layer</strong> reaches only the phone page for re-measuring a mark &mdash; it is for whoever takes the RIB out
+    after a storm, and does not open the race, the finish times or the results.</p>
+  {% if users %}
+  <table>
+    <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Marks</th><th>On water</th><th>Status</th><th>Last login</th><th>Update</th></tr></thead>
+    <tbody>
+    {% for u in users %}
+      <tr>
+        <td><strong>{{ u.username }}</strong></td>
+        <td>{{ u.display_name or '' }}</td>
+        <td>{{ u.role }}</td>
+        <td>{% if u.role in ('admin', 'mark_layer') %}<span class="muted small">always</span>{% elif u.can_set_marks %}yes{% else %}—{% endif %}</td>
+        <td>{% if u.can_race_remotely %}yes{% else %}—{% endif %}</td>
+        <td>{{ u.status }}</td>
+        <td>{{ dt_full_display(u.last_login_at) if u.last_login_at else '' }}</td>
+        <td>
+          <form method="post" action="{{ url_for('settings_user_password', user_id=u.id) }}" class="form-row compact-form">
+            <input name="display_name" value="{{ u.display_name or '' }}" placeholder="Display name">
+            <select name="role">
+              <option value="race_officer" {% if (u.role or 'race_officer') not in ('admin', 'mark_layer') %}selected{% endif %}>Race officer</option>
+              <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>Admin</option>
+              <option value="mark_layer" {% if u.role == 'mark_layer' %}selected{% endif %}>Mark layer</option>
+            </select>
+            <select name="status">
+              <option value="ACTIVE" {% if u.status == 'ACTIVE' %}selected{% endif %}>Active</option>
+              <option value="INACTIVE" {% if u.status == 'INACTIVE' %}selected{% endif %}>Inactive</option>
+            </select>
+            {# Administrators always may, and it is the whole point of a mark
+               layer, so on those rows the box would be a lie. #}
+            {% if u.role not in ('admin', 'mark_layer') %}
+            <label class="tiny checkbox-inline" title="May set a mark's position from a phone on the water">
+              <input type="checkbox" name="can_set_marks" value="1" {% if u.can_set_marks %}checked{% endif %}> Set marks
+            </label>
+            {% endif %}
+            {# Shown on every row, administrators included: this one is not implied
+               by any role. It is the permission to start a race with nobody at the
+               line to watch it. #}
+            <label class="tiny checkbox-inline" title="May run racing from a boat with the Virtual Race Officer at /vro">
+              <input type="checkbox" name="can_race_remotely" value="1" {% if u.can_race_remotely %}checked{% endif %}> VRO
+            </label>
+            <input type="password" name="password" placeholder="New password (optional)" autocomplete="new-password">
+            <button class="small secondary" type="submit">Save</button>
+          </form>
+          {% if current_user and current_user.id != u.id %}
+          <form method="post" action="{{ url_for('settings_user_delete', user_id=u.id) }}" class="inline" onsubmit="return confirm('Delete user {{ u.username }}?')">
+            <button class="small danger" type="submit">Delete</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  <h4>Add user</h4>
+  <form method="post" action="{{ url_for('settings_user_add') }}" class="form-row">
+    <label>Username <input name="username" required autocomplete="off"></label>
+    <label>Display name <input name="display_name"></label>
+    <label>Role
+      <select name="role">
+        <option value="race_officer" selected>Race officer</option>
+        <option value="admin">Admin</option>
+        <option value="mark_layer">Mark layer</option>
+      </select>
+    </label>
+    <label>Password <input type="password" name="password" required autocomplete="new-password"></label>
+    <label class="checkbox-inline" title="May set a mark's position from a phone on the water">
+      <input type="checkbox" name="can_set_marks" value="1"> May set mark positions
+    </label>
+    <button type="submit">Add user</button>
+  </form>
+</details>
+
+<details class="card settings-section" id="hardware">
+  <summary><h3>Horn settings &amp; Test</h3><span>Horn output, input sensing and central audio</span></summary>
+  {# Keep horn settings split into task-based subsections so race-day checks are not mixed with wiring details. #}
+
+  <section class="settings-subsection">
+    <h4>Horn output</h4>
+    <p class="muted small">Configure the serial output that fires the race horn. Leave the serial port blank for simulation mode.</p>
+    <div class="three-col">
+      <label>Serial port
+        <input form="settingsSaveForm" type="text" name="serial_port" value="{{ config.serial_port }}" placeholder="COM3 or /dev/ttyUSB0">
+      </label>
+      <label>Output line
+        <select form="settingsSaveForm" name="horn_line">
+          <option value="DTR" {% if config.horn_line == 'DTR' %}selected{% endif %}>DTR — ProLog horn output</option>
+          <option value="RTS" {% if config.horn_line == 'RTS' %}selected{% endif %}>RTS — legacy/non-ProLog only</option>
+        </select>
+      </label>
+      <label>Default blast duration ms
+        <input form="settingsSaveForm" type="number" name="horn_duration_ms" min="50" max="5000" value="{{ config.horn_duration_ms }}">
+      </label>
+    </div>
+    <label class="checkbox-inline">
+      <input form="settingsSaveForm" type="checkbox" name="horn_active" value="1" {% if config.horn_active %}checked{% endif %}
+             {% if config.horn_input_enabled %}disabled title="Required while manual horn input sensing is enabled"{% endif %}>
+      Assert output line during horn blast
+    </label>
+    {% if config.horn_input_enabled %}
+    {# Clearing this while sensing is on held DTR asserted at idle, which energises
+       the horn relay and makes its feedback contact report the button as
+       permanently pressed — a stream of phantom manual-horn events, each one
+       scheduling an evidence clip. #}
+    <p class="small muted">Locked on because <strong>manual horn input sensing</strong> is enabled below. On the ProLog wiring the
+      horn must fire when the line is asserted: clearing this would hold the horn relay energised, and its feedback contact would then
+      report the manual button as permanently pressed. Turn input sensing off first if you genuinely need an active-low horn output.</p>
+    {% endif %}
+    <div class="form-row small-top">
+      <button form="settingsSaveForm" type="submit" formaction="{{ url_for('hardware_test_horn') }}" formmethod="post" class="secondary">Save and test horn output</button>
+    </div>
+    <p class="small muted"><strong>Current output:</strong> {{ config.serial_port or 'Simulation mode' }} · {{ config.horn_line }} · {{ config.horn_duration_ms }} ms</p>
+  </section>
+
+  <section class="settings-subsection">
+    <h4>Manual horn input sensing</h4>
+    <p class="muted small">Optional ProLog-style feedback from the physical horn button. Enable this only when the DTR/RTS/DCD/CTS interface is fitted and tested.</p>
+    <label class="checkbox-inline">
+      <input form="settingsSaveForm" type="checkbox" name="horn_input_enabled" value="1" {% if config.horn_input_enabled %}checked{% endif %}>
+      Enable manual horn input sensing
+    </label>
+    <input form="settingsSaveForm" type="hidden" name="horn_input_line" value="CTS">
+    <input form="settingsSaveForm" type="hidden" name="horn_input_active" value="1">
+    <div class="three-col">
+      <label>Active input
+        <input type="text" value="CTS active" readonly>
+      </label>
+      <label>Idle diagnostic
+        <input type="text" value="DCD idle" readonly>
+      </label>
+      <label>Poll interval ms
+        <input form="settingsSaveForm" type="number" name="horn_input_poll_ms" min="100" max="5000" value="{{ config.horn_input_poll_ms }}">
+      </label>
+    </div>
+    <div class="status-box {{ 'ok' if config.horn_input_enabled else 'warn' }} small-top">
+      <strong>Manual horn input:</strong> {{ 'Enabled' if config.horn_input_enabled else 'Disabled' }}
+      {% if config.horn_input_enabled %}<br>Current status: <span id="inputStatus">{{ input_status.message }}</span>{% endif %}
+      <br><span class="small muted">Wiring summary: DTR fires horn relay; RTS is the feedback common; DCD means idle; CTS means horn/manual button active.</span>
+    </div>
+  </section>
+
+  <section class="settings-subsection">
+    <h4>Start automation and central audio</h4>
+    <p class="muted small">Automatic start horns and VHF/audio announcements run on the race-office PC, not in the browser, so they continue while the RO is using another page or tablet.</p>
+    <div class="two-col">
+      <label class="checkbox-inline">
+        <input form="settingsSaveForm" type="checkbox" name="start_automation_horn_enabled" value="1" {% if race_console.start_automation_horn_enabled %}checked{% endif %}>
+        Enable automatic horn signals
+      </label>
+      <label class="checkbox-inline">
+        <input form="settingsSaveForm" type="checkbox" name="start_automation_audio_enabled" value="1" {% if race_console.start_automation_audio_enabled %}checked{% endif %}>
+        Enable VHF/audio announcements
+      </label>
+      <label>Normal speech rate
+        <input form="settingsSaveForm" type="number" name="central_audio_rate" min="80" max="320" value="{{ race_console.central_audio_rate }}">
+      </label>
+      <label>Countdown speech rate
+        <input form="settingsSaveForm" type="number" name="central_audio_fast_rate" min="120" max="420" value="{{ race_console.central_audio_fast_rate }}">
+      </label>
+      <label class="checkbox-inline">
+        <input form="settingsSaveForm" type="checkbox" name="central_audio_vox_tone_enabled" value="1" {% if race_console.central_audio_vox_tone_enabled %}checked{% endif %}>
+        Play a VOX wake-up tone before announcements
+      </label>
+      <label>VOX tone lead (seconds)
+        <input form="settingsSaveForm" type="number" name="central_audio_vox_lead_seconds" min="1" max="10" value="{{ race_console.central_audio_vox_lead_seconds }}">
+      </label>
+    </div>
+    <p class="muted small">The wake-up tone keys a VHF's VOX a couple of seconds before each spoken announcement, so the radio is already transmitting and the first words are not clipped.</p>
+    <div class="settings-status-stack">
+      <div class="status-box {{ 'ok' if audio_status.ok else 'warn' }}"><strong>Central audio:</strong> {{ audio_status.message }}</div>
+      <div class="status-box {{ 'ok' if start_sequence_status.ok else 'warn' }}"><strong>Start scheduler:</strong> {{ start_sequence_status.message }}</div>
+    </div>
+    <div class="form-row small-top">
+      <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_test_audio') }}" formmethod="post" class="secondary">Save and test central audio</button>
+    </div>
+  </section>
+
+  <section class="settings-subsection">
+    <h4>Wiring notes</h4>
+    <p class="muted small">Use an opto-isolated relay or proper interface between the serial adapter and the horn circuit. Do not connect a horn directly to a PC serial pin.</p>
+    <p class="muted small">For the ProLog-style horn interface, DTR drives the horn relay. RTS is held asserted as the feedback-contact common; the contact returns RTS to DCD when idle and CTS when the horn/manual button is active.</p>
+  </section>
+</details>
+
+<details class="card settings-section" id="power">
+  <summary><h3>Hut power (Victron VE.Direct)</h3><span>Off-grid battery, solar and charger monitoring</span></summary>
+  <p class="muted small">Monitor the off-grid hut power from three Victron devices wired to this PC by VE.Direct-to-USB cables. Enter each device's COM port; monitoring is read-only. Leave a port blank to skip that device, or enable the simulator to preview the dashboard and history graph without hardware.</p>
+  <div class="three-col">
+    <label>SmartShunt (battery) port
+      <input form="settingsSaveForm" type="text" name="vedirect_smartshunt_port" value="{{ config.vedirect_smartshunt_port }}" placeholder="COM4 or /dev/ttyUSB1">
+    </label>
+    <label>Phoenix charger port
+      <input form="settingsSaveForm" type="text" name="vedirect_phoenix_port" value="{{ config.vedirect_phoenix_port }}" placeholder="COM5 or /dev/ttyUSB2">
+    </label>
+    <label>SmartSolar MPPT port
+      <input form="settingsSaveForm" type="text" name="vedirect_smartsolar_port" value="{{ config.vedirect_smartsolar_port }}" placeholder="COM6 or /dev/ttyUSB3">
+    </label>
+  </div>
+  <div class="three-col">
+    <label>Sample interval (seconds)
+      <input form="settingsSaveForm" type="number" name="power_sample_seconds" min="5" max="3600" value="{{ config.power_sample_seconds }}">
+    </label>
+    <label>History retention (days)
+      <input form="settingsSaveForm" type="number" name="power_retention_days" min="1" max="3650" value="{{ config.power_retention_days }}">
+    </label>
+    <label class="checkbox-inline">
+      <input form="settingsSaveForm" type="checkbox" name="power_sim_enabled" value="1" {% if config.power_sim_enabled %}checked{% endif %}>
+      Simulate readings (demo without hardware)
+    </label>
+  </div>
+  <div class="status-box {{ 'ok' if power_status.ok else 'warn' }} small-top">
+    <strong>Power monitor:</strong> <span id="powerSettingsStatus">{{ power_status.message }}</span>
+    {% if power_status.devices %}
+      <br>
+      {% for key, label in [('smartshunt', 'SmartShunt'), ('smartsolar', 'SmartSolar'), ('phoenix', 'Phoenix')] %}
+        {% set dev = power_status.devices.get(key) %}
+        {% if dev %}<span class="small">{{ label }}: {{ 'connected' if dev.connected else 'not connected' }}{% if dev.source == 'sim' %} (sim){% endif %}</span>{% if not loop.last %} · {% endif %}{% endif %}
+      {% endfor %}
+    {% endif %}
+    <br><span class="small muted">Saved settings apply within one sample interval. History graph: <a href="{{ url_for('power_history_page') }}">Hut power history</a>.</span>
+  </div>
+</details>
+
+<details class="card settings-section" id="onwater">
+  <summary><h3>Virtual Race Officer</h3><span>Natural-language commands from a boat (VRO)</span></summary>
+  <p class="muted small">The <strong>Virtual Race Officer</strong> at <strong>/vro</strong> lets somebody run racing by typing plain
+    English when there is no race officer in the hut. Who may use it is a per-user permission
+    (<em>VRO</em> in Users above) &mdash; no role grants it, administrators included.</p>
+  <div class="status-box {{ 'ok' if assistant_status.model and not assistant_status.error else 'warn' }}">
+    <strong>Interpreter:</strong> {{ assistant_status.text }}
+  </div>
+  <p class="muted small">A model is optional. Without one the app uses its own small grammar, which
+    handles <code>status</code>, <code>create a race at 11</code>, <code>add all the boats</code>,
+    <code>use course 4</code> and <code>shorten at mark 4</code> &mdash; and answers
+    &ldquo;I did not understand that&rdquo; to anything else. That is deliberate as a fallback:
+    it is what still works when the hut can reach nothing. It is not meant to be the everyday
+    interpreter.</p>
+  <div class="three-col">
+    <label>API key
+      <input form="settingsSaveForm" type="password" name="assistant_api_key"
+             value="{{ config.assistant_api_key }}" placeholder="sk-..." autocomplete="off"
+             autocapitalize="none" spellcheck="false">
+      <span class="small muted">Empty means grammar only.</span>
+    </label>
+    <label>Model
+      <input form="settingsSaveForm" type="text" name="assistant_model"
+             value="{{ config.assistant_model }}" placeholder="claude-sonnet-5">
+    </label>
+    <label>Endpoint
+      <input form="settingsSaveForm" type="text" name="assistant_base_url"
+             value="{{ config.assistant_base_url }}"
+             placeholder="https://api.anthropic.com/v1/messages">
+      <span class="small muted">Point this at a gateway for logging and rate limits.</span>
+    </label>
+  </div>
+  <p class="muted small">The model only ever picks a command and its arguments. The five minutes
+    between the warning signal and the gun, whether a mark is on the course, whether a series
+    exists &mdash; all of that is applied afterwards in Python, and nothing happens until the
+    read-back is confirmed. If a model cannot be reached, the grammar answers instead.</p>
+</details>
+
+<details class="card settings-section" id="server">
+  <summary><h3>Web server</h3><span>How many people can use the app at once</span></summary>
+  <p class="muted small">The app serves the race office, the clubhouse display and every competitor's
+    phone from this PC. These set how much of that it will take at once.
+    <strong>They take effect when the app restarts.</strong></p>
+  <p class="muted small">Raise the <strong>connection limit</strong> first if phones on the water get
+    &ldquo;cannot connect&rdquo; while the race office is fine. It counts open connections rather
+    than people, and a browser holds several at a time, so the limit is reached long before that
+    many are watching. <strong>Worker threads</strong> is how many requests are served at once;
+    more costs little, because they are mostly waiting on disk and network. The
+    <strong>idle timeout</strong> reclaims a connection from a phone that went out of range.</p>
+  <div class="three-col">
+    <label>Worker threads
+      <input form="settingsSaveForm" type="number" name="server_threads" min="4" max="64" value="{{ config.server_threads }}">
+    </label>
+    <label>Connection limit
+      <input form="settingsSaveForm" type="number" name="server_connection_limit" min="50" max="512" value="{{ config.server_connection_limit }}">
+    </label>
+    <label>Idle timeout (seconds)
+      <input form="settingsSaveForm" type="number" name="server_channel_timeout" min="20" max="600" value="{{ config.server_channel_timeout }}">
+    </label>
+  </div>
+  {% if server_status.running %}
+  <div class="status-box {{ 'warn' if server_status.restart_pending else 'ok' }} small-top">
+    {% if server_status.restart_pending %}
+      Running with {{ server_status.running.threads }} threads,
+      {{ server_status.running.connection_limit }} connections and a
+      {{ server_status.running.channel_timeout }}s idle timeout &mdash;
+      <strong>restart the app to apply the saved settings</strong>
+      ({{ server_status.saved.threads }} threads,
+      {{ server_status.saved.connection_limit }} connections,
+      {{ server_status.saved.channel_timeout }}s).
+    {% else %}
+      Running with {{ server_status.running.threads }} threads,
+      {{ server_status.running.connection_limit }} connections and a
+      {{ server_status.running.channel_timeout }}s idle timeout.
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="small muted">Sizing applies to the production server only; this process is running under the development server.</p>
+  {% endif %}
+</details>
+
+<details class="card settings-section" id="gps-tracking">
+  <summary><h3>GPS tracking &amp; automated finishes</h3><span>Boat trackers via Traccar; RO-confirmed GPS finishes</span></summary>
+  <p class="muted small">Boats carry Queclink trackers that report to a Traccar server on the relay. The hut app pulls positions from Traccar (outbound — no open port on the hut), shows the fleet live on the race course chart, and can detect finish-line crossings. Turn on the simulator to preview the map and auto-finish without any hardware.</p>
+  <div class="three-col">
+    <label class="checkbox-inline">
+      <input form="settingsSaveForm" type="checkbox" name="track_enabled" value="1" {% if config.track_enabled %}checked{% endif %}>
+      Enable GPS tracking
+    </label>
+    <label class="checkbox-inline">
+      <input form="settingsSaveForm" type="checkbox" name="track_sim_enabled" value="1" {% if config.track_sim_enabled %}checked{% endif %}>
+      Simulate boats (demo without hardware)
+    </label>
+    <label class="checkbox-inline">
+      <input form="settingsSaveForm" type="checkbox" name="gps_finish_horn" value="1" {% if config.gps_finish_horn %}checked{% endif %}>
+      Sound horn on auto-confirmed GPS finish
+    </label>
+  </div>
+  {# On its own row rather than a fourth in the grid above. Those tracks cannot shrink
+     below their text, so a fourth entry crowds the row and pushes it past the edge —
+     and this one has an explanation to sit with, which the others do not. #}
+  <label class="checkbox-inline">
+    <input form="settingsSaveForm" type="checkbox" name="track_race_poll_enabled" value="1" {% if config.track_race_poll_enabled %}checked{% endif %}>
+    Ask racing boats where they are
+  </label>
+  <p class="muted small">Asks each racing GL521MG for its position every 20 s, from the warning
+    signal to a minute after it finishes, instead of waiting up to 45 s for its own report.
+    Costs about 1%/h of that tracker's battery. Other models are unaffected — see
+    <a href="{{ url_for('documentation_markdown', slug='tracking') }}">Yacht tracking</a>.</p>
+  <div class="three-col">
+    <label>Traccar base URL
+      <input form="settingsSaveForm" type="text" name="traccar_base_url" value="{{ config.traccar_base_url }}" placeholder="https://pro.pwllhelisailingclub.org/traccar">
+    </label>
+    <label>Traccar API token
+      <input form="settingsSaveForm" type="password" name="traccar_token" value="{{ config.traccar_token }}" placeholder="Bearer token" autocomplete="off">
+    </label>
+    <label>Poll interval (seconds)
+      <input form="settingsSaveForm" type="number" name="track_poll_seconds" min="2" max="60" value="{{ config.track_poll_seconds }}">
+    </label>
+  </div>
+  <div class="three-col">
+    <label>Position history retention (days)
+      <input form="settingsSaveForm" type="number" name="track_retention_days" min="1" max="3650" value="{{ config.track_retention_days }}">
+    </label>
+    <label>Mark-rounding radius (metres)
+      <input form="settingsSaveForm" type="number" name="track_rounding_radius_m" min="10" max="500" value="{{ config.track_rounding_radius_m }}">
+    </label>
+    <label>Rounding gate reach (metres)
+      <input form="settingsSaveForm" type="number" name="track_gate_reach_m" min="50" max="5000" value="{{ config.track_gate_reach_m }}">
+    </label>
+  </div>
+  <p class="muted small">Within the <strong>radius</strong> a boat counts as having rounded whichever way it passed. Beyond it, the <strong>gate reach</strong> is how far off it may pass on the hand the course requires and still count. A third test needs no setting. See <a href="{{ url_for('documentation_markdown', slug='tracking') }}">Yacht tracking</a> for how they work together.</p>
+  <div class="two-col">
+    <label>Push ingest token
+      <input form="settingsSaveForm" type="password" name="track_ingest_secret" value="{{ config.track_ingest_secret }}" placeholder="shared secret" autocomplete="off">
+      <span class="small muted">Optional. Set the same value in the relay's <code>forward.header</code> so Traccar pushes each fix to this app the moment it arrives, instead of waiting for the next poll. Leave blank to poll only.</span>
+    </label>
+  </div>
+  <div class="status-box {{ 'ok' if track_status.ok else 'warn' }} small-top">
+    <strong>GPS tracking:</strong> <span id="trackSettingsStatus">{{ track_status.message }}</span>
+    {% if track_status.devices %}<br><span class="small">{{ track_status.devices|length }} tracker(s) reporting{% if track_status.sim %} (simulated){% endif %}.</span>{% endif %}
+    {% if track_status.push_text %}<br><span class="small">{{ track_status.push_text }}</span>{% endif %}
+    <br><span class="small muted">Assign trackers to boats and add/remove trackers on the <a href="{{ url_for('trackers_page') }}">Trackers</a> page.</span>
+  </div>
+
+  <section class="settings-subsection">
+    <h4>SIM connectivity (Hologram)</h4>
+    <label class="checkbox-inline">
+      <input form="settingsSaveForm" type="checkbox" name="hologram_enabled" value="1" {% if config.hologram_enabled %}checked{% endif %}>
+      Show SIM status on the Trackers page
+    </label>
+    <p class="muted small">Adds each tracker's SIM state and current network, and warns when a SIM
+      has been paused. See <a href="{{ url_for('documentation_markdown', slug='tracking') }}">Yacht tracking</a>.</p>
+    <div class="two-col">
+      <label>Hologram API key
+        <input form="settingsSaveForm" type="password" name="hologram_api_key" value="{{ config.hologram_api_key }}" placeholder="API key" autocomplete="off">
+        <span class="small muted">From a Hologram user's <strong>Settings → My account → API</strong> card. Keys cannot be
+          made read-only, so use a separate user with the <strong>Editor Limited</strong> role (or
+          <strong>Editor</strong>), not an owner or admin login.</span>
+      </label>
+      <label>Organisation ID
+        <input form="settingsSaveForm" type="text" name="hologram_org_id" value="{{ config.hologram_org_id }}" placeholder="Optional">
+        <span class="small muted">Only needed if the account belongs to more than one organisation.</span>
+      </label>
+    </div>
+  </section>
+</details>
+
+<details class="card settings-section" id="weather">
+  <summary><h3>Weather Station</h3><span>Start-hut wind feed or manual wind</span></summary>
+  <p class="muted">Choose where the start-hut wind comes from. Only the fields for the selected source are shown.</p>
+  <div class="radio-row" id="weatherSourceChoice">
+    <label class="radio-card">
+      <input form="settingsSaveForm" type="radio" name="weather_source" value="station" {% if weather.weather_source != 'manual' %}checked{% endif %}>
+      <span><strong>Weather station polling</strong><br><small>Poll the configured weather station URL/IP and use its latest wind sample.</small></span>
+    </label>
+    <label class="radio-card">
+      <input form="settingsSaveForm" type="radio" name="weather_source" value="manual" {% if weather.weather_source == 'manual' %}checked{% endif %}>
+      <span><strong>Manual input</strong><br><small>Use the TWD and TWS entered below. No weather-station polling is attempted.</small></span>
+    </label>
+  </div>
+
+  <section class="settings-subsection weather-panel" data-weather-panel="station">
+    <h4>Weather station polling</h4>
+    <div class="three-col">
+      <label>Weather station URL or IP <input form="settingsSaveForm" type="text" name="weather_station_url" value="{{ weather.weather_station_url }}" placeholder="{{ defaults.weather_station_url }}"></label>
+      <label>Poll interval seconds <input form="settingsSaveForm" type="number" name="weather_poll_seconds" min="1" max="120" value="{{ weather.weather_poll_seconds }}"></label>
+      <label>Wind direction offset ° <input form="settingsSaveForm" type="number" name="weather_wind_dir_offset" min="-180" max="180" step="0.1" value="{{ weather.weather_wind_dir_offset }}"></label>
+    </div>
+  </section>
+
+  <section class="settings-subsection weather-panel" data-weather-panel="manual">
+    <h4>Manual wind input</h4>
+    <div class="two-col">
+      <label>TWD °T <input form="settingsSaveForm" type="number" name="weather_manual_twd" min="0" max="359.9" step="0.1" value="{{ '' if weather.weather_manual_twd is none else '%.1f'|format(weather.weather_manual_twd) }}" placeholder="e.g. 245"></label>
+      <label>TWS kt <input form="settingsSaveForm" type="number" name="weather_manual_tws" min="0" max="120" step="0.1" value="{{ '' if weather.weather_manual_tws is none else '%.1f'|format(weather.weather_manual_tws) }}" placeholder="e.g. 12.5"></label>
+    </div>
+  </section>
+  <p class="small"><strong>Current status:</strong> {{ weather_status.message }}</p>
+  <div class="form-row small-top">
+    <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_weather_test') }}" formmethod="post" class="secondary">Save and test selected weather source</button>
+  </div>
+</details>
+
+<details class="card settings-section" id="video">
+  <summary><h3>Video Recording</h3><span>Finish camera, clips, public copies and PTZ</span></summary>
+  <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="video_enabled" value="1" {% if video.video_enabled %}checked{% endif %}> Enable video recording</label>
+
+  <section class="settings-subsection">
+    <h4>Camera input and recording mode</h4>
+    <p class="muted small">Choose the physical camera/stream and how the rolling evidence buffer is recorded.</p>
+    <div class="three-col">
+      <label>Video source
+        <select form="settingsSaveForm" name="video_source_type">
+          <option value="usb" {% if video.video_source_type == 'usb' %}selected{% endif %}>USB webcam</option>
+          <option value="rtsp" {% if video.video_source_type == 'rtsp' %}selected{% endif %}>RTSP stream</option>
+        </select>
+      </label>
+      <label>USB camera source
+        <select form="settingsSaveForm" name="video_usb_source">
+          <option value="" {% if not video.video_usb_source %}selected{% endif %}>Auto/default camera</option>
+          {% for src in video_usb_sources %}<option value="{{ src.value }}" {% if video.video_usb_source == src.value %}selected{% endif %}>{{ src.label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Manual USB source override <input form="settingsSaveForm" type="text" name="video_usb_source_manual" value="" placeholder="Optional exact FFmpeg camera name"></label>
+      <label>RTSP recording/main stream URL <input form="settingsSaveForm" type="text" name="video_rtsp_url" value="{{ video.video_rtsp_url }}" placeholder="rtsp://user:pass@camera/Streaming/Channels/101"></label>
+      <label>Recording mode
+        <select form="settingsSaveForm" name="video_recording_mode">
+          <option value="copy" {% if video.video_recording_mode == 'copy' %}selected{% endif %}>Camera stream copy — recommended for Hikvision/IP cameras</option>
+          <option value="reencode" {% if video.video_recording_mode == 'reencode' %}selected{% endif %}>Re-encode with app timestamp overlay</option>
+        </select>
+      </label>
+      <label>Stream-copy buffer format
+        <select form="settingsSaveForm" name="video_copy_container">
+          <option value="mp4" {% if video.video_copy_container == 'mp4' %}selected{% endif %}>Fragmented MP4 — recommended</option>
+          <option value="ts" {% if video.video_copy_container == 'ts' %}selected{% endif %}>MPEG-TS — advanced fallback</option>
+        </select>
+      </label>
+      <label>RTSP timestamp mode
+        <select form="settingsSaveForm" name="video_rtsp_timestamp_mode">
+          <option value="camera" {% if video.video_rtsp_timestamp_mode == 'camera' %}selected{% endif %}>Camera timestamps — recommended</option>
+          <option value="wallclock" {% if video.video_rtsp_timestamp_mode == 'wallclock' %}selected{% endif %}>Wall clock arrival time — fallback</option>
+        </select>
+      </label>
+      <label>FFmpeg path <input form="settingsSaveForm" type="text" name="video_ffmpeg_path" value="{{ video.video_ffmpeg_path }}" placeholder="ffmpeg"></label>
+    </div>
+    <p class="muted small"><strong>Camera stream copy</strong> records the camera's existing H.264/H.265 stream without re-encoding, so clips are much smaller. The default rolling buffer format is fragmented MP4. Camera timestamps are recommended for Hikvision RTSP; wall-clock timestamping is only a fallback. Use the camera's own OSD timestamp/NTP time when using stream-copy mode.</p>
+  </section>
+
+  <section class="settings-subsection">
+    <h4>Live preview and buffer</h4>
+    <p class="muted small">Use the camera sub-stream for preview where possible so the app does not open two high-resolution main streams.</p>
+    <div class="three-col">
+      <label>RTSP preview/sub-stream URL <input form="settingsSaveForm" type="text" name="video_preview_rtsp_url" value="{{ video.video_preview_rtsp_url }}" placeholder="Optional, e.g. rtsp://user:pass@camera/Streaming/Channels/102"></label>
+      <label>Preview JPEG size
+        <select form="settingsSaveForm" name="video_preview_size">
+          <option value="native" {% if video.video_preview_size == 'native' %}selected{% endif %}>Native preview stream size</option>
+          <option value="640" {% if video.video_preview_size == '640' %}selected{% endif %}>640 px wide</option>
+          <option value="960" {% if video.video_preview_size == '960' %}selected{% endif %}>960 px wide</option>
+          <option value="1280" {% if video.video_preview_size == '1280' %}selected{% endif %}>1280 px wide</option>
+          <option value="1920" {% if video.video_preview_size == '1920' %}selected{% endif %}>1920 px wide</option>
+        </select>
+      </label>
+      <label>Preview JPEG quality <input form="settingsSaveForm" type="number" name="video_preview_jpeg_quality" min="2" max="12" value="{{ video.video_preview_jpeg_quality }}"><small>Lower is better. 2–3 is high quality.</small></label>
+      <label>Preview frames per second <input form="settingsSaveForm" type="number" name="video_preview_fps" min="1" max="10" value="{{ video.video_preview_fps }}"></label>
+      <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="video_preview_keyframes_only" value="1" {% if video.video_preview_keyframes_only %}checked{% endif %}> Preview snapshots from keyframes only</label>
+      <label>Pre-event seconds <input form="settingsSaveForm" type="number" name="video_pre_seconds" min="5" max="300" value="{{ video.video_pre_seconds }}"></label>
+      <label>Post-event seconds <input form="settingsSaveForm" type="number" name="video_post_seconds" min="5" max="300" value="{{ video.video_post_seconds }}"></label>
+      <label>Segment seconds <input form="settingsSaveForm" type="number" name="video_segment_seconds" min="2" max="30" value="{{ video.video_segment_seconds }}"></label>
+      <label>Buffer minutes <input form="settingsSaveForm" type="number" name="video_buffer_minutes" min="5" max="180" value="{{ video.video_buffer_minutes }}"></label>
+    </div>
+  </section>
+
+  <section class="settings-subsection">
+    <h4>Public video and live image publishing</h4>
+    <p class="muted small">The full-quality evidence clip stays on the hut PC. When Cloudflare R2 is enabled, the app also makes a smaller H.264 public copy and uploads it to R2 so competitors watch it from Cloudflare rather than the hut 4G connection.</p>
+    <div class="three-col">
+      <label>Public video publishing
+        <select form="settingsSaveForm" name="video_public_provider">
+          <option value="off" {% if video.video_public_provider == 'off' %}selected{% endif %}>Off / serve local evidence clip</option>
+          <option value="r2" {% if video.video_public_provider == 'r2' %}selected{% endif %}>Cloudflare R2 public copy</option>
+        </select>
+      </label>
+      <label>Public clip quality
+        <select form="settingsSaveForm" name="video_public_quality">
+          <option value="720p" {% if video.video_public_quality == '720p' %}selected{% endif %}>720p small</option>
+          <option value="1080p" {% if video.video_public_quality == '1080p' %}selected{% endif %}>1080p normal</option>
+        </select>
+      </label>
+      <label>Public live image
+        <select form="settingsSaveForm" name="video_public_live_provider">
+          <option value="local" {% if video.video_public_live_provider == 'local' %}selected{% endif %}>Serve from hut app</option>
+          <option value="r2" {% if video.video_public_live_provider == 'r2' %}selected{% endif %}>Upload latest JPEG to Cloudflare R2</option>
+        </select>
+      </label>
+      <label>Live image upload seconds <input form="settingsSaveForm" type="number" name="video_public_live_interval_seconds" min="2" max="60" value="{{ video.video_public_live_interval_seconds }}"><small>Only used when the live image is uploaded to R2.</small></label>
+      <label>R2 account ID or S3 endpoint <input form="settingsSaveForm" type="text" name="video_public_r2_account_id" value="{{ video.video_public_r2_account_id }}" placeholder="Cloudflare account ID or https://ACCOUNT_ID.r2.cloudflarestorage.com"></label>
+      <label>R2 bucket <input form="settingsSaveForm" type="text" name="video_public_r2_bucket" value="{{ video.video_public_r2_bucket }}" placeholder="race-videos"></label>
+      <label>R2 access key ID <input form="settingsSaveForm" type="text" name="video_public_r2_access_key_id" value="{{ video.video_public_r2_access_key_id }}" autocomplete="off"></label>
+      <label>R2 secret access key <input form="settingsSaveForm" type="password" name="video_public_r2_secret_access_key" value="" placeholder="{% if video.video_public_r2_secret_access_key_set %}Saved — leave blank to keep{% else %}R2 secret access key{% endif %}" autocomplete="off"></label>
+      <label>Public base URL <input form="settingsSaveForm" type="url" name="video_public_r2_public_base_url" value="{{ video.video_public_r2_public_base_url }}" placeholder="https://videos.example.com"></label>
+      <label>Object prefix <input form="settingsSaveForm" type="text" name="video_public_r2_prefix" value="{{ video.video_public_r2_prefix }}" placeholder="race-videos"></label>
+    </div>
+    <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="video_startline_overlay_enabled" value="1" {% if video.video_startline_overlay_enabled %}checked{% endif %}> Draw the start line on public start/finish videos (experimental) <span class="muted small">— public copy only, never the evidence clip</span></label>
+    <label class="checkbox-inline small"><input form="settingsSaveForm" type="checkbox" name="video_public_r2_secret_access_key_clear" value="1"> Clear saved R2 secret access key</label>
+    <div class="form-row small-top">
+      <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_video_r2_test') }}" formmethod="post" class="secondary">Save and test R2 upload</button>
+      <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_video_r2_retry') }}" formmethod="post" class="secondary">Save and retry failed public video uploads</button>
+      {# There was a button to retry and none to stop. A backlog of stuck uploads
+         also holds up the nightly off-site backup, which stands aside while race
+         videos are still uploading. #}
+      <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_video_uploads_abandon') }}" formmethod="post" class="secondary"
+              onclick="return confirm('Stop trying to publish the public video uploads that are waiting?
+
+The evidence clips and any public copies are kept — only publishing is given up on, and Retry can queue them again later.')">Give up on stuck public video uploads</button>
+    </div>
+    <p class="muted small">The test writes <code>{{ video.video_public_r2_prefix or 'race-videos' }}/test/race-officer-r2-test.txt</code>. If upload works but the public check fails, check the Public base URL/custom domain rather than the access keys.</p>
+    <p class="muted small">When <strong>Public live image</strong> is set to R2, the hut uploads one branded JPEG to <code>{{ video.video_public_r2_prefix or 'race-videos' }}/live/latest_public.jpg</code> every few seconds. Competitor browsers then refresh that Cloudflare URL rather than repeatedly requesting camera images through the hut 4G link.</p>
+    <div class="settings-status-stack">
+      {% if r2_test_result %}
+      <div class="status-box {{ 'ok' if r2_test_result.ok else 'warn' }}">
+        <strong>Last R2 test:</strong> {{ r2_test_result.timestamp or '' }} — {{ r2_test_result.message }}
+        <br>Bucket/key: <code>{{ r2_test_result.bucket }}/{{ r2_test_result.key }}</code>
+        {% if r2_test_result.endpoint %}<br>S3 endpoint: <code>{{ r2_test_result.endpoint }}</code>{% endif %}
+        {% if r2_test_result.public_url %}<br>Public URL: <a href="{{ r2_test_result.public_url }}" target="_blank" rel="noopener">{{ r2_test_result.public_url }}</a>{% endif %}
+        {% if r2_test_result.public_check_message %}<br>Public check: {{ r2_test_result.public_check_message }}{% endif %}
+      </div>
+      {% endif %}
+      {% if public_live_r2_status %}
+      <div class="status-box {{ 'ok' if public_live_r2_status.ok else 'warn' }}">
+        <strong>Public live image R2:</strong> {{ public_live_r2_status.message }}
+        {% if public_live_r2_status.updated_at %}<br>Updated: {{ public_live_r2_status.updated_at }}{% endif %}
+        {% if public_live_r2_status.key %}<br>Object key: <code>{{ public_live_r2_status.key }}</code>{% endif %}
+        {% if public_live_r2_status.public_url %}<br>Public URL: <a href="{{ public_live_r2_status.public_url }}" target="_blank" rel="noopener">{{ public_live_r2_status.public_url }}</a>{% endif %}
+        {% if public_live_r2_status.frame_age_seconds is defined %}<br>Frame age at upload: {{ public_live_r2_status.frame_age_seconds }} seconds{% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="settings-subsection">
+    <h4>Camera zoom / PTZ presets</h4>
+    <p class="muted small">For Hikvision-style cameras that support ISAPI PTZ presets. The app sends an authenticated <code>PUT</code> to <code>/ISAPI/PTZCtrl/channels/&lt;channel&gt;/presets/&lt;preset&gt;/goto</code>. If you change the camera password, type the new password here once; leaving the password blank keeps the saved value. The password field disables browser autofill because password managers can otherwise insert the Race Officer login password instead of the camera password.</p>
+    {% if ptz_status.auth_failed %}
+    <div class="status-box warn small-top">Automatic PTZ switching is paused after a camera authentication failure. This prevents repeated bad-login attempts from locking the Hikvision admin account. Wait for the camera lockout to clear, enter the current camera password, then use one test button.</div>
+    {% endif %}
+    <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="ptz_enabled" value="1" {% if video.ptz_enabled %}checked{% endif %}> Enable automatic camera preset switching</label>
+    <div class="three-col">
+      <label>Camera URL or IP <input form="settingsSaveForm" type="text" name="ptz_camera_url" value="{{ video.ptz_camera_url }}" placeholder="http://192.168.1.157" autocomplete="off"></label>
+      <label>Username <input form="settingsSaveForm" type="text" name="ptz_username" value="{{ video.ptz_username }}" autocomplete="off" autocapitalize="none" spellcheck="false"></label>
+      <label>Password <input form="settingsSaveForm" type="password" name="ptz_password" value="" placeholder="{% if video.ptz_password_set %}Saved — leave blank to keep{% else %}Camera password{% endif %}" autocomplete="new-password" autocapitalize="none" spellcheck="false"></label>
+      <label>Authentication
+        <select form="settingsSaveForm" name="ptz_auth_mode">
+          <option value="digest" {% if video.ptz_auth_mode == 'digest' %}selected{% endif %}>Digest — Hikvision default</option>
+          <option value="anyauth" {% if video.ptz_auth_mode == 'anyauth' %}selected{% endif %}>AnyAuth — let curl choose</option>
+          <option value="basic" {% if video.ptz_auth_mode == 'basic' %}selected{% endif %}>Basic — fallback only</option>
+        </select>
+      </label>
+      <label>Channel <input form="settingsSaveForm" type="number" name="ptz_channel" min="1" max="32" value="{{ video.ptz_channel }}"></label>
+      <label>Idle / zoomed-out preset <input form="settingsSaveForm" type="number" name="ptz_idle_preset" min="1" max="300" value="{{ video.ptz_idle_preset }}"></label>
+      <label>Race start/finish preset <input form="settingsSaveForm" type="number" name="ptz_recording_preset" min="1" max="300" value="{{ video.ptz_recording_preset }}"></label>
+      <label>Switch before first start, seconds <input form="settingsSaveForm" type="number" name="ptz_pre_start_seconds" min="0" max="600" value="{{ video.ptz_pre_start_seconds }}"></label>
+    </div>
+    <label class="checkbox-inline small"><input form="settingsSaveForm" type="checkbox" name="ptz_password_clear" value="1"> Clear saved camera password</label>
+    <div class="form-row small-top">
+      <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_video_ptz_login_test') }}" formmethod="post" class="secondary">Save and test camera login only</button>
+      <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_video_ptz_test', preset_kind='idle') }}" formmethod="post" class="secondary">Save and test idle preset</button>
+      <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_video_ptz_test', preset_kind='recording') }}" formmethod="post" class="secondary">Save and test race preset</button>
+    </div>
+    <div class="status-box {{ 'ok' if ptz_status.ok else 'warn' }} small-top">
+      <strong>Camera preset control:</strong> {{ ptz_status.message }}
+      {% if ptz_status.http_status %}<br>HTTP status: <code>{{ ptz_status.http_status }}</code>{% endif %}
+      {% if ptz_status.auth_method %}<br>Method: <code>{{ ptz_status.auth_method }}</code>{% endif %}
+      {% if ptz_status.auth_mode %}<br>Configured auth mode: <code>{{ ptz_status.auth_mode }}</code>{% endif %}
+      {% if ptz_status.username_set is defined %}<br>Username saved: <code>{{ 'yes' if ptz_status.username_set else 'no' }}</code>; password saved: <code>{{ 'yes' if ptz_status.password_set else 'no' }}</code>{% endif %}
+      {% if ptz_status.url %}<br>ISAPI URL: <code>{{ ptz_status.url }}</code>{% endif %}
+      {% if ptz_status.manual_curl_hint %}<br>Equivalent command: <code>{{ ptz_status.manual_curl_hint }}</code>{% endif %}
+      {% if ptz_status.last_switch_at %}<br>Last successful switch: {{ ptz_status.last_switch_at }}{% endif %}
+      {% if ptz_status.manual_hold_until %}<br>Automatic switching held until: {{ ptz_status.manual_hold_until }}{% endif %}
+      {% if ptz_status.pending_preset %}<br>Pending preset request: <code>{{ ptz_status.pending_preset }}</code>{% endif %}
+    </div>
+  </section>
+
+  <section class="settings-subsection">
+    <h4>Recorder status</h4>
+    <p class="small"><strong>Current status:</strong> {{ video_status.message }}</p>
+    {% if video_status.latest_segment %}<p class="small muted"><strong>Latest buffer segment:</strong> {{ video_status.latest_segment }}</p>{% endif %}
+    {% if video_status.live_frame %}<p class="small muted"><strong>Live preview frame:</strong> updated {{ video_status.live_frame_age_seconds }} seconds ago</p>{% endif %}
+    {% if video_status.log_tail %}<details class="small muted"><summary>Recorder log / diagnostics</summary><pre class="log-pre">{{ video_status.log_tail }}</pre></details>{% endif %}
+  </section>
+
+  <section class="settings-subsection">
+    <h4>Public live stream</h4>
+    <p class="muted small">Optional external live-stream relay (see <code>deploy/live_stream</code>). When a URL is set, a <strong>Watch live</strong> link appears on the public competitor pages. Leave blank to hide it.</p>
+    <label>Public live stream URL
+      <input form="settingsSaveForm" type="url" name="public_live_stream_url" value="{{ public_live_stream_url }}" placeholder="https://live.pwllhelisailingclub.org">
+    </label>
+  </section>
+</details>
+
+
+<details class="card settings-section" id="offsite-backup">
+  <summary><h3>Off-site backup</h3><span>Nightly encrypted copy to Cloudflare R2</span></summary>
+  <p class="muted">Everything the race office cannot recreate lives on this one PC, in the hut. This pushes an encrypted copy of the
+    <a href="{{ url_for('backup_restore_page') }}">Backup / restore</a> ZIP to Cloudflare R2 each night, so a fire, a theft or a dead
+    disk does not take the club's records with it. It is the same ZIP format, so an off-site copy restores on that page like any other backup.</p>
+
+  <div class="status-box {{ 'ok' if offsite_status.ok else 'warn' }}" id="offsiteStatusBox"
+       data-offsite-running="{{ '1' if offsite_status.running else '0' }}">
+    <strong>Off-site backup:</strong> {{ offsite_status.message }}
+    {% if offsite_status.running %}<br><strong>Running now:</strong> {{ offsite_status.progress or 'working…' }} This box refreshes itself.{% endif %}
+    {% if offsite_status.last_success_at %}<br>Last success: {{ dt_full_display(offsite_status.last_success_at) }}{% endif %}
+    {% if offsite_status.size_bytes %}<br>Last archive: {{ '%.1f'|format(offsite_status.size_bytes / 1048576) }} MB{% endif %}
+    {% if offsite_status.last_error %}<br>Last error: <code>{{ offsite_status.last_error }}</code>{% endif %}
+  </div>
+  {# A backup takes minutes on 4G, so the button hands off to a background thread
+     and this reloads to follow it. Running it in the request returned Cloudflare's
+     504 to the race officer while the backup completed behind it. #}
+  <script>
+  (function () {
+    var box = document.getElementById('offsiteStatusBox');
+    if (!box || box.dataset.offsiteRunning !== '1') return;
+    setTimeout(function () {
+      var url = new URL(window.location.href);
+      url.hash = 'offsite-backup';
+      window.location.replace(url.toString());
+    }, 5000);
+  })();
+  </script>
+
+  <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="offsite_backup_enabled" value="1" {% if offsite.offsite_backup_enabled %}checked{% endif %}> Push a nightly encrypted backup off-site</label>
+
+  <section class="settings-subsection">
+    <h4>Where it goes</h4>
+    <p class="muted small">The account ID and keys are the ones in <a href="{{ url_for('settings_page') }}#video">Video &amp; camera</a> &mdash; there is only one set to look after.
+      The <strong>bucket must be a different one</strong>: the video bucket is served publicly, and a backup contains every user account and password hash in the club.
+      Create a second R2 bucket with no public access and name it here.</p>
+    <div class="three-col">
+      <label>Backup bucket (private) <input form="settingsSaveForm" type="text" name="offsite_backup_bucket" value="{{ offsite.offsite_backup_bucket }}" placeholder="psc-race-officer-backups" autocomplete="off" autocapitalize="none" spellcheck="false"></label>
+      <label>Key prefix <input form="settingsSaveForm" type="text" name="offsite_backup_prefix" value="{{ offsite.offsite_backup_prefix }}" placeholder="race-officer-backups" autocomplete="off"></label>
+      <label>Copies to keep <input form="settingsSaveForm" type="number" name="offsite_backup_keep" min="1" max="365" value="{{ offsite.offsite_backup_keep }}"></label>
+    </div>
+    <p class="small muted">Older archives beyond that count are deleted after each successful upload, newest kept.</p>
+  </section>
+
+  <section class="settings-subsection">
+    <h4>Passphrase</h4>
+    <p class="muted small">The archive is AES-256 encrypted before it leaves the hut. <strong>Record this passphrase in the club password manager, next to the admin login.</strong>
+      Nothing &mdash; not this app, not Cloudflare, not us &mdash; can open an off-site backup without it. Leaving the field blank keeps the saved passphrase.
+      Changing it does not re-encrypt archives already uploaded, so keep the old one until they have aged out.</p>
+    <p class="muted small">Any AES-ZIP tool opens these: 7-Zip or WinRAR will extract the <code>data/</code> folder given the passphrase, with no need for this app at all.</p>
+    <div class="two-col">
+      <label>Backup passphrase <input form="settingsSaveForm" type="password" name="offsite_backup_passphrase" value="" placeholder="{% if offsite.offsite_backup_passphrase_set %}Saved — leave blank to keep{% else %}Choose a long passphrase{% endif %}" autocomplete="new-password" autocapitalize="none" spellcheck="false"></label>
+      <label class="checkbox-inline small"><input form="settingsSaveForm" type="checkbox" name="offsite_backup_passphrase_clear" value="1"> Clear the saved passphrase (stops off-site backups)</label>
+    </div>
+  </section>
+
+  <section class="settings-subsection">
+    <h4>When it runs, and what it includes</h4>
+    <p class="muted small">Backups are held back while boats are racing, in the three hours before a start, and while race videos are still uploading &mdash;
+      the hut is on 4G and a backup must never be the reason a start video is lost. A held-back backup tries again shortly afterwards,
+      and one missed because the PC was switched off is taken when it next starts.</p>
+    <div class="two-col">
+      <label>Hour <input form="settingsSaveForm" type="number" name="offsite_backup_hour" min="0" max="23" value="{{ offsite.offsite_backup_hour }}"></label>
+      <label>Minute <input form="settingsSaveForm" type="number" name="offsite_backup_minute" min="0" max="59" value="{{ offsite.offsite_backup_minute }}"></label>
+    </div>
+    <p class="small muted small-top">Sections included:</p>
+    {% for section in backup_sections %}
+    <label class="checkbox-inline small"><input form="settingsSaveForm" type="checkbox" name="offsite_backup_sections" value="{{ section.id }}" {% if section.id in offsite.offsite_backup_sections %}checked{% endif %}> {{ section.label }}</label>
+    {% endfor %}
+    <p class="small muted">Saved videos are deliberately left out. The public web copies are already on R2, so backing them up pays twice for the same bytes &mdash;
+      but that means the branded web versions are what is off-site, and the unbranded evidence clips on this PC are not.</p>
+  </section>
+
+  <section class="settings-subsection">
+    <h4>Prove it works</h4>
+    <p class="muted small">This builds, encrypts, uploads and verifies one backup now, and reports what actually happened. Worth doing once after any settings change &mdash;
+      an unattended 3&nbsp;am job that has never succeeded is not a backup.</p>
+    <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_offsite_backup_now') }}" formmethod="post" class="secondary">Save and back up off-site now</button>
+    {% if offsite_backups %}
+    <h4 class="small-top">In the bucket</h4>
+    <table class="compact">
+      <thead><tr><th>Archive</th><th>Size</th><th>Stored</th></tr></thead>
+      <tbody>
+      {% for obj in offsite_backups[:15] %}
+        <tr>
+          <td><code>{{ obj.key }}</code></td>
+          <td>{{ '%.1f'|format(obj.size_bytes / 1048576) }} MB</td>
+          <td class="small muted">{{ obj.last_modified }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="small muted">{{ offsite_backups|length }} archive{{ '' if offsite_backups|length == 1 else 's' }} stored off-site{% if offsite_backups|length > 15 %}, newest 15 shown{% endif %}.</p>
+    {% endif %}
+  </section>
+</details>
+
+
+<details class="card settings-section" id="branding">
+  <summary><h3>Public branding</h3><span>Club and sponsor logos on public camera/video</span></summary>
+  <p class="muted">These logos are used for competitor-facing media. The public live-camera JPEG and smaller public start/finish videos burn the logos into the media, so saved images, screenshots and R2-hosted copies keep the same sponsor branding. To keep the camera view clear, public videos and live JPEGs show one sponsor at a time in the top-right and rotate every 5 seconds. The full-quality evidence clips stored locally are not altered.</p>
+  <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="public_branding_enabled" value="1" {% if video.public_branding_enabled %}checked{% endif %}> Enable public logo branding</label>
+  <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="public_branding_club_logo_enabled" value="1" {% if video.public_branding_club_logo_enabled %}checked{% endif %}> Show Pwllheli Sailing Club logo at the top</label>
+
+  <div class="two-col small-top">
+    <div>
+      <h4>Club logo</h4>
+      <p class="small muted">Current: {{ public_branding.club_logo_file }}{% if not public_branding.club_logo_uploaded %} (bundled default){% endif %}</p>
+      {% if public_branding.club_logo_url %}<img class="branding-preview-logo" src="{{ public_branding.club_logo_url }}?v={{ app_version }}" alt="Current club logo">{% endif %}
+      <form method="post" action="{{ url_for('settings_branding_club_logo_upload') }}" enctype="multipart/form-data" class="form-row small-top">
+        <label>Upload replacement club logo <input type="file" name="club_logo_upload" accept=".png,.jpg,.jpeg,image/png,image/jpeg" required></label>
+        <button type="submit" class="secondary">Upload club logo</button>
+      </form>
+      {% if public_branding.club_logo_uploaded %}
+      <form method="post" action="{{ url_for('settings_branding_club_logo_delete') }}" class="inline" onsubmit="return confirm('Remove uploaded club logo and use the bundled PSC logo?')">
+        <button type="submit" class="small secondary">Use bundled PSC logo</button>
+      </form>
+      {% endif %}
+    </div>
+    <div>
+      <h4>Add sponsor logo</h4>
+      <p class="small muted">Sponsor logos rotate one at a time on public videos and the public live-camera JPEG. The standalone published results page still shows all sponsor logos in its grey banner.</p>
+      <form method="post" action="{{ url_for('settings_branding_sponsor_upload') }}" enctype="multipart/form-data" class="form-row">
+        <label>Sponsor / mark label <input name="sponsor_label" placeholder="e.g. Abersoch Mark sponsor"></label>
+        <label>Logo file <input type="file" name="sponsor_logo_upload" accept=".png,.jpg,.jpeg,image/png,image/jpeg" required></label>
+        <button type="submit" class="secondary">Upload sponsor logo</button>
+      </form>
+    </div>
+  </div>
+
+  {% if public_branding.sponsors %}
+  <h4>Sponsor logos</h4>
+  <table class="compact branding-assets-table">
+    <thead><tr><th>Logo</th><th>Label</th><th>File</th><th>Delete</th></tr></thead>
+    <tbody>
+    {% for sponsor in public_branding.sponsors %}
+      <tr>
+        <td><img class="branding-sponsor-thumb" src="{{ sponsor.url }}?v={{ app_version }}" alt="{{ sponsor.label }}"></td>
+        <td>{{ sponsor.label }}</td>
+        <td>{{ sponsor.filename }}</td>
+        <td>
+          <form method="post" action="{{ url_for('settings_branding_sponsor_delete') }}" class="inline" onsubmit="return confirm('Delete sponsor logo {{ sponsor.label }}?')">
+            <input type="hidden" name="sponsor_id" value="{{ sponsor.id }}">
+            <button type="submit" class="small secondary">Delete</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="small muted">No sponsor logos uploaded yet.</p>
+  {% endif %}
+  <p class="small muted">PNG files with transparency work best. Public videos and the public live-camera JPEG use a top-left club logo and one top-right sponsor logo at a time, rotating through up to eight sponsor logos every 5 seconds. Logos are capped at about 15% of media height to avoid covering the finish line.</p>
+</details>
+
+<details class="card settings-section" id="rating-sources">
+  <summary><h3>Rating lookup sources</h3><span>IRC and YTC lists</span></summary>
+  <label>IRC listing CSV URL <input form="settingsSaveForm" type="url" name="irc_listing_url" value="{{ listings.irc_listing_url }}" placeholder="{{ defaults.irc_listing_url }}"></label>
+  <label>YTC listing Google Sheet or CSV URL <input form="settingsSaveForm" type="url" name="ytc_listing_url" value="{{ listings.ytc_listing_url }}" placeholder="{{ defaults.ytc_listing_url }}"></label>
+  <p class="muted small">Google Sheets share/edit links are converted internally to CSV export URLs. If a sheet has several tabs, include the correct <code>gid=</code> in the URL.</p>
+</details>
+
+<details class="card settings-section" id="polars">
+  <summary><h3>Polars</h3><span>Course recommendation speed files and matching sail charts</span></summary>
+  <p class="muted">Upload a polar and, optionally, its sail chart at the same time. Sail charts are saved with the enforced name <code>&lt;polar name&gt;-SailChart.txt</code>, for example <code>J109-SailChart.txt</code>.</p>
+  <form method="post" action="{{ url_for('settings_polar_upload') }}" enctype="multipart/form-data" class="form-row small-top polar-upload-form">
+    <label>Upload new polar <input type="file" name="polar_upload" accept=".txt,.pol,.csv" required></label>
+    <label>Optional matching sail chart <input type="file" name="sail_chart_upload" accept=".txt,.tsv,.csv"></label>
+    <button type="submit">Upload polar</button>
+  </form>
+  {% if polar_assets %}
+  <table class="compact polar-assets-table small-top">
+    <thead><tr><th>Polar</th><th>Sail chart</th><th>Replace/add sail chart</th><th>Delete</th></tr></thead>
+    <tbody>
+    {% for asset in polar_assets %}
+      <tr>
+        <td><strong>{{ asset.polar_file }}</strong></td>
+        <td>
+          {% if asset.has_sail_chart %}
+            {{ asset.sail_chart_file }}
+          {% else %}
+            <span class="muted">Default sail chart</span><br><small>Expected: {{ asset.expected_sail_chart_file }}</small>
+          {% endif %}
+        </td>
+        <td>
+          <form method="post" action="{{ url_for('settings_sail_chart_upload') }}" enctype="multipart/form-data" class="form-row compact-form">
+            <input type="hidden" name="polar_file" value="{{ asset.polar_file }}">
+            <input type="file" name="sail_chart_upload" accept=".txt,.tsv,.csv" required>
+            <button class="small secondary" type="submit">Save chart</button>
+          </form>
+        </td>
+        <td class="file-delete-actions">
+          {% if asset.has_sail_chart %}
+          <form method="post" action="{{ url_for('settings_sail_chart_delete') }}" class="inline" onsubmit="return confirm('Delete sail chart {{ asset.sail_chart_file }}?')">
+            <input type="hidden" name="polar_file" value="{{ asset.polar_file }}">
+            <button class="small secondary" type="submit">Delete chart</button>
+          </form>
+          {% endif %}
+          <form method="post" action="{{ url_for('settings_polar_delete') }}" class="inline" onsubmit="return confirm('Delete polar {{ asset.polar_file }} and its matching sail chart?')">
+            <input type="hidden" name="polar_file" value="{{ asset.polar_file }}">
+            <button class="small danger" type="submit">Delete polar</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p>No polar files are installed yet.</p>{% endif %}
+</details>
+
+<details class="card settings-section" id="course-chart">
+  <summary><h3>Course chart background</h3><span>Base map and nautical overlay</span></summary>
+  <p class="muted">Course charts plot the CHPSC marks and selected course. If you deploy OpenNauticalChart tiles locally, paste that tile URL here.</p>
+  <label>Base chart tile URL <input form="settingsSaveForm" type="text" name="course_chart_tile_url" value="{{ course_chart.course_chart_tile_url }}" placeholder="{{ defaults.course_chart_tile_url }}"></label>
+  <label>Nautical overlay tile URL <input form="settingsSaveForm" type="text" name="course_chart_overlay_url" value="{{ course_chart.course_chart_overlay_url }}" placeholder="{{ defaults.course_chart_overlay_url }}"></label>
+</details>
+
+<details class="card settings-section" id="recent-events">
+  <summary><h3>Recent hardware events</h3><span>Horn and input log</span></summary>
+  {% if events %}
+  <table>
+    <thead><tr><th>Time</th><th>Race</th><th>Type</th><th>Label</th><th>Source</th></tr></thead>
+    <tbody id="hardwareLog">{% for ev in events %}<tr><td>{{ dt_full_display(ev.event_time) }}</td><td>{{ ev.race_id or '' }}</td><td>{{ ev.event_type }}</td><td>{{ ev.label }}</td><td>{{ ev.source }}</td></tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p>No hardware events logged yet.</p><table style="display:none"><tbody id="hardwareLog"></tbody></table>{% endif %}
+  {# The hardware event log's natural neighbour: the other thing somebody comes
+     looking for when they want to know what happened. Not a section of its own —
+     it is a page to open now and then, not a setting. #}
+  <p class="small muted" style="margin-top:0.8rem;">Looking for who changed something?
+    The <a href="{{ url_for('settings_activity_log') }}">activity log</a> records every
+    change made in the app, with the values settings changed from.</p>
+</details>
+
+</fieldset>
+
+<script>
+(function () {
+  const enabled = {{ 'true' if config.horn_input_enabled else 'false' }};
+  const pollMs = {{ config.horn_input_poll_ms }};
+  const inputStatus = document.getElementById('inputStatus');
+  const logBody = document.getElementById('hardwareLog');
+  function addLog(label, type, source) {
+    if (!logBody) return;
+    const row = document.createElement('tr');
+    row.innerHTML = `<td>${new Date().toLocaleTimeString()}</td><td></td><td>${type}</td><td>${label}</td><td>${source}</td>`;
+    logBody.prepend(row);
+  }
+  async function pollInput() {
+    if (!enabled || !inputStatus) return;
+    try {
+      const url = `{{ url_for('api_hardware_input_status') }}?log=1`;
+      const res = await fetch(url, {headers: {'Accept': 'application/json'}});
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        throw new Error(res.status === 401 ? 'sign in again or reload this page' : `status ${res.status || 'unknown'} from input status`);
+      }
+      const data = await res.json();
+      inputStatus.textContent = data.message || (data.active ? 'Pressed' : 'Released');
+      if (data.logged) addLog('Manual horn switch detected', 'manual-horn-input', 'serial-input');
+    } catch (e) { inputStatus.textContent = 'Input status unavailable: ' + e.message; }
+  }
+  if (enabled) { pollInput(); setInterval(pollInput, Math.max(100, pollMs)); }
+
+  function openHashSection() {
+    const id = (location.hash || '').replace('#','');
+    if (!id) return;
+    const el = document.getElementById(id);
+    if (el && el.tagName.toLowerCase() === 'details') el.open = true;
+  }
+  openHashSection();
+  window.addEventListener('hashchange', openHashSection);
+
+  // Weather source: show only the panel for the selected source.
+  const weatherChoice = document.getElementById('weatherSourceChoice');
+  const weatherPanels = document.querySelectorAll('.weather-panel');
+  function syncWeatherPanels() {
+    const sel = document.querySelector('input[name="weather_source"]:checked');
+    const value = sel ? sel.value : 'station';
+    weatherPanels.forEach(function (p) { p.hidden = (p.dataset.weatherPanel !== value); });
+  }
+  if (weatherChoice && weatherPanels.length) {
+    weatherChoice.addEventListener('change', syncWeatherPanels);
+    syncWeatherPanels();
+  }
+})();
+</script>
+{% endblock %}

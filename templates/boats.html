@@ -1,0 +1,69 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Boats - Pwllheli Race Officer{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="section-head">
+    <div>
+      <h2>Boat database
+        <button type="button" class="help-link" data-help="boatsHelp" aria-label="About the boat database">?</button>
+      </h2>
+      <dialog id="boatsHelp" class="help-dialog">
+        <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+        <h4>One boat, both ratings</h4>
+        <p>A boat is stored once here and carries both its IRC and YTC ratings, so entering it in a
+          race picks up whichever the race is scored on — or both.</p>
+        <p>Add one with <strong>Add / lookup boat</strong>, which searches the IRC and YTC listings
+          together, or type the details in by hand if the boat is not in either.</p>
+      </dialog>
+    </div>
+    <div class="actions">
+      <a class="button" href="{{ url_for('boat_new') }}">Add / lookup boat</a>
+    </div>
+  </div>
+  <form method="get" class="form-row">
+    <label>Search
+      <input name="q" value="{{ q }}" placeholder="Boat name, sail no, owner, class...">
+    </label>
+    <label class="checkbox-inline"><input type="checkbox" name="include_inactive" value="1" {% if include_inactive %}checked{% endif %}> Include inactive</label>
+    <button type="submit">Search</button>
+  </form>
+</section>
+
+{% if boats %}
+<table>
+  <thead>
+    <tr><th>Boat</th><th>Sail no</th><th>IRC TCC</th><th>YTC</th><th>Owner</th><th>Status</th><th>Actions</th></tr>
+  </thead>
+  <tbody>
+  {% for b in boats %}
+    <tr>
+      <td><strong>{{ b.boat_name }}</strong><br><span class="muted small">{{ b.design or '' }}</span></td>
+      <td>{{ b.sail_no or '' }}
+        {% if duplicate_sail_numbers.get((b.sail_no or '')|upper|replace(' ', '')) %}
+        <br><span class="pill warn-pill small"
+              title="Another boat record carries this sail number. Results and GPS tracks are held against the boat, so one boat needs one record: keep the one with the race entries and delete the rest.">duplicate</span>
+        {% endif %}</td>
+      <td>{{ '' if b.irc_rating is none else '%.3f'|format(b.irc_rating) }}</td>
+      <td>{{ '' if b.ytc_rating is none else '%.4f'|format(b.ytc_rating) }}</td>
+      <td>{{ b.owner or '' }}</td>
+      <td>{{ b.status }}</td>
+      <td class="actions-cell">
+        <a class="button small" href="{{ url_for('boat_edit', boat_id=b.id) }}">Edit</a>
+        <form method="post" action="{{ url_for('boat_delete', boat_id=b.id) }}" class="inline" onsubmit="return confirm('Delete or deactivate this boat?')"><button class="small danger" type="submit">Delete</button></form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<section class="card">
+  <div class="empty-state">
+    <span class="empty-state-icon">{% include 'icons/sailboat.svg' %}</span>
+    <h3>No boats found</h3>
+    <p>{% if q %}No boats match "{{ q }}". Try a different search, or add this boat to the database.{% else %}Add boats once and reuse them across every race and series.{% endif %}</p>
+    <a class="button" href="{{ url_for('boat_new') }}">Add / lookup boat</a>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

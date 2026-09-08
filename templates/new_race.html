@@ -1,0 +1,68 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}New race - Pwllheli Race Officer{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>Create race</h2>
+  <p class="muted">Create the race sheet first, then set the course and first warning-signal time on the Course &amp; start tab.</p>
+  <form method="post" class="stacked">
+    <label>Race name
+      <input name="name" value="Club Race">
+    </label>
+    <label>Race type
+      <select name="race_type" id="raceType">
+        <option value="standard" selected>Standard (class-based, handicap results)</option>
+        <option value="pursuit">Pursuit (fixed period, staggered starts, finish by position)</option>
+      </select>
+    </label>
+    <fieldset class="subtle-fieldset" id="pursuitFields" hidden>
+      <legend>Pursuit settings</legend>
+      <p class="muted small">The slowest-rated boat starts first; faster boats start later so, on handicap, they would finish together at the end of the fixed period. One finish signal fires at the end and the race officer records finishing positions by the boats' order on the water.</p>
+      <label>Rating system for start times
+        <select name="pursuit_rating">
+          <option value="IRC_TCC" selected>IRC (TCC)</option>
+          <option value="YTC">YTC</option>
+        </select>
+      </label>
+      <label>Fixed period (minutes)
+        <input type="number" name="pursuit_duration_min" min="1" max="600" step="1" value="90">
+      </label>
+    </fieldset>
+    <label>Series
+      <select name="series_id">
+        <option value="">No series / standalone race</option>
+        {% for s in series_list %}
+          <option value="{{ s.id }}" {% if selected_series == s.id %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <fieldset class="subtle-fieldset">
+      <legend>Entries</legend>
+      <label class="checkbox-row">
+        <input type="checkbox" name="add_all_active" value="1">
+        Add all active boats from the boat database to this race
+      </label>
+      <p class="muted small">Boats without an IRC or YTC rating will still be entered, but they will only appear in result tables where they have the relevant rating.</p>
+    </fieldset>
+    <label>Notes
+      <textarea name="notes" rows="3"></textarea>
+    </label>
+    <button type="submit">Create race sheet</button>
+  </form>
+</section>
+<script>
+(function () {
+  const type = document.getElementById('raceType');
+  const pur = document.getElementById('pursuitFields');
+  // There is no longer a #standardFields block to hide: it held only the
+  // Class / fleet box, which went in v0.276. Leaving the lookup in place threw
+  // on every load of this page -- sync() runs immediately -- and took the
+  // pursuit fields down with it, so choosing Pursuit showed nothing at all.
+  function sync() {
+    pur.hidden = type.value !== 'pursuit';
+  }
+  type.addEventListener('change', sync);
+  sync();
+})();
+</script>
+{% endblock %}

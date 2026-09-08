@@ -1,0 +1,308 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>{{ series.name }} - published results</title>
+  <style>
+    :root { --border:#999; --muted:#666; --head:#ddd; --gold:#ffd700; --silver:#6a91c5; --bronze:#da6841; --discard:#f2f2f2; }
+    body { font: 100% Arial, Helvetica, sans-serif; margin: 0; padding: 24px; color: #111; text-align: center; background: #fff; }
+    .publish-branding-banner { margin: -24px -24px 20px -24px; padding: 16px 24px; background: #6b6b6b; border-bottom: 1px solid #525252; }
+    .publish-branding { display: grid; grid-template-columns: minmax(90px, 150px) 1fr; align-items: center; gap: 20px; max-width: 1200px; margin: 0 auto; min-height: 70px; }
+    .publish-club-logo-wrap { text-align: left; }
+    .publish-club-logo { max-width: 140px; max-height: 86px; width: auto; height: auto; display: block; object-fit: contain; }
+    /* wrap at every width, not only on a phone. Seven sponsor logos at up to
+       160px do not fit an 820px tablet, and without wrapping the last one
+       simply hung 62px past the edge and took the whole page sideways with
+       it -- a banner overflow that looked like a table overflow. */
+    .publish-sponsor-strip { display: flex; align-items: center; justify-content: space-evenly; gap: 12px 18px; min-width: 0; flex-wrap: wrap; }
+    .publish-sponsor-logo { max-height: 70px; max-width: 160px; width: auto; height: auto; object-fit: contain; }
+    .publish-header { max-width: 1200px; margin: 0 auto 12px auto; }
+    .publish-title { text-align: center; }
+    h1 { font-size: 1.7em; margin-bottom: 0.2em; }
+    h2 { font-size: 1.35em; margin-top: 0.2em; color: #333; }
+    h3 { font-size: 1.2em; margin-top: 28px; }
+    p { text-align: center; }
+    .muted { color: var(--muted); }
+    .caption { padding: 6px; text-align: center; border: 0; font-weight: bold; }
+    /* A results table is as wide as its columns need and cannot be made
+       narrower without dropping something a competitor came to read. So the
+       TABLE scrolls, not the page: at 390px the race table is 804px wide and
+       was taking the whole document sideways with it -- headings, banner and
+       all -- which on a phone reads as a broken page rather than a wide table.
+       -webkit-overflow-scrolling for older iOS, which is a good deal of what a
+       club website is read on. */
+    .tablewrap { max-width: 1200px; margin: 0 auto 30px auto; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .tablewrap table { margin-bottom: 0; }
+    /* A shadow on whichever edge has more table beyond it. Without a cue, a
+       table cut off mid-column reads as a broken page rather than one you can
+       push sideways -- which is how this was reported. The two white panes are
+       `local` so they scroll with the content and cover the shadow when that
+       end is reached; the two shadows are `scroll` so they stay pinned to the
+       box. No JavaScript, and nothing to keep in sync. */
+    .tablewrap, .toolbar {
+      background:
+        linear-gradient(to right, #fff 30%, rgba(255,255,255,0)) left center / 28px 100% no-repeat local,
+        linear-gradient(to left, #fff 30%, rgba(255,255,255,0)) right center / 28px 100% no-repeat local,
+        radial-gradient(farthest-side at 0 50%, rgba(0,0,0,0.20), rgba(0,0,0,0)) left center / 12px 100% no-repeat scroll,
+        radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,0.20), rgba(0,0,0,0)) right center / 12px 100% no-repeat scroll;
+    }
+    .toolbar { margin: 28px auto; max-width: 1200px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .toolbar table { margin-bottom: 0; }
+    table { text-align: left; margin: 0 auto 30px auto; font-size: 0.96em; border-collapse: collapse; border: 1px solid var(--border); }
+    td, th { padding: 5px 7px; border: 1px solid var(--border); vertical-align: top; }
+    th { background: var(--head); }
+    .rank1 { font-weight: bold; background: var(--gold); }
+    .rank2 { font-weight: bold; background: var(--silver); color: #111; }
+    .rank3 { font-weight: bold; background: var(--bronze); color: #111; }
+    .discard-score { background: var(--discard); color: #666; text-decoration: line-through; }
+    .series-section, .race-section { display: none; }
+    .active-section { display: block; }
+    .nowrap { white-space: nowrap; }
+    .summarytable th, .summarytable td, .racetable th, .racetable td { font-size: 0.92em; }
+    .video-links { max-width: 1200px; margin: 8px auto 14px auto; text-align: center; font-size: 0.92em; }
+    .video-links a, .video-links span { display: inline-block; margin: 3px 8px; }
+    .video-status { color: var(--muted); }
+    .empty { color: var(--muted); text-align: center; font-style: italic; }
+    .small { font-size: 0.82em; }
+    .print-note { margin-top: 30px; color: var(--muted); font-size: 0.85em; }
+    a { color: #0645ad; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    @media (max-width: 700px) {
+      /* The banner was 249px on a 390px screen -- 30% of it, with the first
+         table starting below the fold. Sponsors still get their strip, at a
+         size that fits several to a row instead of one and a half. */
+      .publish-branding-banner { padding: 10px 12px; }
+      .publish-branding { grid-template-columns: 1fr; gap: 10px; min-height: 0; }
+      .publish-club-logo-wrap { text-align: center; }
+      .publish-club-logo { margin: 0 auto; max-height: 52px; }
+      .publish-sponsor-strip { flex-wrap: wrap; gap: 10px 14px; justify-content: center; }
+      .publish-sponsor-logo { max-height: 32px; max-width: 92px; }
+      body { padding: 12px; }
+      .publish-branding-banner { margin: -12px -12px 14px -12px; }
+      h1 { font-size: 1.35em; }
+      h2 { font-size: 1.1em; }
+    }
+    @media print {
+      body { padding: 10mm; }
+      .publish-branding-banner { margin: 0 0 10mm 0; padding: 6mm; }
+      .publish-branding { grid-template-columns: 110px 1fr; min-height: 0; }
+      .publish-club-logo { max-height: 64px; }
+      .publish-sponsor-logo { max-height: 52px; }
+      .toolbar, .print-note { display: none; }
+      .series-section, .race-section { display: block !important; page-break-after: always; }
+    }
+  </style>
+  <script>
+    function hideAllPublishedSections() {
+      document.querySelectorAll('.series-section, .race-section').forEach(function (el) {
+        el.classList.remove('active-section');
+      });
+    }
+    function showPublishedSection(id) {
+      hideAllPublishedSections();
+      var section = document.getElementById(id);
+      if (section) {
+        section.classList.add('active-section');
+        section.scrollIntoView({behavior: 'smooth', block: 'start'});
+      }
+      return false;
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+      var first = document.querySelector('.series-section, .race-section');
+      if (first) first.classList.add('active-section');
+    });
+  </script>
+</head>
+<body>
+  {% set club_logos = branding_logos|selectattr('kind', 'equalto', 'club')|list %}
+  {% set sponsor_logos = branding_logos|selectattr('kind', 'equalto', 'sponsor')|list %}
+  {% if club_logos or sponsor_logos %}
+  <div class="publish-branding-banner">
+  <div class="publish-branding" aria-label="Club and sponsor logos">
+    <div class="publish-club-logo-wrap">
+      {% if club_logos %}
+      <img class="publish-club-logo" src="{{ club_logos[0].data_uri }}" alt="{{ club_logos[0].name }} logo">
+      {% elif club_logo_data_uri %}
+      <img class="publish-club-logo" src="{{ club_logo_data_uri }}" alt="Pwllheli Sailing Club logo">
+      {% endif %}
+    </div>
+    {% if sponsor_logos %}
+    <div class="publish-sponsor-strip">
+      {% for logo in sponsor_logos %}
+      <img class="publish-sponsor-logo" src="{{ logo.data_uri }}" alt="{{ logo.name }} logo">
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  </div>
+  {% endif %}
+
+  <header class="publish-header">
+    <div class="publish-title">
+      <h1>{{ series.name }}</h1>
+      {% if series.description %}<h2>{{ series.description }}</h2>{% endif %}
+      <p class="muted">Results are provisional as of {{ generated_at_text }}</p>
+    </div>
+  </header>
+
+  {% if groups %}
+  <div class="toolbar">
+    <table>
+      <thead>
+        <tr>
+          <th>Class / result</th>
+          <th>Overall</th>
+          {% for race in races %}<th>{{ race.name }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for group in groups %}
+        <tr>
+          <td>{{ group.title }}</td>
+          <td><a href="#{{ group.id }}" onclick="return showPublishedSection('{{ group.id }}')">Overall</a></td>
+          {% for race in races %}
+          <td>
+            {% set matched = namespace(table=None) %}
+            {% for race_table in group.race_tables %}
+              {% if race_table.race.id == race.id %}{% set matched.table = race_table %}{% endif %}
+            {% endfor %}
+            {% if matched.table %}
+              <a href="#{{ matched.table.id }}" onclick="return showPublishedSection('{{ matched.table.id }}')">{{ race.name }}</a>
+            {% else %}
+              &nbsp;
+            {% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">No scored series results are available yet.</p>
+  {% endif %}
+
+  {% for group in groups %}
+    {% set table = group.series_table %}
+    <section id="{{ group.id }}" class="series-section">
+      <h3 class="summarytitle">{{ group.title }}</h3>
+      <div class="caption summarycaption">
+        Sailed: {{ table.race_count }}, Discards: {{ table.discard_count }},
+        To count: {{ table.race_count - table.discard_count if table.race_count >= table.discard_count else 0 }},
+        Rating system: {{ group.result_type }}, Entries: {{ table.rows|length }},
+        {% if table.constituted %}Series constituted{% else %}Not yet constituted{% endif %}
+      </div>
+      {% if table.rows %}
+      <div class="tablewrap">
+      <table class="summarytable">
+        <thead>
+          <tr>
+            <th>Rank</th><th>Boat</th><th>Sail No.</th><th>Class</th><th>Total</th>
+            {% for race in table.races %}<th>{{ race.name }}</th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in table.rows %}
+          <tr>
+            <td class="nowrap">{{ ordinal_text(row.rank) }}{% if row.tied %} tie{% endif %}</td>
+            <td>{{ row.competitor.boat_name }}</td>
+            <td>{{ row.competitor.sail_no or '' }}</td>
+            <td>{{ table.class_name or row.competitor.class_name or group.result_type }}</td>
+            <td><strong>{{ '%g'|format(row.total) }}</strong></td>
+            {% for score in row.scores %}
+              {% set cell = published_score_cell(score) %}
+              <td class="summaryrace{% if cell.discard %} discard-score{% elif cell.rank == 1 %} rank1{% elif cell.rank == 2 %} rank2{% elif cell.rank == 3 %} rank3{% endif %}">
+                {{ cell.text }}
+              </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}
+      <p class="empty">No scored rows in this series table yet.</p>
+      {% endif %}
+    </section>
+
+    {% for race_table in group.race_tables %}
+      {% set table = race_table.table %}
+      <section id="{{ race_table.id }}" class="race-section">
+        <h3 class="racetitle">{{ race_table.title }}</h3>
+        <div class="caption racecaption">{{ race_table.caption }}</div>
+        {% if race_table.videos and race_table.videos.start_links %}
+        <div class="video-links">
+          <strong>Start video{% if race_table.videos.start_links|length > 1 %}s{% endif %}:</strong>
+          {% for video in race_table.videos.start_links %}
+            {% if video.url %}
+              <a href="{{ video.url }}" target="_blank" rel="noopener">{{ video.label }}</a>
+            {% else %}
+              <span class="video-status">{% if race_table.videos.start_links|length > 1 %}{{ video.label }}: {% endif %}No Video</span>
+            {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if table.rows %}
+        <div class="tablewrap">
+        <table class="racetable">
+          <thead>
+            <tr>
+              <th>Rank</th><th>Class</th><th>Boat</th><th>Sail No.</th><th>{{ table.rating_label }}</th>
+              <th>Status</th><th>Start</th><th>Finish</th><th>Elapsed</th><th>Corrected</th><th>Points</th><th>{{ race_table.videos.video_column_label if race_table.videos and race_table.videos.video_column_label else 'Finish video' }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in table.rows %}
+            {% set entry = row.entry %}
+            <tr>
+              <td class="nowrap{% if row.rank == 1 %} rank1{% elif row.rank == 2 %} rank2{% elif row.rank == 3 %} rank3{% endif %}">{{ row.rank or '' }}</td>
+              <td>{{ row.result_class or entry.class_name or table.type }}</td>
+              <td>{{ entry.boat_name }}</td>
+              <td>{{ entry.sail_no or '' }}</td>
+              <td>{{ publish_rating_text(row.rating, table.type) }}</td>
+              {# entry_display_status, not the raw column. An entry is stored
+                 RACING from the moment the boat is entered, because every
+                 calculation keys off it -- so a race that has not reached its
+                 warning signal published a table of boats all "RACING", which is
+                 not true of any of them yet. PRESTART until the warning signal,
+                 exactly as the race sheet and the competitor page already show
+                 it. Anything else (FINISHED, DNF, OCS) is shown unchanged. #}
+              <td>{{ entry_display_status(entry, race_table.race) }}</td>
+              <td class="nowrap">{{ dt_display(row.start_time) or '' }}</td>
+              <td class="nowrap">{{ dt_display(row.finish_time) or '' }}</td>
+              <td class="nowrap">{{ row.elapsed_text }}</td>
+              <td class="nowrap">{{ row.corrected_text }}</td>
+              <td>{{ '%g'|format(row.get('points')) if row.get('points') is not none else '' }}</td>
+              <td>
+                {% set finish_video = race_table.videos.finish_by_entry.get(entry.id|string) if race_table.videos else none %}
+                {% if finish_video and finish_video.url %}
+                  <a href="{{ finish_video.url }}" target="_blank" rel="noopener">View</a>
+                {% elif finish_video %}
+                  <span class="video-status small">No Video</span>
+                {% else %}
+                  <span class="muted small">No Video</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        {% else %}
+        <p class="empty">No race results for this class in this race.</p>
+        {% endif %}
+      </section>
+    {% endfor %}
+  {% endfor %}
+
+  {# The instruction to save and upload it went with v0.281: the app publishes
+     this itself now, and most people reading it are on the club website, where
+     being told to upload it to the club website is a puzzle. #}
+  <p class="print-note">Generated by Pwllheli Race Officer. Results are provisional until confirmed by the race officer.</p>
+</body>
+</html>

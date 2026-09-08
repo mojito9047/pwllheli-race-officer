@@ -1,0 +1,62 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{#
+  Analog wind dial, shared by the race-office dashboard and the public
+  competitor home page, driven by static/wind_gauge.js.
+
+  Include with:
+    {% with gauge_id='publicWindGauge', gauge_class='public-wind-gauge',
+            gauge_twd_target='...', gauge_tws_target='...',
+            gauge_status_target='...', gauge_source_target='...' %}
+      {% include 'partials/wind_gauge.html' %}
+    {% endwith %}
+
+  Needles and readouts are addressed by class inside the gauge, so the only
+  per-instance id needed is the drop-shadow filter (ids must be unique on a
+  page). latest_wind / wind_source_label come from the page context.
+#}
+<div id="{{ gauge_id|default('windGauge') }}" class="wind-gauge {{ gauge_class|default('dashboard-wind-gauge') }}"
+     data-twd="{% if latest_wind and latest_wind.twd is not none %}{{ '%.1f'|format(latest_wind.twd) }}{% endif %}"
+     data-tws="{% if latest_wind and latest_wind.tws is not none %}{{ '%.1f'|format(latest_wind.tws) }}{% endif %}"
+     data-source="{{ wind_source_label|default('Weather station polling') }}"
+     {% if gauge_manual %}data-manual="1" hidden{% endif %}
+     {% if gauge_twd_target %}data-twd-target="{{ gauge_twd_target }}"{% endif %}
+     {% if gauge_tws_target %}data-tws-target="{{ gauge_tws_target }}"{% endif %}
+     {% if gauge_status_target %}data-status-target="{{ gauge_status_target }}"{% endif %}
+     {% if gauge_source_target %}data-source-target="{{ gauge_source_target }}"{% endif %}>
+  <svg class="wind-dial" viewBox="0 0 240 240" role="img" aria-label="Analog wind speed and direction indicator">
+    <defs>
+      <filter id="{{ gauge_id|default('windGauge') }}Shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#101828" flood-opacity="0.16"/>
+      </filter>
+    </defs>
+    <circle class="dial-outer" cx="120" cy="120" r="106" style="filter: url(#{{ gauge_id|default('windGauge') }}Shadow);"></circle>
+    <circle class="dial-face" cx="120" cy="120" r="91"></circle>
+    <g class="speed-band"></g>
+    <g class="speed-ticks"></g>
+    <g class="direction-ticks"></g>
+    {# Needle lengths are set to reach their own scale, which they did not before:
+       the speed needle stopped at radius 88 while its ticks start at 95, so it
+       visibly fell short of the band it was pointing at. Speed now reaches 96, so
+       the tip meets its ticks (95-104) — past the white face at 91, which is where
+       a needle pointing at an outer scale belongs. Direction reaches 78, into its
+       own tick ring at 73-81. #}
+    <g class="speed-needle">
+      <polygon points="116.5,120 123.5,120 120,24"></polygon>
+    </g>
+    <g class="gust-marker" style="display: none">
+      <line x1="120" y1="30" x2="120" y2="10"></line>
+    </g>
+    <g class="direction-needle">
+      <polygon points="116,121 124,121 120,42"></polygon>
+    </g>
+    <circle class="dial-hub" cx="120" cy="120" r="7"></circle>
+    {# Text last, so it is drawn OVER the needles rather than under them.
+       The two readings sit either side of the hub and are the same size, because
+       neither the direction nor the speed is the secondary one. They used to be
+       stacked below the centre under a "WIND" label, which spent the roomiest part
+       of the dial on a word that appears on every page that carries this gauge —
+       the panel caption, the card heading, the tab. #}
+    <text class="wind-readout twd" x="120" y="86">—°</text>
+    <text class="wind-readout tws" x="120" y="150">— kt</text>
+  </svg>
+</div>

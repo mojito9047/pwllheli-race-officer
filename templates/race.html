@@ -1,0 +1,1473 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Race {{ race.id }} - Pwllheli Race Officer{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+{% endblock %}
+{% block content %}
+{# Whether there is a course to show. A new race carries a fallback course number
+   so the chart, the leg analysis and the shortening options have geometry to work
+   with, and `course_set` is what tells that fallback apart from a decision. Every
+   board, chart and figure below asks this rather than asking for the number. #}
+{% set course_shown = course_set or is_custom_course %}
+<section class="race-header race-summary">
+  <div class="race-summary-main">
+    <h2>{{ race.name }}</h2>
+    <p><strong>First warning:</strong> {{ dt_full_display(first_warning_time) or 'Not set' }} · <strong>First start:</strong> {{ dt_full_display(first_start_time) or 'Not set' }} · <strong>Course:</strong> {% if is_custom_course %}Made up course{% elif not course_set %}<em>not set yet</em>{% else %}{{ race.course_no }}{% endif %} · <strong>Series:</strong> {% if current_series %}<a href="{{ url_for('series_detail', series_id=current_series.id) }}">{{ current_series.name }}</a>{% else %}—{% endif %}</p>
+    {% if course_shortened %}
+    <p style="margin:0.4rem 0;padding:0.4rem 0.7rem;background:#fff3cd;border:1px solid #ffe69c;border-radius:6px;color:#664d03;"><strong>Shortened course</strong> — round mark {{ shorten_mark }}, then proceed directly to the finish.</p>
+    {% endif %}
+    {% if start_schedule and start_schedule|length > 1 %}
+    <p class="small muted"><strong>Starts:</strong>
+      {% for st in start_schedule %}{{ st.name }} warning {{ dt_display(st.warning_time) }}, start {{ dt_display(st.time) }}{% if st.classes %} ({{ st.classes|join(', ') }}){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
+    </p>
+    {% endif %}
+    {% if course_shown %}
+    <p class="sequence">
+      {% for m in (course.board_marks or course.marks) %}<span class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</span>{% endfor %}
+      {% if course_shortened %}<span class="mark" style="background:#664d03;color:#fff;">→ Finish</span>{% endif %}
+    </p>
+    {% endif %}
+    <div class="summary-grid small">
+      <span><strong>{{ entries|length }}</strong> entries</span>
+      <span><strong>{{ finished_count }}</strong> finished</span>
+      <span><strong>{{ racing_count }}</strong> racing</span>
+      <span>Predicted: <strong id="raceSummaryPredicted">{% if course_shown %}{{ course_analysis.predicted_display }}{% else %}&mdash;{% endif %}</strong></span>
+      <span>Wind: <strong id="raceSummaryWind">{% if latest_wind and latest_wind.twd is not none %}{{ '%.0f°T'|format(latest_wind.twd) }}{% else %}—{% endif %}{% if latest_wind and latest_wind.tws is not none %} / {{ '%.1f kt'|format(latest_wind.tws) }}{% endif %}</strong></span>
+    </div>
+
+  </div>
+  <div class="flag-status-panel race-header-flags" data-start="{{ first_start_time }}" data-race-finished="{{ 1 if race_finished else 0 }}" data-course-shortened="{{ 1 if course_shortened else 0 }}" data-postponed="{{ postponed_flag or '' }}" data-postponement-ends-at="{{ postponement_ends_at or '' }}">
+    <div class="flag-row" aria-label="Current race signals"></div>
+  </div>
+  <div class="countdown" data-start="{{ first_start_time }}" data-race-finished="{{ 1 if race_finished else 0 }}" data-postponed="{{ postponed_flag or '' }}" data-postponement-ends-at="{{ postponement_ends_at or '' }}">
+    <span class="label">Start sequence</span>
+    <span class="time" id="raceCountdownTime">--:--</span>
+    <span class="state" id="raceCountdownState">Waiting</span>
+  </div>
+</section>
+
+<section class="race-tabs card">
+  <nav class="tab-nav" aria-label="Race setup tabs">
+    <button type="button" class="tab-button active" data-tab="tab-course">1. Course & start</button>
+    <button type="button" class="tab-button" data-tab="tab-entries">2. Add entries</button>
+    <button type="button" class="tab-button" data-tab="tab-start">3. Start console & log</button>
+    <button type="button" class="tab-button" data-tab="tab-shorten">4. Shorten course</button>
+    <button type="button" class="tab-button" data-tab="tab-admin">5. Entries & finish times</button>
+    <button type="button" class="tab-button" data-tab="tab-results">6. Results</button>
+    <button type="button" class="tab-button" data-tab="tab-remove">7. Remove Race</button>
+  </nav>
+
+  <div id="tab-course" class="tab-pane active">
+    <div class="section-head">
+      <div>
+        <h3>Course and first warning signal
+          <button type="button" class="help-link" data-help="courseStartHelp" aria-label="How the start time and the course buttons work">?</button>
+        </h3>
+        <div class="head-actions">
+          <a id="recommendCourseLink" class="button" href="{{ url_for('recommend', race_id=race.id, use_live_wind=1, polar_file=selected_polar) }}">Recommend course</a>
+          <a id="manualCourseBuilderLink" class="button" href="{{ url_for('manual_course_builder', race_id=race.id, polar_file=selected_polar) }}">Build manual course</a>
+        </div>
+      </div>
+    </div>
+
+    <dialog id="courseStartHelp" class="help-dialog">
+      <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+      <h4>The first warning signal</h4>
+      <p>The time set below is the <strong>first warning signal</strong>, not the first gun. The
+        first start follows five minutes later, and the offsets in the start plan are counted from
+        that first start rather than from the warning.</p>
+      <h4>Choosing a course</h4>
+      <p><strong>Recommend course</strong> suggests one of the club&#39;s numbered courses from the
+        live hut wind and the selected polar. <strong>Build manual course</strong> makes up a course
+        from individual marks; a made-up course locks the numbered-course selector until it is
+        cleared.</p>
+    </dialog>
+
+    <form method="post" action="{{ url_for('update_race', race_id=race.id) }}" class="stacked wide-form">
+      <input type="hidden" name="polar_file" id="racePolarHidden" value="{{ selected_polar }}">
+      <label>Race name
+        <input name="name" value="{{ race.name }}">
+      </label>
+      <div class="two-col">
+        <label>Series
+          <select name="series_id">
+            <option value="">No series / standalone race</option>
+            {% for s in series_list %}
+              <option value="{{ s.id }}" {% if race.series_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>First warning signal time
+          <input type="datetime-local" step="60" name="start_time" value="{{ dt_for_minute_input(first_warning_time) }}">
+        </label>
+      </div>
+      <div class="two-col">
+        {% if is_custom_course %}
+        <label>Course
+          <input value="Made up course" readonly class="readonly-input">
+          <input type="hidden" name="course_no" value="{{ race.course_no }}">
+        </label>
+        {% else %}
+        <label>Course number
+          <select name="course_no">
+            {% if not course_set %}<option value="" selected>Course not set</option>{% endif %}
+            {% for c in courses %}
+              <option value="{{ c.course_no }}" {% if course_set and c.course_no == race.course_no %}selected{% endif %}>{{ c.course_no }} — {{ c.wind_label }} — {{ c.length_nm }} nm — {{ c.sequence_text }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        {% endif %}
+        {% if finish_lines %}
+        <label>Finish line
+          <select name="finish_line_key">
+            {% for fl in finish_lines %}
+            <option value="{{ fl.key }}" {% if fl.key == race_finish_line_key %}selected{% endif %}>{{ fl.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        {% endif %}
+      </div>
+      {% if is_custom_course %}
+      <div class="message">A made up course is currently active. The fixed course selector is locked until the made up course is cleared.</div>
+      {% endif %}
+      <details class="subtle-fieldset">
+        <summary>Class bands and starts</summary>
+        <input type="hidden" name="start_plan_mode" value="grid">
+        {% if class_config.classes %}
+        <p class="small muted"><strong>Series classes:</strong>
+          {% for c in class_config.classes %}{{ c.name }} ({{ c.rating_type }} {{ c.expr }}{% if c.flag %}, flag: {{ c.flag }}{% endif %}){% if not loop.last %}; {% endif %}{% endfor %}
+        </p>
+        {% else %}
+        <p class="small muted">No series rating-band classes are configured yet. Results will use one IRC table and one YTC table.</p>
+        {% endif %}
+        {% if current_series %}
+        <label class="inline-check keep-series-start-plan">
+          <input type="checkbox" name="use_series_start_plan" value="1" {% if not race_has_start_override %}checked{% endif %}>
+          Use the series default start plan
+        </label>
+        {% endif %}
+        <p class="small muted">To override the series default for this race, untick the box above and edit the starts below. Offsets are minutes from the first actual start.</p>
+        <table class="compact start-grid-table">
+          <thead><tr><th>Use</th><th>Start name</th><th>Offset min</th><th>Classes on this start</th></tr></thead>
+          <tbody>
+            {% for row in start_plan_grid.rows %}
+            <tr>
+              <td><input class="compact-check" type="checkbox" name="start_{{ row.index }}_enabled" value="1" {% if row.enabled %}checked{% endif %}></td>
+              <td><input name="start_{{ row.index }}_name" value="{{ row.name }}"></td>
+              <td><input type="number" step="0.5" name="start_{{ row.index }}_offset_min" value="{{ row.offset_min }}"></td>
+              <td>
+                <div class="class-checkbox-grid">
+                {% for slot in start_plan_grid.class_slots %}
+                  <label class="inline-check">
+                    <input type="checkbox" name="start_{{ row.index }}_class_{{ slot.slot }}" value="1" {% if slot.slot in row.selected_slots %}checked{% endif %}>
+                    {{ slot.name }}
+                  </label>
+                {% endfor %}
+                {% if not start_plan_grid.class_slots %}<span class="muted small">No classes configured yet; this start will be for all classes.</span>{% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </details>
+      <label>Notes
+        <textarea name="notes" rows="2">{{ race.notes or '' }}</textarea>
+      </label>
+      <div><button type="submit">Save</button></div>
+    </form>
+    {% if is_custom_course %}
+    <form method="post" action="{{ url_for('clear_manual_course', race_id=race.id) }}" class="form-row small-top">
+      <button class="small secondary" type="submit">Clear made up course and return to fixed course {{ race.course_no }}</button>
+    </form>
+    {% endif %}
+
+    <section class="subsection">
+      <h3>{% if not course_shown %}<span class="course-unset">Course not set</span>{% else %}{% if is_custom_course %}Made up course{% else %}Course {{ course.course_no }}{% endif %} — {{ course.wind_label }} — {{ course.length_nm }}{% if course.length_nm != "—" %} nm{% endif %}{% endif %}</h3>
+      {% if not course_shown %}
+      <p class="muted small">Nobody has chosen a course for this race yet, so there is no course
+        board and nothing is drawn on the chart. Pick one above, recommend one, or build one,
+        and save.</p>
+      {% else %}
+      <p class="sequence large">
+        {% for m in (course.board_marks or course.marks) %}<span class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</span>{% endfor %}
+      </p>
+      {% endif %}
+      <div class="weather-controls">
+        <label>Polar for leg analysis
+          <select id="racePolarFile">
+            {% for p in polar_files %}
+              <option value="{{ p }}" {% if p == selected_polar %}selected{% endif %}>{{ p.rsplit('.', 1)[0] }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <span class="wind-chip" id="raceLatestTwd">TWD {{ '%.0f°T'|format(latest_wind.twd) if latest_wind and latest_wind.twd is not none else '—' }}</span>
+        <span class="wind-chip" id="raceLatestTws">TWS {{ '%.1f kt'|format(latest_wind.tws) if latest_wind and latest_wind.tws is not none else '—' }}</span>
+        <span class="wind-chip" id="raceLatestGust">Gust {{ '%.1f kt'|format(latest_wind.gust) if latest_wind and latest_wind.gust is not none else '—' }}</span>
+        <span class="muted small" id="raceWindStatus">{{ weather_status.message }}</span>
+      </div>
+      <details open class="course-chart-details">
+        <summary>Course chart</summary>
+        <div class="course-map-wrap">
+          <div class="course-map" data-base-tile-url="{{ course_chart.course_chart_tile_url }}" data-overlay-tile-url="{{ course_chart.course_chart_overlay_url }}" data-all-marks='{{ marks_data|tojson }}' data-course-marks='{{ (course.marks if course_shown else [])|tojson }}' data-wind-direction="{{ latest_wind.twd if latest_wind and latest_wind.twd is not none else '' }}" data-start-finish-mark="{{ course_chart.start_finish_mark }}" data-bridge-lat="{{ course_chart.bridge_window_lat }}" data-bridge-lon="{{ course_chart.bridge_window_lon }}" data-line-seaward-lat="{{ course_chart.line_seaward_lat }}" data-line-seaward-lon="{{ course_chart.line_seaward_lon }}" data-line-shore-lat="{{ course_chart.line_shore_lat }}" data-line-shore-lon="{{ course_chart.line_shore_lon }}" data-line-seaward-label="{{ course_chart.line_seaward_label }}" data-line-shore-label="{{ course_chart.line_shore_label }}" data-shortened="{{ 1 if course_shortened else 0 }}"></div>
+          <p class="small muted course-map-message"></p>
+        </div>
+      </details>
+      {% if gps_tracking_enabled %}
+      <details open class="gps-fleet-details" id="raceFleet" data-race-id="{{ race.id }}">
+        <summary>Position on the water (GPS)</summary>
+        <p class="small muted">Every boat entered in the race, ordered by how far round the course it is — this is the order <strong>on the water</strong>, not corrected for handicap. Tracked boats also appear on the course chart above; the list refreshes every few seconds. <a href="{{ url_for('trackers_page') }}">Assign trackers</a>.
+          <button type="button" class="help-link" data-help="gpsFleetHelp" aria-label="About the sailing-to arrows">?</button></p>
+        <dialog id="gpsFleetHelp" class="help-dialog">
+          <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+          <h4>Correcting the mark a boat is sailing to</h4>
+          <p>A wide rounding on the correct side usually counts on its own, so the
+            <strong>&larr; &rarr;</strong> arrows are for what the geometry cannot see &mdash; a mark
+            that has dragged a long way, a tracker silent through the rounding, or a boat sent round
+            something the course does not describe.</p>
+          <p>A boat stuck on the wrong mark shows marks behind where it is and holds up its GPS
+            finish, since the line is only watched once every mark has been rounded. A correction
+            applies from now on, so an earlier lap cannot finish a boat retrospectively.</p>
+        </dialog>
+        <table class="table compact" id="raceFleetTable">
+          <thead><tr><th>#</th><th>Boat</th><th>Sail</th><th>Marks</th><th>Next</th><th>To go</th><th>SOG</th><th>Fix</th><th class="col-next-mark">Sailing to</th></tr></thead>
+          <tbody><tr><td colspan="9" class="muted small">Waiting for positions…</td></tr></tbody>
+        </table>
+      </details>
+      {% endif %}
+      {% if course_shown %}
+      <details open>
+        <summary>Leg analysis using ODM O as start/finish reference</summary>
+        <div class="analysis-summary small muted">
+          Predicted time: <strong id="racePredictedTime">{{ course_analysis.predicted_display }}</strong> ·
+          First leg: <strong id="raceFirstLeg">{{ course_analysis.first_leg_display }}</strong> ·
+          Shape: <strong id="raceShape">{{ course_analysis.upwind_legs }} upwind · {{ course_analysis.reach_legs }} reach · {{ course_analysis.downwind_legs }} downwind</strong> ·
+          Sail changes: <strong id="raceSailChanges">{{ course_analysis.sail_changes }}</strong>
+        </div>
+        <table id="raceLegAnalysisTable" data-course-no="{{ course.course_no }}" data-custom="{{ 1 if is_custom_course else 0 }}" data-marks='{{ course.marks|tojson }}' data-api="{% if is_custom_course %}{{ url_for('api_custom_leg_analysis') }}{% else %}{{ url_for('api_course_leg_analysis', course_no=course.course_no) }}{% endif %}">
+          <thead><tr><th>Leg</th><th>Distance</th><th>Bearing</th><th>TWA</th><th>Side</th><th>Sail</th><th>Target</th><th>Time</th><th>Point</th></tr></thead>
+          <tbody>
+            {% for leg in legs %}
+            <tr>
+              <td>{{ leg.from }} → {{ leg.to }}</td>
+              <td>{{ '%.2f'|format(leg.distance_nm) if leg.distance_nm is not none else '—' }} nm</td>
+              <td>{{ '%.0f'|format(leg.bearing_deg) if leg.bearing_deg is not none else '—' }}°T</td>
+              <td>{{ '%.0f'|format(leg.twa) if leg.twa is not none else '—' }}°</td>
+              <td>{{ leg.side }}</td>
+              <td><strong>{{ leg.sail }}</strong></td>
+              <td>{{ format_target(leg.target) }}</td>
+              <td>{{ format_minutes(leg.leg_minutes) }}</td>
+              <td>{{ leg.point_of_sail }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </details>
+      {% endif %}
+    </section>
+  </div>
+
+  <div id="tab-entries" class="tab-pane">
+    <div class="section-head">
+      <div>
+        <h3>Add entries</h3>
+        <p class="muted">Add boats from the database, or bulk-add a fleet.</p>
+      </div>
+      <a class="button small secondary" href="{{ url_for('boat_new') }}">Add or lookup boat</a>
+    </div>
+
+    <section class="subtle-fieldset entries-simple-list">
+      <legend>Entries in this race</legend>
+      {% if entries %}
+      <table class="compact">
+        <thead><tr><th>Boat</th><th>Sail</th><th>Class</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for e in entries %}
+          {% set b = entry_boats.get(e.boat_id) if e.boat_id else none %}
+          <tr>
+            <td><strong>{{ b.boat_name if b else e.boat_name }}</strong></td>
+            <td>{{ b.sail_no if b else (e.sail_no or '') }}</td>
+            <td>{% if entry_class_labels %}{{ entry_class_labels.get(e.id) or '—' }}{% else %}{{ e.class_name or '' }}{% endif %}</td>
+            <td>{{ entry_display_status(e, race) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <p class="muted small">No entries have been added yet.</p>
+      {% endif %}
+    </section>
+
+    {% if boats %}
+    <section class="subtle-fieldset">
+      <legend>Bulk add</legend>
+      <form method="post" action="{{ url_for('add_all_active_entries', race_id=race.id) }}" class="form-row">
+        <button type="submit" class="secondary" onclick="return confirm('Add all active boats from the boat database to this race?')">Add all active boats{% if all_active_count is defined %} ({{ all_active_count }}){% endif %}</button>
+        <span class="muted small">Boats without one of the ratings will still be entered, but will be excluded from that result table.</span>
+      </form>
+    </section>
+
+    <section class="subsection">
+      <h3>Add from boat database</h3>
+      <form method="post" action="{{ url_for('add_boat_entry', race_id=race.id) }}" class="form-row">
+        <label>Boat
+          <select name="boat_id" required>
+            <option value="">Select boat...</option>
+            {% for b in boats %}
+              <option value="{{ b.id }}">{{ b.boat_name }}{% if b.sail_no %} — {{ b.sail_no }}{% endif %}{% if b.irc_rating %} — IRC {{ '%.3f'|format(b.irc_rating) }}{% endif %}{% if b.ytc_rating %} — YTC {{ '%.4f'|format(b.ytc_rating) }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <button type="submit">Add selected boat</button>
+      </form>
+    </section>
+    {% else %}
+      <p>No boats in the database yet. <a href="{{ url_for('boat_new') }}">Add a boat</a>.</p>
+    {% endif %}
+  </div>
+
+  <div id="tab-admin" class="tab-pane">
+    <h3 class="tab-heading">Entries and finish-time admin
+      <button type="button" class="help-link" data-help="entriesAdminHelp" aria-label="About the ratings on this tab">?</button>
+    </h3>
+    <dialog id="entriesAdminHelp" class="help-dialog">
+      <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+      <h4>Finish times, statuses and ratings</h4>
+      <p>Record finish times and status codes here, together with the IRC and YTC ratings this race
+        will be scored on.</p>
+      <p>The ratings are <strong>copied from the boat database when a boat is entered</strong> and
+        then kept with this race, so editing one here changes this race only — a certificate
+        reissued in August cannot quietly rescore a race sailed in June.</p>
+      <h4>GPS finish detection</h4>
+      <p><strong>Arm GPS auto-finish</strong> lets the app take a boat&#39;s finish once its tracker
+        has rounded every mark and crossed the line. It is on for a new race: a detection is worth
+        more than a finish you were going to time anyway, and a missed one cannot be recovered
+        afterwards.</p>
+      <p><strong>Auto-confirm</strong> records those finishes without anybody approving each one.
+        It is <strong>off</strong> for a new race, so each detection waits here for a Confirm or a
+        Dismiss. Turn it on for a race with nobody in the hut &mdash; that is what it is for, and
+        the on-the-water page turns it on by itself for a race started from a boat.</p>
+      <p>The <strong>Class</strong> column shows the series rating band a boat is scored in, the
+        same one the Add entries tab shows, not whatever class is typed on its boat record.</p>
+    </dialog>
+
+    {% if gps_tracking_enabled %}
+    <div class="gps-finish-panel">
+      <form method="post" action="{{ url_for('set_gps_finish', race_id=race.id) }}" class="gps-finish-row">
+        <strong>GPS finish detection</strong>
+        <label class="checkbox-inline"><input type="checkbox" name="gps_finish_enabled" value="1" {% if gps_finish_enabled %}checked{% endif %}> Arm GPS auto-finish</label>
+        <label class="checkbox-inline"><input type="checkbox" name="gps_auto_confirm" value="1" {% if gps_auto_confirm %}checked{% endif %}> Auto-confirm (unmanned)</label>
+        <button type="submit" class="small">Apply</button>
+        {% if not gps_pending_proposals %}
+        <span class="small muted">{% if gps_finish_enabled %}Armed. No finishes detected yet.{% else %}Off for this race.{% endif %}</span>
+        {% endif %}
+      </form>
+      {% if gps_pending_proposals %}
+      <table class="table compact small-top">
+        <thead><tr><th>Boat</th><th>Detected finish</th><th>Review</th><th></th></tr></thead>
+        <tbody>
+        {% for p in gps_pending_proposals %}
+          {% set pe = (entries | selectattr('id', 'equalto', p.entry_id) | list | first) %}
+          {% set clip = finish_video_by_entry.get(p.entry_id) %}
+          <tr>
+            <td>{{ pe.boat_name if pe else ('entry ' ~ p.entry_id) }}{% if pe and pe.sail_no %} <span class="muted small">({{ pe.sail_no }})</span>{% endif %}</td>
+            <td>{{ dt_full_display(p.detected_time) if dt_full_display is defined else p.detected_time }}</td>
+            <td>{% if clip and clip.status == 'ready' %}<a href="{{ url_for('video_clip_file', clip_id=clip.id) }}" target="_blank" rel="noopener">Finish video</a>{% else %}<span class="muted small">clip pending</span>{% endif %}</td>
+            <td class="actions-cell">
+              <form method="post" action="{{ url_for('confirm_finish_proposal', race_id=race.id, proposal_id=p.id) }}" class="inline"><button type="submit" class="small primary">Confirm</button></form>
+              <form method="post" action="{{ url_for('dismiss_finish_proposal', race_id=race.id, proposal_id=p.id) }}" class="inline"><button type="submit" class="small">Dismiss</button></form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if results %}
+    <table>
+      <thead><tr><th>Finish</th><th>Boat</th><th>Sail</th><th>Class</th><th>Ratings</th><th>Status</th><th>Finish time</th><th>Elapsed</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for row in results %}
+        {% set e = row.entry %}
+        {% set b = entry_boats.get(e.boat_id) if e.boat_id else none %}
+        <tr>
+          <td>
+            <form method="post" action="{{ url_for('finish_now', race_id=race.id, entry_id=e.id) }}" class="inline"><button class="small primary finish-button" type="submit">Finish</button></form>
+          </td>
+          <td>
+            <strong>{{ b.boat_name if b else e.boat_name }}</strong>
+            {% if b %}<br><span class="small muted">Database boat</span>{% else %}<br><span class="small muted">Manual race-only entry</span>{% endif %}
+          </td>
+          <td>{{ b.sail_no if b else (e.sail_no or '') }}</td>
+          <td>{% if entry_class_labels %}{{ entry_class_labels.get(e.id) or '—' }}{% else %}{{ e.class_name or '' }}{% endif %}</td>
+          <td class="small entry-rating-cell">
+            <label>IRC
+              <input form="entryUpdate{{ e.id }}" type="number" step="0.001" name="manual_irc_rating" value="{{ '' if e.manual_irc_rating is none else '%.3f'|format(e.manual_irc_rating) }}" placeholder="IRC TCC">
+            </label>
+            <label>YTC
+              <input form="entryUpdate{{ e.id }}" type="number" step="1" name="manual_ytc_rating" value="{{ '' if e.manual_ytc_rating is none else ('%.0f'|format(e.manual_ytc_rating) if e.manual_ytc_rating >= 10 else '%.4f'|format(e.manual_ytc_rating)) }}" placeholder="YTC">
+            </label>
+            {# The provenance line that used to sit here said "Copied from boat
+               data when entered" under every rating box on every row -- one
+               sentence of explanation repeated eight times down a race sheet.
+               The Boat column on the same row already says "Database boat" or
+               "Manual race-only entry", and why a rating is a copy is behind
+               the "?" at the top of the tab. #}
+          </td>
+          <td>
+            <select form="entryUpdate{{ e.id }}" name="status">
+              {% for st in ['RACING','FINISHED','DNS','DNC','OCS','RET','DNF','DSQ','DNE','DGM'] %}
+                <option value="{{ st }}" {% if e.status == st %}selected{% endif %}>{{ st }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td><input form="entryUpdate{{ e.id }}" type="datetime-local" step="1" name="finish_time" value="{{ dt_for_input(e.finish_time) if e.finish_time else '' }}"></td>
+          <td>{{ row.elapsed_text }}</td>
+          <td class="actions-cell">
+            <form id="entryUpdate{{ e.id }}" method="post" action="{{ url_for('update_entry', race_id=race.id, entry_id=e.id) }}" class="inline">
+              <input type="hidden" name="notes" value="{{ e.notes or '' }}">
+              <button type="submit" class="small">Save</button>
+            </form>
+            <form method="post" action="{{ url_for('delete_entry', race_id=race.id, entry_id=e.id) }}" class="inline" onsubmit="return confirm('Delete this entry?')"><button class="small danger" type="submit">Delete</button></form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p>No entries yet. Use the Add entries tab.</p>
+    {% endif %}
+
+    <details id="liveVideoDetails" class="subsection live-video-panel">
+      <summary>Show live finish camera</summary>
+      <div class="section-head compact-head small-top">
+        <div>
+          <h3>Live finish camera</h3>
+          <p class="muted small">Near-live preview from the configured video recorder. Use this together with <strong>Finish now + horn</strong> to record finishers.</p>
+        </div>
+        <span class="muted small" id="liveVideoStatus">{{ video_status.message }}</span>
+      </div>
+      {% if video_status.enabled %}
+        {# Snapshots from the hut's own recorder first, then the relay's live
+           stream once it is playing (static/live_camera.js). The stream is a few
+           seconds behind the water: time finishes from the horn and the recorded
+           finish clips, not from this picture. #}
+        <div class="live-video-frame-wrap live-camera" id="liveVideoCamera"
+             data-snapshot-src="{{ url_for('video_live_frame') }}"
+             data-snapshot-refresh-ms="1000"
+             {% if public_live_stream_url %}data-stream-page="{{ public_live_stream_url }}"{% endif %}
+             data-snapshot-note="{% if public_live_stream_url %}Near-live stills while the relay stream starts…{% else %}Near-live stills from the hut recorder.{% endif %}"
+             data-starting-note="Relay stream starting — near-live stills until it is ready…"
+             data-stream-note="Relay live stream — a few seconds behind the water. Use the horn and the recorded finish clips for times.">
+          <img id="liveVideoFrame" class="live-video-frame live-camera-snapshot" alt="Live finish camera preview">
+          <p class="live-camera-note small muted">{% if public_live_stream_url %}Near-live stills while the relay stream starts…{% else %}Near-live stills from the hut recorder.{% endif %}</p>
+        </div>
+      {% else %}
+        <p class="muted">Video recording is disabled in Settings.</p>
+      {% endif %}
+    </details>
+
+    <section class="subsection">
+      <h3>Horn and race log</h3>
+      <table id="adminRaceLog" class="compact race-log-table">
+        <thead><tr><th>Time</th><th>Type</th><th>Label</th><th>Source</th><th>Assign finish</th></tr></thead>
+        <tbody>
+          {% for ev in events %}
+          <tr data-event-id="{{ ev.id }}">
+            <td>{{ dt_full_display(ev.event_time) }}</td>
+            <td>{{ ev.event_type }}</td>
+            <td>{{ ev.label }}</td>
+            <td>{{ ev.source }}</td>
+            <td>
+              {% if is_finish_assignable_event(ev) %}
+              <form method="post" action="{{ url_for('assign_event_as_finish', race_id=race.id, event_id=ev.id) }}" class="form-row compact-form">
+                <select name="entry_id" required>
+                  <option value="">Boat...</option>
+                  {% for e in entries %}
+                    <option value="{{ e.id }}">{{ e.boat_name }}{% if e.sail_no %} — {{ e.sail_no }}{% endif %}</option>
+                  {% endfor %}
+                </select>
+                <button class="small secondary" type="submit">Use as finish</button>
+              </form>
+              {% else %}
+                <span class="muted small">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if not events %}<p class="muted">No horn or race events logged yet.</p>{% endif %}
+    </section>
+  </div>
+
+  <div id="tab-results" class="tab-pane">
+    <div class="panel-strip">
+      {% if bar_replay_race_id == race.id %}
+      <form method="post" action="{{ url_for('race_replay_stop', race_id=race.id) }}" class="panel-strip-row">
+        <strong>Replay in the bar</strong>
+        <button class="small secondary" type="submit">Stop the replay</button>
+        <span class="small muted">The clubhouse display is replaying this race.</span>
+        <button type="button" class="help-link" data-help="replayHelp" aria-label="About the bar replay">?</button>
+      </form>
+      {% elif replay_possible %}
+      <form method="post" action="{{ url_for('race_replay_start', race_id=race.id) }}" class="panel-strip-row">
+        <strong>Replay in the bar</strong>
+        <button type="submit" class="small">Replay this race in the bar</button>
+        <span class="small muted">About {{ replay_minutes }} minutes.{% if bar_replay_race_id %} <strong>Replaces the replay already running.</strong>{% endif %}</span>
+        <button type="button" class="help-link" data-help="replayHelp" aria-label="About the bar replay">?</button>
+      </form>
+      {% else %}
+      <div class="panel-strip-row">
+        <strong>Replay in the bar</strong>
+        <span class="small muted">Nothing to replay yet — the race needs a start time and at least one boat finished.</span>
+        <button type="button" class="help-link" data-help="replayHelp" aria-label="About the bar replay">?</button>
+      </div>
+      {% endif %}
+    </div>
+
+    <dialog id="replayHelp" class="help-dialog">
+      <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+      <h4>Putting a race on the clubhouse television</h4>
+      <p>For people coming in from sailing: the chart, the leaderboard and the finish videos, from
+        the warning signal to the last boat across.</p>
+      <p>It runs at <strong>six times life</strong>, dropping to normal speed while a video plays,
+        and returns to the current race when it reaches the end. Starting a replay replaces any
+        replay already running.</p>
+    </dialog>
+
+    <div class="section-head">
+      <div>
+        <h3>Corrected results
+          <button type="button" class="help-link" data-help="resultsHelp" aria-label="How the corrected times are worked out">?</button>
+        </h3>
+        <p class="small"><strong>Start video:</strong>
+          {% if start_video_clip and start_video_clip.status == 'ready' %}
+            <a href="{{ url_for('video_clip_file', clip_id=start_video_clip.id) }}" target="_blank">View start video</a>
+          {% elif start_video_clip %}
+            {{ video_clip_link_text(start_video_clip) }}{% if start_video_clip.message %} — {{ start_video_clip.message }}{% endif %}
+          {% else %}
+            No start video scheduled.
+          {% endif %}
+        </p>
+      </div>
+      {# One CSV per rating system, and they belong side by side: as bare children
+         of a space-between .section-head they were pushed apart, one to the top
+         right and the other wrapped onto its own line below. #}
+      <div class="actions">
+        <a class="button small" href="{{ url_for('results_csv', race_id=race.id, rating='irc') }}">Sailwave CSV (IRC)</a>
+        <a class="button small" href="{{ url_for('results_csv', race_id=race.id, rating='ytc') }}">Sailwave CSV (YTC)</a>
+      </div>
+    </div>
+
+    <dialog id="resultsHelp" class="help-dialog">
+      <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+      <h4>Two rating systems, two tables</h4>
+      <p>IRC and YTC are scored separately, and a boat appears in a table only if it has that
+        rating. IRC corrected time is <strong>elapsed &times; TCC</strong>; YTC corrected time is
+        <strong>elapsed &times; 1000 &divide; YTC</strong>. Each table repeats its own formula and
+        the start it was timed from.</p>
+      <h4>The Sailwave CSVs</h4>
+      <p>One file per rating system, because a Sailwave series is scored under one system and a
+        competitor carries one Rating. For a readable copy of these results — for the notice
+        board or the website — publish the series instead.</p>
+    </dialog>
+    <div class="results-grid">
+      {% for key, group in [('irc', dual_results.irc), ('ytc', dual_results.ytc)] %}
+        {% for table in group.tables %}
+        <div class="result-card">
+          <h4>{{ table.title }}</h4>
+          <p class="muted small">{{ table.formula }}{% if table.start_note %} · {{ table.start_note }}{% endif %}</p>
+          {% if table.rows %}
+          <table class="compact">
+            <thead><tr><th>Rank</th><th>Boat</th><th>Sail</th><th>Start</th><th>{{ table.rating_label }}</th><th>Status</th><th>Elapsed</th><th>Corrected</th><th>Finish video</th></tr></thead>
+            <tbody>
+              {% for row in table.rows %}
+              {% set e = row.entry %}
+              {% set b = row.boat %}
+              <tr>
+                <td class="big">{{ row.rank or '' }}</td>
+                <td>{{ b.boat_name if b else e.boat_name }}</td>
+                <td>{{ b.sail_no if b else (e.sail_no or '') }}</td>
+                <td>{{ row.start_label }}<br><span class="small muted">{{ dt_display(row.start_time) }}</span></td>
+                <td>{% if key == 'irc' %}{{ '%.3f'|format(row.rating) }}{% else %}{% if row.rating >= 10 %}{{ '%.0f'|format(row.rating) }}{% else %}{{ '%.4f'|format(row.rating) }}{% endif %}{% endif %}</td>
+                <td>{{ entry_display_status(e, race) }}</td>
+                <td>{{ row.elapsed_text }}</td>
+                <td>{{ row.corrected_text }}</td>
+                <td>
+                  {% set clip = finish_video_by_entry.get(e.id) if finish_video_by_entry else none %}
+                  {% if clip and clip.status == 'ready' %}
+                    <a href="{{ url_for('video_clip_file', clip_id=clip.id) }}" target="_blank">View</a>
+                  {% elif clip %}
+                    <span class="muted small">{{ video_clip_link_text(clip) }}</span>
+                  {% else %}
+                    <span class="muted small">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <p class="muted">No boats are in this {{ table.rating_label }} class yet.</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+        {% if group.excluded %}
+        <div class="result-card">
+          <h4>{{ group.title }} — excluded / unclassed</h4>
+          <ul class="excluded-list">
+            {% for item in group.excluded %}
+              {% if item.entry is defined %}
+                {% set e = item.entry %}
+                <li>{{ e.boat_name }}{% if e.sail_no %} — {{ e.sail_no }}{% endif %}: {{ item.reason }}</li>
+              {% else %}
+                <li>{{ item.boat_name }}{% if item.sail_no %} — {{ item.sail_no }}{% endif %}: Missing {{ group.rating_label }}</li>
+              {% endif %}
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+
+  <div id="tab-remove" class="tab-pane">
+    <div class="section-head">
+      <div>
+        <h3>Remove race</h3>
+        <p class="muted">Delete this race sheet and all race-specific data. This cannot be undone.</p>
+      </div>
+    </div>
+
+    <section class="message error">
+      <h3>Before deleting this race</h3>
+      <p>Deleting <strong>{{ race.name }}</strong> will remove the race from any series and delete its entries, finish times, race log and video clip records.</p>
+      <ul>
+        <li><strong>Start time set:</strong> {% if race_delete_summary.start_time_set %}Yes — first warning {{ dt_full_display(race_delete_summary.first_warning) or race_delete_summary.first_warning }}, first start {{ dt_full_display(race_delete_summary.first_start) or race_delete_summary.first_start }}{% else %}No{% endif %}</li>
+        <li><strong>Course set:</strong> {% if race_delete_summary.course_set %}Yes — {{ race_delete_summary.course_label }}{% else %}No{% endif %}</li>
+        <li><strong>Race started:</strong> {% if race_delete_summary.race_started %}Yes{% else %}No{% endif %}</li>
+        <li><strong>Entries added:</strong> {{ race_delete_summary.entry_count }}</li>
+        <li><strong>Boats already finished:</strong> {{ race_delete_summary.finished_count }}</li>
+        <li><strong>Boats with scoring/status recorded:</strong> {{ race_delete_summary.scored_or_non_racing_count }}</li>
+        <li><strong>Race log events:</strong> {{ race_delete_summary.event_count }}</li>
+        <li><strong>Video clips:</strong> {{ race_delete_summary.video_clip_count }}</li>
+        <li><strong>Series:</strong> {% if race_delete_summary.series_name %}{{ race_delete_summary.series_name }} — the race will be removed from this series{% else %}Standalone race{% endif %}</li>
+      </ul>
+    </section>
+
+    <form method="post" action="{{ url_for('delete_race', race_id=race.id) }}" class="stacked" onsubmit="return confirm('Delete this race? This cannot be undone.');">
+      <label class="inline-check">
+        <input type="checkbox" name="confirm_delete" value="1" required>
+        I understand this will permanently delete this race sheet and remove it from any series.
+      </label>
+      <div>
+        <button type="submit" class="danger">Delete race</button>
+      </div>
+    </form>
+  </div>
+
+
+  <div id="tab-start" class="tab-pane">
+    <section class="card">
+      <h3>Postpone (AP)
+        <button type="button" class="help-link" data-help="apHelp" aria-label="About postponement">?</button>
+      </h3>
+      <dialog id="apHelp" class="help-dialog">
+        <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+        <h4>Postponing a race</h4>
+        <p>If the wind dies before the start, <strong>postpone</strong> — do not move the start
+          time. Moving it signals nothing to the fleet, and if the sequence is already running it
+          drops the rest of it: boats hear a warning, then no preparatory signal and no gun.</p>
+        <p>Flying AP sounds <strong>two horn blasts</strong>, holds the sequence, and shows AP on the
+          race sheet, the competitor pages and the clubhouse display.</p>
+        <h4>Which signal</h4>
+        <p><strong>AP</strong> — the warning is made one minute after AP comes down and the gun
+          five minutes after that, so lowering at 14:20 puts the warning at 14:21 and the first gun
+          at 14:26. Whole minutes only, as with the first warning signal.</p>
+        <p><strong>AP over H</strong> — further signals ashore. There is no one-minute rule to
+          count from, so give the time the sequence will restart at instead.</p>
+        <p><strong>AP over A</strong> — no more racing today, so the race is not resumed.</p>
+        <h4>Once the race has started</h4>
+        <p>AP postpones races that have not started. Stopping a race already under way is
+          <em>abandonment</em> — flag <strong>N</strong> — which this app does not signal.
+          If the wind has died mid-race, <strong>shorten the course</strong> instead.</p>
+      </dialog>
+      {% if postponed_flag %}
+      <div class="message warn" style="margin-bottom:0.75rem;">
+        <strong>{{ postponed_flag }} is up</strong>{% if postponed_at %} — since {{ dt_full_display(postponed_at) }}{% endif %}.
+        No warning, preparatory or starting signal will sound while it flies.
+        {% if postponement_ends_at %}<br><strong>Coming down at {{ dt_display(postponement_ends_at) }}</strong>,
+        warning signal {{ dt_display(first_warning_time) }}, first gun {{ dt_display(first_start_time) }}.{% endif %}
+      </div>
+      {% if postponed_flag == 'AP over A' %}
+      <p class="muted">No more racing today, so this race is not resumed. If racing is still
+        intended, postpone with plain <strong>AP</strong> instead.</p>
+      {% else %}
+      <form method="post" action="{{ url_for('race_postpone_end', race_id=race.id) }}" class="form-row"
+            onsubmit="return confirm('Lower {{ postponed_flag }} at that time? One horn sounds then, and the warning signal follows a minute later.')">
+        {% if postponed_flag == 'AP over H' %}
+        <label>New warning signal
+          <input type="datetime-local" step="60" name="warning_time" required>
+        </label>
+        <p class="muted small" style="flex-basis:100%;margin:0;">With H there is no one-minute warning
+          to count from — give the time the sequence will restart at.</p>
+        {% else %}
+        <label>Lower AP at
+          <input type="datetime-local" step="60" name="lower_at"
+                 value="{{ dt_for_minute_input(next_whole_minute) }}"
+                 min="{{ dt_for_minute_input(next_whole_minute) }}" required>
+        </label>
+        <p class="muted small" style="flex-basis:100%;margin:0;">Whole minutes only. The warning is made
+          <strong>one minute after AP comes down</strong>, the gun five minutes after that.</p>
+        {% endif %}
+        <button type="submit">{% if postponement_ends_at %}Change the time{% else %}Lower {{ postponed_flag }}{% endif %}</button>
+      </form>
+      {% endif %}
+      {% elif race_has_started %}
+      <p class="muted"><strong>This race has started</strong>, so there is nothing to postpone. If the
+        wind has died mid-race, <strong>shorten the course</strong> instead.</p>
+      {% else %}
+      <form method="post" action="{{ url_for('race_postpone', race_id=race.id) }}" class="form-row"
+            onsubmit="return confirm('Postpone this race? This sounds two horn blasts.')">
+        <label>Signal
+          <select name="kind">
+            <option value="AP" selected>AP — postponed, warning one minute after AP is lowered</option>
+            <option value="AP_H">AP over H — postponed, further signals ashore</option>
+            <option value="AP_A">AP over A — postponed, no more racing today</option>
+          </select>
+        </label>
+        <button type="submit">Postpone</button>
+      </form>
+      {% endif %}
+    </section>
+    <section class="controls-grid start-controls-grid">
+      <div class="subtle-fieldset full-width-fieldset">
+        <legend>Manual controls</legend>
+        <div class="manual-control-buttons">
+          <button type="button" id="manualHorn">Fire horn now</button>
+          <button type="button" id="individualRecall" class="secondary">Individual recall</button>
+          <button type="button" id="generalRecall" class="secondary">General Recall</button>
+          <button type="button" id="abandon" class="danger">Abandon</button>
+        </div>
+        <p class="muted horn-config-line"><span><strong>Horn output:</strong> {{ config.serial_port or 'simulation mode' }} {{ config.horn_line }}</span><span><strong>Manual horn input:</strong> {% if config.horn_input_enabled %}{{ config.horn_input_line }}{% else %}disabled{% endif %}</span></p>
+        {% if config.horn_input_enabled %}<p id="manualHornInputStatus" class="muted">Manual horn input: waiting for first read…</p>{% endif %}
+      </div>
+    </section>
+
+    <section class="subsection">
+      <h3>Scheduled signal plan</h3>
+      <table class="signal-plan-table">
+        <thead><tr><th>Signal time</th><th>Start / time</th><th>Displayed flags</th><th>Action</th><th>Horn</th></tr></thead>
+        <tbody>
+          {% for row in signal_plan_rows %}
+          <tr data-signal-time="{{ row.signal_time }}"{% if row.suppressed %} class="signal-held"{% elif row.postponement %} class="signal-postponement"{% endif %}>
+            <td>{{ dt_display(row.signal_time) or '—' }}</td>
+            <td>{{ row.start_names }}{% if row.classes_text %}<br><span class="small muted">{{ row.classes_text }}</span>{% endif %}</td>
+            <td>{{ row.displayed_flags }}</td>
+            <td>{{ row.action }}{% if row.suppressed %}<br><span class="small muted">{{ row.suppressed_note }}</span>{% endif %}</td>
+            <td>{{ row.horn }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="subsection">
+      <h3>Horn and race log</h3>
+      <table id="liveLog" class="compact race-log-table">
+        <thead><tr><th>Time</th><th>Type</th><th>Label</th><th>Source</th><th>Assign finish</th></tr></thead>
+        <tbody>
+          {% for ev in events %}
+          <tr data-event-id="{{ ev.id }}">
+            <td>{{ dt_full_display(ev.event_time) }}</td>
+            <td>{{ ev.event_type }}</td>
+            <td>{{ ev.label }}</td>
+            <td>{{ ev.source }}</td>
+            <td>
+              {% if is_finish_assignable_event(ev) %}
+              <form method="post" action="{{ url_for('assign_event_as_finish', race_id=race.id, event_id=ev.id) }}" class="form-row compact-form">
+                <select name="entry_id" required>
+                  <option value="">Boat...</option>
+                  {% for e in entries %}
+                    <option value="{{ e.id }}">{{ e.boat_name }}{% if e.sail_no %} — {{ e.sail_no }}{% endif %}</option>
+                  {% endfor %}
+                </select>
+                <button class="small secondary" type="submit">Use as finish</button>
+              </form>
+              {% else %}
+                <span class="muted small">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if not events %}<p class="muted">No horn or race events logged yet.</p>{% endif %}
+    </section>
+  </div>
+
+  <div id="tab-shorten" class="tab-pane">
+    <section class="card">
+      <h3>Shorten course</h3>
+      <p class="muted">If the wind drops, shorten the course at a mark on the course. Boats round that mark then proceed directly to the finish line. Calling it sounds <strong>two horn blasts</strong> and announces the shortened course over the central audio (repeated a few seconds later).</p>
+      {% if course_shortened %}
+      <div class="message success" style="margin-bottom:0.75rem;"><strong>Course shortened at mark {{ shorten_mark }}</strong>{% if shorten_time %} — called {{ dt_full_display(shorten_time) }}{% endif %}. Boats proceed to the finish after this mark.</div>
+      <form method="post" action="{{ url_for('race_shorten_clear', race_id=race.id) }}" class="inline" onsubmit="return confirm('Clear the shortened course?')">
+        <button class="small secondary" type="submit">Clear shortened course</button>
+      </form>
+      {% endif %}
+      {% if shorten_options %}
+      <form method="post" action="{{ url_for('race_shorten', race_id=race.id) }}" class="form-row" style="margin-top:1rem;" onsubmit="return confirm('Call a shortened course at this mark? This sounds the horn and makes the announcement.')">
+        <label>Shorten at mark
+          <select name="index" required>
+            <option value="" disabled selected>Choose a mark…</option>
+            {% for o in shorten_options %}
+            <option value="{{ o.index }}">{{ o.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <button type="submit">Call shortened course</button>
+      </form>
+      {% else %}
+      <p class="muted small">This race has no course marks to shorten at. Set a course on the <strong>Course &amp; start</strong> tab first.</p>
+      {% endif %}
+    </section>
+  </div>
+</section>
+<script>
+(function () {
+  const btn = document.getElementById('openCompetitorPopout');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const url = btn.dataset.url || btn.getAttribute('href') || '/public/current';
+    window.open(url, 'pwllheli_competitor_page', 'popup=yes,width=1280,height=900,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes');
+  });
+})();
+</script>
+
+<script>
+(function () {
+  const buttons = Array.from(document.querySelectorAll('.tab-button'));
+  const panes = Array.from(document.querySelectorAll('.tab-pane'));
+  if (!buttons.length) return;
+  // rememberInUrl is false on first load. replaceState does not scroll, but the
+  // fragment it writes is still in the document's URL when the browser runs its
+  // scroll-to-fragment step -- which it retries as the page settles, finds
+  // #tab-course, and jumps to it. Measured: opening a race landed at scrollY
+  // 254 with the race name, the course board, the flags and the countdown above
+  // the top of the screen, about 200ms after load. The competitor page hit this
+  // and guarded it; the race sheet never got the same fix.
+  //
+  // A fragment already in the URL still works: the redirect after saving the
+  // Entries tab asks for #tab-admin and means it.
+  function show(tabId, rememberInUrl) {
+    if (!document.getElementById(tabId)) tabId = 'tab-course';
+    buttons.forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+    panes.forEach(p => p.classList.toggle('active', p.id === tabId));
+    if (rememberInUrl && location.hash !== '#' + tabId) {
+      history.replaceState(null, '', '#' + tabId);
+    }
+  }
+  buttons.forEach(b => b.addEventListener('click', () => show(b.dataset.tab, true)));
+  show((location.hash || '#tab-course').slice(1), false);
+})();
+</script>
+
+<script src="{{ url_for('static', filename='signal_flags.js') }}?v={{ app_version }}"></script>
+<script>
+(function () {
+  const timers = [
+    {box: document.querySelector('.race-summary .countdown'), timeId: 'raceCountdownTime', stateId: 'raceCountdownState'},
+    {box: document.querySelector('.start-tab-header .countdown'), timeId: 'startConsoleCountdownTime', stateId: 'startConsoleCountdownState'}
+  ];
+  const signalSchedule = {{ signal_panel_schedule|tojson }};
+  // Which flags are up, and their markup, are shared with the competitor page and the
+  // clubhouse display (static/signal_flags.js). The image paths are built here because
+  // they need url_for.
+  const flagSrcs = {
+    numeralBase: "{{ url_for('static', filename='img/class_flags/numeral_0.png') }}".replace('numeral_0.png', 'numeral_'),
+    prep: "{{ url_for('static', filename='img/class_flags/p.png') }}",
+    codeS: "{{ url_for('static', filename='img/class_flags/s.png') }}"
+  };
+  function pad(n) { return String(n).padStart(2, '0'); }
+  // The page is rendered once and AP comes down by itself, so the Lower AP form
+  // outlives the thing it acts on: pressing it then answered "That race is not
+  // postponed", which is true and unhelpful. Retire it on the clock instead.
+  function retireLoweringForm(panel, now) {
+    const form = document.querySelector('form[action$="/postpone/end"]');
+    if (!form || !panel) return;
+    const stillUp = SignalFlags.postponedNow(
+      panel.dataset.postponed, panel.dataset.postponementEndsAt, now);
+    if (stillUp || form.dataset.retired === '1') return;
+    form.dataset.retired = '1';
+    const button = form.querySelector('button[type="submit"]');
+    if (button) { button.disabled = true; button.textContent = 'AP has come down'; }
+    form.querySelectorAll('input, select').forEach(el => { el.disabled = true; });
+  }
+
+  function renderRaceFlagPanel(panel, now) {
+    if (!panel) return;
+    const row = panel.querySelector('.flag-row');
+    const label = panel.querySelector('.raceFlagStage');
+    if (!row) return;
+    const finished = panel.dataset.raceFinished === '1';
+    const shortened = panel.dataset.courseShortened === '1' && !finished;
+    const postponed = finished ? '' : SignalFlags.postponedNow(
+      panel.dataset.postponed, panel.dataset.postponementEndsAt, now);
+    let flags = [];
+    if (postponed) {
+      // AP replaces the sequence rather than joining it: while it is up no warning,
+      // preparatory or starting signal is made, so no class flag and no P is flying.
+      flags = SignalFlags.postponementFlags(postponed);
+    } else if (!finished) {
+      if (signalSchedule.length) flags = SignalFlags.liveFlags(signalSchedule, now);
+      if (shortened) flags.push({kind: 'code-s', label: 'Code flag S (shortened course)'});
+    }
+    panel.classList.toggle('postponed', !!postponed);
+    retireLoweringForm(panel, now);
+    row.innerHTML = SignalFlags.markup(flags, flagSrcs);
+    panel.classList.toggle('no-flags-up', flags.length === 0);
+    if (label) {
+      label.textContent = SignalFlags.summary(flags, {
+        raceFinished: finished, shortened: shortened, postponed: postponed,
+        hasSchedule: signalSchedule.length > 0});
+    }
+  }
+
+  function updateSignalPlan(now) {
+    const rows = document.querySelectorAll('[data-signal-sec], [data-signal-time]');
+    if (!rows.length) return;
+    const box = document.querySelector('.race-summary .countdown') || document.querySelector('.countdown');
+    if (!box || box.dataset.raceFinished === '1') {
+      rows.forEach(row => row.classList.toggle('signal-complete', !!box && box.dataset.raceFinished === '1'));
+      return;
+    }
+    const start = new Date(box.dataset.start || '');
+    if (Number.isNaN(start.getTime())) {
+      rows.forEach(row => row.classList.remove('signal-complete'));
+      return;
+    }
+    rows.forEach(row => {
+      const signalTime = row.dataset.signalTime ? new Date(row.dataset.signalTime) : null;
+      if (signalTime && !Number.isNaN(signalTime.getTime())) {
+        row.classList.toggle('signal-complete', now > signalTime);
+      } else {
+        const diff = Math.round((start - now) / 1000);
+        const sec = Number(row.dataset.signalSec);
+        row.classList.toggle('signal-complete', !Number.isNaN(sec) && diff < sec);
+      }
+    });
+  }
+
+  function render() {
+    const now = new Date();
+    document.querySelectorAll('.flag-status-panel').forEach(panel => renderRaceFlagPanel(panel, now));
+    updateSignalPlan(now);
+    timers.forEach(t => {
+      if (!t.box) return;
+      const timeEl = document.getElementById(t.timeId);
+      const stateEl = document.getElementById(t.stateId);
+      if (t.box.dataset.raceFinished === '1') {
+        if (timeEl) timeEl.textContent = '--:--';
+        if (stateEl) stateEl.textContent = 'Race finished';
+        return;
+      }
+      // A postponed race keeps its old start time until AP comes down, so a
+      // countdown left running would tick towards a gun that is not going to be
+      // fired -- the display version of the fault this feature exists to fix.
+      const boxPostponed = SignalFlags.postponedNow(
+        t.box.dataset.postponed, t.box.dataset.postponementEndsAt, now);
+      if (boxPostponed) {
+        if (timeEl) timeEl.textContent = '--:--';
+        if (stateEl) stateEl.textContent = SignalFlags.postponedLabel(boxPostponed);
+        return;
+      }
+      const start = new Date(t.box.dataset.start || '');
+      if (Number.isNaN(start.getTime())) {
+        if (timeEl) timeEl.textContent = '--:--';
+        if (stateEl) stateEl.textContent = 'First warning not set';
+        return;
+      }
+      let diff = Math.round((start - now) / 1000);
+      const abs = Math.abs(diff);
+      if (timeEl) timeEl.textContent = (diff >= 0 ? '-' : '+') + roCountdownBody(abs);
+      if (stateEl) stateEl.textContent = SignalFlags.phaseFor(diff);
+    });
+  }
+  render();
+  setInterval(render, 1000);
+})();
+</script>
+
+<script>
+(function () {
+  const table = document.getElementById('raceLegAnalysisTable');
+  if (!table) return;
+  const polarSelect = document.getElementById('racePolarFile');
+  const statusEl = document.getElementById('raceWindStatus');
+  const latestTwd = document.getElementById('raceLatestTwd');
+  const latestTws = document.getElementById('raceLatestTws');
+  const latestGust = document.getElementById('raceLatestGust');
+  const predictedEl = document.getElementById('racePredictedTime');
+  const firstEl = document.getElementById('raceFirstLeg');
+  const shapeEl = document.getElementById('raceShape');
+  const sailChangesEl = document.getElementById('raceSailChanges');
+  const summaryPredicted = document.getElementById('raceSummaryPredicted');
+  const summaryWind = document.getElementById('raceSummaryWind');
+
+  function norm360(v) { return ((v % 360) + 360) % 360; }
+  function fmtNum(v, digits) { return (typeof v === 'number' && isFinite(v)) ? v.toFixed(digits) : '—'; }
+  function renderRows(data) {
+    const tbody = table.querySelector('tbody');
+    tbody.innerHTML = '';
+    (data.legs || []).forEach(leg => {
+      const tr = document.createElement('tr');
+      const cells = [
+        `${leg.from || ''} → ${leg.to || ''}`,
+        `${fmtNum(leg.distance_nm, 2)} nm`,
+        `${fmtNum(leg.bearing_deg, 0)}°T`,
+        `${fmtNum(leg.twa, 0)}°`,
+        leg.side || '—',
+        `<strong>${leg.sail || '—'}</strong>`,
+        leg.target_display || '—',
+        leg.leg_time_display || '—',
+        leg.point_of_sail || '—'
+      ];
+      cells.forEach((html) => { const td = document.createElement('td'); td.innerHTML = html; tr.appendChild(td); });
+      tbody.appendChild(tr);
+    });
+  }
+  function updateSummary(data) {
+    if (predictedEl) predictedEl.textContent = data.predicted_display || '—';
+    if (summaryPredicted) summaryPredicted.textContent = data.predicted_display || '—';
+    if (firstEl) firstEl.textContent = data.first_leg_display || '—';
+    if (shapeEl) shapeEl.textContent = `${data.upwind_legs || 0} upwind · ${data.reach_legs || 0} reach · ${data.downwind_legs || 0} downwind`;
+    if (sailChangesEl) sailChangesEl.textContent = String(data.sail_changes ?? '—');
+    const latest = data.wind && data.wind.latest;
+    if (latest) {
+      const twdTxt = typeof latest.twd === 'number' ? `${norm360(latest.twd).toFixed(0)}°T` : '—';
+      const twsTxt = typeof latest.tws === 'number' ? `${latest.tws.toFixed(1)} kt` : '';
+      if (latestTwd) latestTwd.textContent = `TWD ${twdTxt}`;
+      if (latestTws) latestTws.textContent = twsTxt ? `TWS ${twsTxt}` : 'TWS —';
+      if (latestGust) latestGust.textContent = typeof latest.gust === 'number' ? `Gust ${latest.gust.toFixed(1)} kt` : 'Gust —';
+      if (summaryWind) summaryWind.textContent = twsTxt ? `${twdTxt} / ${twsTxt}` : twdTxt;
+      if (window.RaceCourseMap && typeof latest.twd === 'number') {
+        window.RaceCourseMap.updateAllWind(document.getElementById('tab-course') || document, latest.twd);
+      }
+    }
+  }
+  async function refresh() {
+    const polar = polarSelect ? polarSelect.value : '';
+    const isCustom = table.dataset.custom === '1';
+    try {
+      let response;
+      if (isCustom) {
+        let marks = [];
+        try { marks = JSON.parse(table.dataset.marks || '[]'); } catch(e) { marks = []; }
+        response = await fetch(table.dataset.api, {
+          method: 'POST', cache: 'no-store',
+          headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+          body: JSON.stringify({marks, use_live: true, polar_file: polar})
+        });
+      } else {
+        const url = `${table.dataset.api}?use_live=1&polar_file=${encodeURIComponent(polar)}`;
+        response = await fetch(url, {cache: 'no-store', headers: {'Accept': 'application/json'}});
+      }
+      const data = await response.json();
+      if (!data.ok) throw new Error(data.message || 'Leg analysis failed');
+      renderRows(data);
+      updateSummary(data);
+      if (statusEl) statusEl.textContent = data.wind && data.wind.latest ? 'Leg analysis updated from latest start-hut wind.' : 'No live wind sample yet; showing geometry only.';
+    } catch (err) {
+      if (statusEl) statusEl.textContent = 'Could not update leg analysis: ' + err;
+    }
+  }
+  function updateRacePolarReferences() {
+    const hidden = document.getElementById('racePolarHidden');
+    if (hidden && polarSelect) hidden.value = polarSelect.value || '';
+  }
+  if (polarSelect) polarSelect.addEventListener('change', () => { updateRacePolarReferences(); refresh(); });
+  updateRacePolarReferences();
+  const recommendCourseLink = document.getElementById('recommendCourseLink');
+  const manualCourseBuilderLink = document.getElementById('manualCourseBuilderLink');
+  if (manualCourseBuilderLink) {
+    manualCourseBuilderLink.addEventListener('click', () => {
+      const url = new URL(manualCourseBuilderLink.href, window.location.href);
+      if (polarSelect && polarSelect.value) url.searchParams.set('polar_file', polarSelect.value);
+      manualCourseBuilderLink.href = url.toString();
+    });
+  }
+  if (recommendCourseLink) {
+    recommendCourseLink.addEventListener('click', () => {
+      const url = new URL(recommendCourseLink.href, window.location.href);
+      if (polarSelect && polarSelect.value) url.searchParams.set('polar_file', polarSelect.value);
+      recommendCourseLink.href = url.toString();
+    });
+  }
+  refresh();
+  setInterval(refresh, 5000);
+})();
+</script>
+
+<script>
+(function () {
+  const liveVideoDetails = document.getElementById('liveVideoDetails');
+  const liveVideoCamera = document.getElementById('liveVideoCamera');
+  const liveVideoStatus = document.getElementById('liveVideoStatus');
+  // The picture (stills, then the relay stream) is handled by live_camera.js;
+  // this only follows the panel being opened/closed and the recorder status.
+  if (liveVideoCamera && liveVideoDetails && window.PwllheliLiveCamera) {
+    const live = window.PwllheliLiveCamera;
+    const sync = () => liveVideoDetails.open ? live.start(liveVideoCamera) : live.stop(liveVideoCamera);
+    liveVideoDetails.addEventListener('toggle', sync);
+    sync();
+  }
+  async function refreshLiveVideoStatus() {
+    if (!liveVideoStatus || (liveVideoDetails && !liveVideoDetails.open)) return;
+    try {
+      const res = await fetch('/api/video/status', {headers: {'Accept': 'application/json'}});
+      const data = await res.json();
+      liveVideoStatus.textContent = data.message || '';
+    } catch (e) {
+      liveVideoStatus.textContent = 'Live video status unavailable';
+    }
+  }
+  setInterval(refreshLiveVideoStatus, 2000);
+
+  const raceId = {{ race.id }};
+  const startBox = document.querySelector('.race-summary .countdown') || document.querySelector('.start-tab-header .countdown');
+  if (!startBox) return;
+  const start = new Date(startBox.dataset.start || '');
+  const raceFinished = startBox.dataset.raceFinished === '1';
+  const startIsValid = !Number.isNaN(start.getTime());
+  const raceConsoleDefaults = {{ race_console|tojson }};
+  // Automatic start horns/audio are now generated centrally on the race-office PC.
+  function hornArmed() { return false; }
+  function voiceArmed() { return false; }
+  const fired = new Set();
+  const spoken = new Set();
+  const defaultBlastMs = {{ config.horn_duration_ms }};
+  const courseAnnouncement = {{ course_announcement|tojson }};
+  const entryChoices = {{ entries|map(attribute='id')|list|tojson }}.map((id, idx) => {
+    const names = {{ entries|map(attribute='boat_name')|list|tojson }};
+    const sails = {{ entries|map(attribute='sail_no')|list|tojson }};
+    return {id, label: names[idx] + (sails[idx] ? ' — ' + sails[idx] : '')};
+  });
+  const hornEvents = [
+    {t: 300, label: 'Warning signal / class flag'},
+    {t: 240, label: 'Preparatory signal'},
+    {t: 60, label: 'One minute signal'},
+    {t: 0, label: 'Start signal'}
+  ];
+  const voiceEvents = [540, 420, 315, 300, 255, 240, 180, 75, 60, 30, 20, 0];
+  const hornInputEnabled = {{ 'true' if config.horn_input_enabled else 'false' }};
+  const hornInputPollMs = {{ config.horn_input_poll_ms }};
+  let latestRaceLogEventId = {{ events[0].id if events else 0 }};
+
+  function speak(text, rate=1.25, interrupt=false) {
+    if (!voiceArmed() || !('speechSynthesis' in window)) return;
+    if (interrupt) window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = rate;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  let finalCountdownScheduled = false;
+  const finalCountdownWords = {10: 'ten', 9: 'nine', 8: 'eight', 7: 'seven', 6: 'six', 5: 'five', 4: 'four', 3: 'three', 2: 'two', 1: 'one'};
+  function speakExact(text, rate=2.0) {
+    if (!voiceArmed() || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = rate;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    window.speechSynthesis.speak(utterance);
+  }
+  function scheduleFinalCountdown() {
+    if (finalCountdownScheduled) return;
+    finalCountdownScheduled = true;
+    const nowMs = Date.now();
+    for (let sec = 10; sec >= 1; sec--) {
+      const dueMs = start.getTime() - sec * 1000;
+      // If the page/timer wakes slightly late, skip numbers that are already
+      // well in the past rather than reading them late and losing sync.
+      if (dueMs < nowMs - 250) continue;
+      window.setTimeout(() => speakExact(finalCountdownWords[sec] || String(sec), Math.min(2.0, 1.85 + sec * 0.01)), Math.max(0, dueMs - nowMs));
+    }
+    if (start.getTime() >= nowMs - 250) window.setTimeout(() => speakExact('Start', 1.8), Math.max(0, start.getTime() - nowMs));
+  }
+  function speakCourseAnnouncement(text) {
+    if (!voiceArmed() || !('speechSynthesis' in window) || !text) return;
+    window.speechSynthesis.cancel();
+    const parts = text.split('.').map(s => s.trim()).filter(Boolean);
+    let delay = 0;
+    parts.forEach((part) => {
+      window.setTimeout(() => {
+        if (!voiceArmed()) return;
+        const utterance = new SpeechSynthesisUtterance(part + '.');
+        utterance.rate = 0.72;
+        window.speechSynthesis.speak(utterance);
+      }, delay);
+      delay += Math.max(1300, part.length * 75);
+    });
+  }
+  async function logEvent(label, event_type='note', source='browser') {
+    try {
+      const res = await fetch(`/race/${raceId}/event`, {
+        method: 'POST', headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: JSON.stringify({label, event_type, source})
+      });
+      const data = await res.json();
+      prependLog(data.event_time_display || new Date(), event_type, label, source, data.event_id);
+    } catch (e) {
+      console.error(e);
+      prependLog(new Date(), 'error', 'Log failed: ' + e, source, null);
+    }
+  }
+  async function fireHorn(label, source='browser') {
+    try {
+      const res = await fetch(`/race/${raceId}/horn`, {
+        method: 'POST', headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: JSON.stringify({label, source})
+      });
+      const data = await res.json();
+      prependLog(data.event_time_display || new Date(), 'horn', label + ' — ' + data.result.message, source, data.event_id);
+    } catch (e) {
+      prependLog(new Date(), 'error', 'Horn failed: ' + e, source, null);
+    }
+  }
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function eventIsAssignable(type, source, label, forced) {
+    if (forced === true) return true;
+    const cleanType = String(type || '').toLowerCase();
+    const cleanSource = String(source || '').toLowerCase();
+    const cleanLabel = String(label || '').toLowerCase();
+    return cleanType === 'manual-horn-input' || (cleanType === 'horn' && cleanSource === 'manual' && cleanLabel.startsWith('manual horn'));
+  }
+  function assignFinishHtml(eventId, type, source, label, forcedAssignable=false) {
+    if (!eventId || !eventIsAssignable(type, source, label, forcedAssignable)) return '<span class="muted small">—</span>';
+    const options = entryChoices.map(e => `<option value="${e.id}">${escapeHtml(e.label)}</option>`).join('');
+    return `<form method="post" action="/race/${raceId}/event/${eventId}/assign_finish" class="form-row compact-form">` +
+      `<select name="entry_id" required><option value="">Boat...</option>${options}</select>` +
+      `<button class="small secondary" type="submit">Use as finish</button></form>`;
+  }
+  function displayTime(value) {
+    return value instanceof Date ? value.toLocaleTimeString() : escapeHtml(value || '');
+  }
+  function prependLog(dt, type, label, source, eventId=null, forcedAssignable=false) {
+    const bodies = Array.from(document.querySelectorAll('.race-log-table tbody'));
+    if (!bodies.length) return;
+    const numericEventId = Number(eventId || 0);
+    if (numericEventId && numericEventId <= latestRaceLogEventId) return;
+    if (numericEventId) latestRaceLogEventId = Math.max(latestRaceLogEventId, numericEventId);
+    const html = `<td>${displayTime(dt)}</td><td>${escapeHtml(type)}</td><td>${escapeHtml(label)}</td><td>${escapeHtml(source)}</td><td>${assignFinishHtml(numericEventId, type, source, label, forcedAssignable)}</td>`;
+    bodies.forEach(tbody => {
+      const row = document.createElement('tr');
+      if (numericEventId) row.dataset.eventId = String(numericEventId);
+      row.innerHTML = html;
+      tbody.prepend(row);
+      while (tbody.children.length > 30) tbody.removeChild(tbody.lastElementChild);
+    });
+  }
+  async function pollRaceLog() {
+    try {
+      const res = await fetch(`/api/race/${raceId}/events?after_id=${latestRaceLogEventId}&limit=50`, {headers: {'Accept': 'application/json'}});
+      if (!res.ok) return;
+      const data = await res.json();
+      (data.events || []).forEach(ev => {
+        prependLog(ev.event_time_display || ev.event_time || new Date(), ev.event_type, ev.label, ev.source, ev.id, ev.assignable_finish);
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  async function firePattern(label, repeats, gap=900) {
+    for (let i = 0; i < repeats; i++) {
+      await fireHorn(label + (repeats > 1 ? ` ${i + 1}/${repeats}` : ''), 'manual');
+      if (i < repeats - 1) await new Promise(resolve => setTimeout(resolve, defaultBlastMs + gap));
+    }
+  }
+  async function pollManualHornInput() {
+    if (!hornInputEnabled) return;
+    const statusEl = document.getElementById('manualHornInputStatus');
+    try {
+      const url = `{{ url_for('api_hardware_input_status') }}?race_id=${raceId}&log=1`;
+      const res = await fetch(url, {headers: {'Accept': 'application/json'}});
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        throw new Error(res.status === 401 ? 'sign in again or reload this page' : `status ${res.status || 'unknown'} from input status`);
+      }
+      const data = await res.json();
+      if (statusEl) statusEl.textContent = data.message || (data.active ? 'Manual horn input: pressed' : 'Manual horn input: released');
+      if (data.logged) prependLog(new Date(), 'manual-horn-input', 'Manual horn switch detected', 'serial-input', data.event_id);
+    } catch (e) {
+      if (statusEl) statusEl.textContent = 'Manual horn input unavailable: ' + e.message;
+    }
+  }
+  function voiceFor(seconds) {
+    if (seconds === 540 || seconds === 420 || seconds === 180) return courseAnnouncement;
+    if (seconds === 315) return 'Stand by 15 seconds to warning signal.';
+    if (seconds === 255) return 'Stand by 15 seconds to preparatory signal.';
+    if (seconds === 75) return 'Stand by 15 seconds to one minute signal.';
+    if (seconds === 300) return 'Five minutes. Warning signal.';
+    if (seconds === 240) return 'Four minutes. Preparatory signal.';
+    if (seconds === 60) return 'One minute.';
+    if (seconds === 30) return 'Thirty seconds.';
+    if (seconds === 20) return 'Twenty seconds.';
+    if (seconds === 0) return 'Start.';
+    return '';
+  }
+  function renderAutomation() {
+    if (raceFinished || !startIsValid) return;
+    const now = new Date();
+    const diff = Math.round((start - now) / 1000);
+    for (const ev of hornEvents) {
+      if (diff === ev.t && hornArmed() && !fired.has(ev.t)) {
+        fired.add(ev.t);
+        fireHorn(ev.label, 'auto-sequence');
+      }
+    }
+    if (diff <= 10 && diff >= 0) scheduleFinalCountdown();
+    for (const seconds of voiceEvents) {
+      if (diff <= seconds && diff > seconds - 2 && !spoken.has(seconds)) {
+        spoken.add(seconds);
+        const text = voiceFor(seconds);
+        if (text) {
+          if (seconds === 540 || seconds === 420 || seconds === 180) {
+            speakCourseAnnouncement(text);
+          } else if (seconds !== 0 || !finalCountdownScheduled) {
+            speak(text, 1.25, false);
+          }
+        }
+      }
+    }
+  }
+  const manualHorn = document.getElementById('manualHorn');
+  const individualRecall = document.getElementById('individualRecall');
+  const generalRecall = document.getElementById('generalRecall');
+  const abandon = document.getElementById('abandon');
+  if (manualHorn) manualHorn.addEventListener('click', () => fireHorn('Manual horn', 'manual'));
+  if (individualRecall) individualRecall.addEventListener('click', () => { fireHorn('Individual recall', 'manual'); logEvent('Individual recall / Flag X', 'recall', 'manual'); });
+  if (generalRecall) generalRecall.addEventListener('click', () => { firePattern('General recall', 2); logEvent('General recall / First Substitute', 'recall', 'manual'); });
+  if (abandon) abandon.addEventListener('click', () => { firePattern('Abandon', 3); logEvent('Abandonment', 'abandon', 'manual'); });
+
+  renderAutomation();
+  setInterval(renderAutomation, 1000);
+  pollRaceLog();
+  setInterval(pollRaceLog, 1500);
+  if (hornInputEnabled) {
+    pollManualHornInput();
+    setInterval(pollManualHornInput, Math.max(100, hornInputPollMs));
+  }
+})();
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="{{ url_for('static', filename='course_map.js') }}"></script>
+{% if gps_tracking_enabled %}
+<script>
+(function () {
+  const fleet = document.getElementById('raceFleet');
+  if (!fleet) return;
+  const raceId = fleet.dataset.raceId;
+  const tbody = document.querySelector('#raceFleetTable tbody');
+  function fmtAge(s) {
+    if (s === null || s === undefined) return '—';
+    s = Math.round(s);
+    if (s < 90) return s + 's ago';
+    return Math.round(s / 60) + 'm ago';
+  }
+  // The corrective arrows. Disabled at the ends of the sequence rather than
+  // hidden, so a row keeps its shape and it is plain why one will not press: back
+  // from the first mark and forward past the finish are both meaningless.
+  function arrows(b) {
+    if (b.finished) return '<span class="muted">—</span>';
+    const atStart = !(b.rounded > 0);
+    const atEnd = !(b.total && b.rounded < b.total - 1);
+    const mark = (b.next_mark || '').toString().replace(/[<>&"]/g, '');
+    const adjusted = b.next_mark_adjusted
+      ? ' <span class="next-mark-flag" title="Corrected by hand, not detected by GPS">set</span>' : '';
+    return `<span class="next-mark-arrows" data-entry="${b.entry_id}">`
+      + `<button type="button" class="small" data-dir="back"${atStart ? ' disabled' : ''}`
+      + ` title="Back a mark: this boat has not rounded ${mark} yet">&larr;</button>`
+      + `<button type="button" class="small" data-dir="forward"${atEnd ? ' disabled' : ''}`
+      + ` title="On a mark: treat ${mark} as rounded">&rarr;</button>${adjusted}</span>`;
+  }
+
+  if (tbody) {
+    // One delegated listener. The rows are replaced wholesale every few seconds,
+    // so a listener per button would be rebound on every refresh.
+    tbody.addEventListener('click', async (ev) => {
+      const button = ev.target.closest('.next-mark-arrows button');
+      if (!button || button.disabled) return;
+      const entryId = button.closest('.next-mark-arrows').dataset.entry;
+      button.parentElement.querySelectorAll('button').forEach(el => el.disabled = true);
+      try {
+        const res = await fetch(`/admin/race/${raceId}/entry/${entryId}/next_mark`, {
+          method: 'POST', cache: 'no-store',
+          headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+          body: JSON.stringify({direction: button.dataset.dir})
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!data.ok && data.message) window.alert(data.message);
+      } catch (err) {
+        window.alert('Could not change the mark: ' + err);
+      }
+      refreshBoats();       // redraw from the server rather than guessing locally
+    });
+  }
+
+  async function refreshBoats() {
+    try {
+      const res = await fetch(`/api/race/${raceId}/positions`, {headers: {'Accept': 'application/json'}, cache: 'no-store'});
+      if (!res.ok) return;
+      const data = await res.json();
+      const boats = data.boats || [];
+      const board = data.leaderboard || [];
+      if (window.RaceCourseMap && window.RaceCourseMap.updateBoats) {
+        window.RaceCourseMap.updateBoats(document.getElementById('tab-course') || document, boats);
+      }
+      if (tbody) {
+        if (!board.length) {
+          tbody.innerHTML = '<tr><td colspan="9" class="muted small">No tracked boats reporting yet.</td></tr>';
+        } else {
+          const esc = s => (s || '').toString().replace(/[<>&]/g, '');
+          tbody.innerHTML = board.map(b => {
+            const name = esc(b.boat_name), sail = esc(b.sail_no);
+            // Three states. "No tracker" is a boat with no tracker on it
+            // today, whether or not one was ever assigned; "Not reporting" is
+            // a tracker that has not been heard from, which used to render as
+            // "0/7, next 1" beside an empty Fix and read as live data.
+            if (!b.lat && b.lat !== 0) {
+              const why = b.tracker_assigned ? 'Not reporting' : 'No tracker';
+              return `<tr class="muted"><td>${b.position}</td><td>${name}</td><td>${sail}</td>`
+                + `<td>—</td><td>—</td><td>—</td><td>—</td><td>${why}</td><td>—</td></tr>`;
+            }
+            const sog = (b.sog === null || b.sog === undefined) ? '—' : Number(b.sog).toFixed(1) + ' kn';
+            const togo = b.finished ? '—' : ((b.dist_remaining_nm === null || b.dist_remaining_nm === undefined) ? '—' : Number(b.dist_remaining_nm).toFixed(2) + ' nm');
+            // No course set means no sequence to count against: "0/0" is not
+            // progress, it is the absence of a course.
+            const marks = b.finished ? 'Finished'
+              : (b.total ? `${b.rounded}/${b.total}` : '—');
+            const next = b.finished ? '—' : esc(b.next_mark || '—');
+            const stale = (b.age !== null && b.age !== undefined && b.age > 60) ? ' class="muted"' : '';
+            return `<tr${stale}><td>${b.position}</td><td>${name}</td><td>${sail}</td>`
+              + `<td>${marks}</td><td>${next}</td><td>${togo}</td><td>${sog}</td><td>${fmtAge(b.age)}</td>`
+              + `<td class="next-mark-cell">${arrows(b)}</td></tr>`;
+          }).join('');
+        }
+      }
+    } catch (err) { /* keep last render on a transient error */ }
+  }
+  refreshBoats();
+  setInterval(refreshBoats, 4000);
+})();
+</script>
+{% endif %}
+{% endblock %}

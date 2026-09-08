@@ -1,0 +1,62 @@
+{
+  "notes": "Start and finish definitions from the 2026 General Sailing Instructions. The bridge/window/foreshore mast camera calibration points still need to be surveyed before camera automation.",
+  "start_line": {
+    "description": "Transit of the orange pole on the CHPSC Bridge, a white mast with an orange top section on the foreshore, and the ODM (mark O). Boats pass between the bounding marks when both are present, in the direction of the first mark.",
+    "seaward_end_mark": "O",
+    "shore_end": "CHPSC Bridge / foreshore transit - survey required",
+    "shore_end_position": "52\u00b0 52.9238'N 004\u00b0 24.0609'W"
+  },
+  "finish_line": {
+    "description": "Between the white stripe on the CHPSC Bridge window and the ODM.",
+    "seaward_end_mark": "O",
+    "shore_end": "CHPSC Bridge window stripe",
+    "shore_end_position": "52\u00b0 52.9238'N 004\u00b0 24.0609'W"
+  },
+  "vhf_channel": "17",
+  "normal_time_limit_hours": 3,
+  "dnf_after_first_finisher_minutes": 60,
+  "bridge_window": {
+    "description": "CHPSC Bridge window / shore end of the usual start-finish line.",
+    "lat": 52.882063333333335,
+    "lon": -4.401015,
+    "lat_text": "52\u00b0 52.9238'N",
+    "lon_text": "004\u00b0 24.0609'W"
+  },
+  "finish_lines": [
+    {
+      "key": "psc",
+      "name": "Pwllheli SC - Bridge window to ODM",
+      "default": true,
+      "description": "The usual line: between the white stripe on the CHPSC Bridge window and the ODM (mark O).",
+      "seaward": {
+        "mark": "O",
+        "label": "ODM (mark O)"
+      },
+      "seaward_extension_m": 150,
+      "shore": {
+        "lat": 52.882063333333335,
+        "lon": -4.401015,
+        "label": "CHPSC Bridge window"
+      }
+    },
+    {
+      "key": "isora_plas_heli",
+      "name": "ISORA - Fairway Buoy to Plas Heli Bridge",
+      "default": false,
+      "description": "ISORA sailing instruction 15: the transit between the Pwllheli Fairway Buoy (mark F) and the Bridge at Plas Heli, bearing 297 degrees magnetic, back bearing to the Fairway 117 degrees magnetic. Not the line used for starts at Pwllheli.",
+      "seaward": {
+        "mark": "F",
+        "label": "Pwllheli Fairway Buoy (Iso.2s)"
+      },
+      "seaward_extension_m": 250,
+      "shore": {
+        "lat": 52.888933333333334,
+        "lon": -4.403833333333333,
+        "label": "Plas Heli Bridge"
+      },
+      "bearing_magnetic": 297,
+      "source": "ISORA SI 15.1-15.4",
+      "si_seaward_position": "N52 53.000 W4 22.900"
+    }
+  ]
+}

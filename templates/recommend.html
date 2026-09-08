@@ -1,0 +1,291 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Recommend course - Pwllheli Race Officer{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>{% if race %}Recommend course for {{ race.name }}{% else %}Recommend fixed course{% endif %}
+    <button type="button" class="help-link" data-help="recommendHelp" aria-label="How the recommendation is worked out">?</button>
+  </h2>
+  {% if race %}<p><a class="button small secondary" href="{{ url_for('race_detail', race_id=race.id, polar_file=selected_polar) }}#tab-course">Back to race</a></p>{% endif %}
+
+  <dialog id="recommendHelp" class="help-dialog">
+    <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+    <h4>What the recommendation is built from</h4>
+    <p>The boat polar selected below, the live start-hut wind when it is available, and a matching
+      <code>-SailChart</code> file from <code>data/sailcharts</code>. Where no sail chart matches
+      the polar, the default chart is used instead.</p>
+    <h4>How the courses are ranked</h4>
+    <p>The CHPSC wind band comes first, then the polar-predicted time against the target duration,
+      then the quality of the first leg, then how many sail changes the course asks for.</p>
+    <p>The estimated time is worked out from mark-to-mark bearings and distances, using VMG rather
+      than straight-line speed on the legs that are very close upwind or deep downwind — where a
+      boat cannot sail the rhumb line and the honest answer is slower than the geometry suggests.</p>
+  </dialog>
+
+  <div class="weather-panel">
+    <div class="weather-head">
+      <div>
+        <h3>Start hut wind</h3>
+        <p class="muted small" id="weatherMessage">{{ weather_status.message }}</p>
+      </div>
+      <div class="wind-chips">
+        <span class="wind-chip" id="latestTwd">TWD {{ '%.0f°T'|format(latest_wind.twd) if latest_wind and latest_wind.twd is not none else '—' }}</span>
+        <span class="wind-chip" id="latestTws">TWS {{ '%.1f kt'|format(latest_wind.tws) if latest_wind and latest_wind.tws is not none else '—' }}</span>
+        <span class="wind-chip" id="latestGust">Gust {{ '%.1f kt'|format(latest_wind.gust) if latest_wind and latest_wind.gust is not none else '—' }}</span>
+      </div>
+    </div>
+    <div class="weather-controls">
+      <label>Chart window
+        <select id="historyMinutes">
+          {% for m in [2, 5, 10, 15, 30, 60] %}
+            <option value="{{ m }}" {% if m == 10 %}selected{% endif %}>{{ m }} min</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <canvas id="windHistoryCanvas" class="wind-history" width="900" height="300"></canvas>
+  </div>
+
+  <form method="post" action="{{ url_for('recommend') }}" class="form-row" id="recommendForm">
+    {% if race %}<input type="hidden" name="race_id" value="{{ race.id }}">{% endif %}
+    <label>True wind direction °T
+      <input id="twdInput" type="number" step="1" min="0" max="359" name="twd" required value="{{ '' if twd is none else twd|int }}">
+    </label>
+    <label>True wind speed kt
+      <input id="twsInput" type="number" step="0.1" min="0" name="tws" required value="{{ '%.1f'|format(tws) }}">
+    </label>
+    <label>Polar
+      <select name="polar_file" id="polarSelect">
+        {% for p in polar_files %}
+          <option value="{{ p }}" {% if p == selected_polar %}selected{% endif %}>{{ p.rsplit('.', 1)[0] }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Target duration minutes
+      <input type="number" step="1" min="10" name="target_minutes" value="{{ target_minutes|int }}">
+    </label>
+    <label class="checkbox-inline">
+      <input type="checkbox" name="use_live_wind" id="useLiveWind" value="1" {% if use_live_wind %}checked{% endif %}>
+      Use latest start-hut wind when recommending
+    </label>
+    <button type="submit">Recommend</button>
+  </form>
+  {% if not polar_available or not sail_chart_available %}
+  <div class="message warn small-top">
+    {% if not polar_available %}<strong>Polar {{ polar_file }} was not found.</strong>
+      The predicted times below are not this boat's.{% endif %}
+    {% if not sail_chart_available %}<strong>Sail chart {{ sail_chart_file }} was not found.</strong>
+      The default chart is being used, so the suggested sails may not be the ones aboard.{% endif %}
+    <a href="{{ url_for('settings_page') }}#polars">Manage polars in Settings</a>
+  </div>
+  {% endif %}
+</section>
+
+{% if rows %}
+<section>
+  <h2>Best matches
+    <button type="button" class="help-link" data-help="recommendHelp" aria-label="How the courses are ranked">?</button>
+  </h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Course</th>
+        <th>Wind band</th>
+        <th>Official length</th>
+        <th>Predicted time</th>
+        <th>First leg</th>
+        <th>Shape</th>
+        <th>Sail changes</th>
+        <th>Course</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for c in rows %}
+      <tr data-course-summary="{{ c.course_no }}">
+        <td class="big">{{ c.course_no }}</td>
+        <td>{{ c.wind_label }} {{ c.wind_range_deg['from'] }}–{{ c.wind_range_deg['to'] }}°<br><span class="small muted">error {{ '%.0f'|format(c.wind_score) }}°</span></td>
+        <td>{{ c.length_nm }} nm</td>
+        <td class="predicted-cell"><strong>{{ c.predicted_display }}</strong><br><span class="small muted">{{ '%+.0f'|format(c.time_error_minutes) if c.time_error_minutes is not none else '—' }} min vs target</span></td>
+        <td class="first-leg-cell">{{ c.first_leg_display }}</td>
+        <td class="shape-cell"><span class="small">{{ c.upwind_legs }} upwind · {{ c.reach_legs }} reach · {{ c.downwind_legs }} downwind</span></td>
+        <td class="sail-changes-cell">{{ c.sail_changes }}</td>
+        <td class="sequence">
+          {% for m in c.marks %}
+            <span class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</span>
+          {% endfor %}
+        </td>
+        <td>
+          {% if race %}
+            <form method="post" action="{{ url_for('select_race_course', race_id=race.id) }}" class="inline">
+              <input type="hidden" name="course_no" value="{{ c.course_no }}">
+              <input class="use-polar-file" type="hidden" name="polar_file" value="{{ selected_polar }}">
+              <button class="small" type="submit">Use on race</button>
+            </form>
+          {% else %}
+            <a class="button small" href="{{ url_for('new_race', course_no=c.course_no) }}">Use</a>
+          {% endif %}
+        </td>
+      </tr>
+      <tr class="detail-row">
+        <td></td>
+        <td colspan="8">
+          <details>
+            <summary>Course chart and leg analysis for course {{ c.course_no }}</summary>
+            <div class="course-map-wrap compact-map">
+              <div class="course-map" data-base-tile-url="{{ course_chart.course_chart_tile_url }}" data-overlay-tile-url="{{ course_chart.course_chart_overlay_url }}" data-all-marks='{{ marks_data|tojson }}' data-course-marks='{{ c.marks|tojson }}' data-wind-direction="{{ twd if twd is not none else '' }}" data-start-finish-mark="{{ course_chart.start_finish_mark }}" data-bridge-lat="{{ course_chart.bridge_window_lat }}" data-bridge-lon="{{ course_chart.bridge_window_lon }}"></div>
+              <p class="small muted course-map-message"></p>
+            </div>
+            <table class="compact nested live-leg-analysis" data-course-no="{{ c.course_no }}" data-api="{{ url_for('api_course_leg_analysis', course_no=c.course_no) }}">
+              <thead><tr><th>Leg</th><th>Distance</th><th>Bearing</th><th>TWA</th><th>Side</th><th>Sail</th><th>Target</th><th>Time</th><th>Point</th></tr></thead>
+              <tbody>
+              {% for leg in c.legs_analysis %}
+                <tr>
+                  <td>{{ leg.from }} → {{ leg.to }}</td>
+                  <td>{{ '%.2f'|format(leg.distance_nm) if leg.distance_nm is not none else '—' }} nm</td>
+                  <td>{{ '%.0f'|format(leg.bearing_deg) if leg.bearing_deg is not none else '—' }}°T</td>
+                  <td>{{ '%.0f'|format(leg.twa) if leg.twa is not none else '—' }}°</td>
+                  <td>{{ leg.side }}</td>
+                  <td><strong>{{ leg.sail }}</strong></td>
+                  <td>{{ format_target(leg.target) }}</td>
+                  <td>{{ format_minutes(leg.leg_minutes) }}</td>
+                  <td>{{ leg.point_of_sail }}</td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </details>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<script src="{{ url_for('static', filename='wind_history.js') }}?v={{ app_version }}"></script>
+<script>
+(function () {
+  const canvas = document.getElementById('windHistoryCanvas');
+  const minsSelect = document.getElementById('historyMinutes');
+  const msg = document.getElementById('weatherMessage');
+  const latestTwd = document.getElementById('latestTwd');
+  const latestTws = document.getElementById('latestTws');
+  const latestGust = document.getElementById('latestGust');
+  const twdInput = document.getElementById('twdInput');
+  const twsInput = document.getElementById('twsInput');
+  const useLiveWind = document.getElementById('useLiveWind');
+  const WindHistory = window.PwllheliWindHistory;
+  let current = null;
+
+  function norm360(v) { return WindHistory.norm360(v); }
+  function setInputsFrom(sample) {
+    if (!sample) return;
+    if (typeof sample.twd === 'number') twdInput.value = String(Math.round(norm360(sample.twd)));
+    if (typeof sample.tws === 'number') twsInput.value = sample.tws.toFixed(1);
+  }
+  async function load(force=false) {
+    const minutes = Number(minsSelect.value || 10);
+    try {
+      const url = `/api/weather/history?minutes=${encodeURIComponent(minutes)}${force ? '&force=1' : ''}`;
+      const r = await fetch(url, {cache:'no-store', headers:{'Accept':'application/json'}});
+      const data = await r.json();
+      msg.textContent = data.message || '';
+      current = data.current || null;
+      if (current) {
+        latestTwd.textContent = typeof current.twd === 'number' ? `TWD ${norm360(current.twd).toFixed(0)}°T` : 'TWD —';
+        latestTws.textContent = typeof current.tws === 'number' ? `TWS ${current.tws.toFixed(1)} kt` : 'TWS —';
+        latestGust.textContent = typeof current.gust === 'number' ? `Gust ${current.gust.toFixed(1)} kt` : 'Gust —';
+        if (useLiveWind.checked) {
+          setInputsFrom(current);
+          if (window.RaceCourseMap && typeof current.twd === 'number') window.RaceCourseMap.updateAllWind(document, current.twd);
+        }
+      }
+      WindHistory.draw(canvas, data.samples || [], data.server_now, data.minutes || minutes, {emptyMessage: 'Waiting for weather-station history…', cssHeight: 300});
+      if (useLiveWind.checked) refreshOpenLegAnalysisTables();
+    } catch (e) {
+      msg.textContent = 'Weather chart error: ' + e;
+      WindHistory.draw(canvas, [], Date.now()/1000, minutes, {emptyMessage: 'Waiting for weather-station history…', cssHeight: 300});
+    }
+  }
+
+  function fmtNum(v, digits) { return (typeof v === 'number' && isFinite(v)) ? v.toFixed(digits) : '—'; }
+  function renderLegTable(table, data) {
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    (data.legs || []).forEach(leg => {
+      const tr = document.createElement('tr');
+      const cells = [
+        `${leg.from || ''} → ${leg.to || ''}`,
+        `${fmtNum(leg.distance_nm, 2)} nm`,
+        `${fmtNum(leg.bearing_deg, 0)}°T`,
+        `${fmtNum(leg.twa, 0)}°`,
+        leg.side || '—',
+        `<strong>${leg.sail || '—'}</strong>`,
+        leg.target_display || '—',
+        leg.leg_time_display || '—',
+        leg.point_of_sail || '—'
+      ];
+      cells.forEach(html => { const td = document.createElement('td'); td.innerHTML = html; tr.appendChild(td); });
+      tbody.appendChild(tr);
+    });
+  }
+  function updateSummaryRow(courseNo, data) {
+    const row = document.querySelector(`[data-course-summary="${courseNo}"]`);
+    if (!row) return;
+    const predicted = row.querySelector('.predicted-cell strong');
+    const first = row.querySelector('.first-leg-cell');
+    const shape = row.querySelector('.shape-cell .small');
+    const changes = row.querySelector('.sail-changes-cell');
+    if (predicted) predicted.textContent = data.predicted_display || '—';
+    if (first) first.textContent = data.first_leg_display || '—';
+    if (shape) shape.textContent = `${data.upwind_legs || 0} upwind · ${data.reach_legs || 0} reach · ${data.downwind_legs || 0} downwind`;
+    if (changes) changes.textContent = String(data.sail_changes ?? '—');
+  }
+  async function refreshLegAnalysisTable(table) {
+    if (!table || !useLiveWind.checked) return;
+    const details = table.closest('details');
+    if (details && !details.open) return;
+    const polar = document.getElementById('polarSelect')?.value || '';
+    const url = `${table.dataset.api}?use_live=1&polar_file=${encodeURIComponent(polar)}`;
+    const r = await fetch(url, {cache:'no-store', headers:{'Accept':'application/json'}});
+    const data = await r.json();
+    if (data.ok) {
+      renderLegTable(table, data);
+      updateSummaryRow(table.dataset.courseNo, data);
+    }
+  }
+  function refreshOpenLegAnalysisTables() {
+    document.querySelectorAll('.live-leg-analysis').forEach(table => { refreshLegAnalysisTable(table).catch(() => {}); });
+  }
+  document.querySelectorAll('.live-leg-analysis').forEach(table => {
+    const details = table.closest('details');
+    if (details) details.addEventListener('toggle', () => {
+      if (details.open && window.RaceCourseMap) window.RaceCourseMap.initAll(details);
+      refreshLegAnalysisTable(table).catch(() => {});
+    });
+  });
+  useLiveWind.addEventListener('change', () => { if (useLiveWind.checked) refreshOpenLegAnalysisTables(); });
+  function updateUseCoursePolarInputs() {
+    const polar = document.getElementById('polarSelect')?.value || '';
+    document.querySelectorAll('.use-polar-file').forEach(input => { input.value = polar; });
+  }
+  document.getElementById('polarSelect')?.addEventListener('change', () => {
+    updateUseCoursePolarInputs();
+    refreshOpenLegAnalysisTables();
+  });
+  updateUseCoursePolarInputs();
+
+  minsSelect.addEventListener('change', () => load(false));
+  window.addEventListener('resize', () => load(false));
+  load(false);
+  setInterval(() => load(false), 5000);
+})();
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="{{ url_for('static', filename='course_map.js') }}"></script>
+{% endblock %}

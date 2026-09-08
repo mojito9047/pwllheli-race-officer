@@ -1,0 +1,13 @@
+{# The race-document theme.
+
+   Included by every template that builds its own <head> rather than extending
+   base.html -- the competitor page, the club home page, the clubhouse display,
+   the login page, the mark-layer phone page, the on-water page and the split
+   view. They are standalone documents, so without this the experiment stopped
+   at the admin pages and the surfaces the public actually sees kept the old
+   look. Which is backwards: the competitor page on a phone is the most-read
+   screen this app has.
+
+   Delete this file and its seven includes to drop the theme entirely. #}
+<link rel="stylesheet" href="{{ url_for('static', filename='theme_fonts.css') }}?v={{ app_version }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='theme_race_document.css') }}?v={{ app_version }}">

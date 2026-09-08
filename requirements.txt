@@ -1,0 +1,16 @@
+# Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Flask>=3.0,<4
+pyserial>=3.5,<4
+pyttsx3>=2.90,<3
+waitress>=3.0,<4
+# AES-256 encrypted backup ZIPs for the nightly off-site copy. Deliberately the
+# WinZip AES format, so 7-Zip or WinRAR can open an off-site archive with just
+# the passphrase on a day this app is not available to do it.
+pyzipper>=0.3,<1
+# Renders the bundled docs/*.md documentation on the Documentation page. Optional
+# in practice: without it the app shows the raw text rather than failing.
+Markdown>=3.5,<4
+# Optional ODM start-line overlay on public start/finish videos (best-effort;
+# the feature disables itself if these are unavailable).
+Pillow>=10,<12
+numpy>=1.26,<3

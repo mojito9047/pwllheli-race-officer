@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pwllheli Sailing Club — start hut camera</title>
+<!--
+  The view from the start hut, for the club's own website.
+
+  Put this file on the club site and embed it in an iframe:
+
+    <iframe src="/club_website_camera.html" title="Start hut camera"
+            style="width:100%;max-width:960px;aspect-ratio:16/9;border:0"
+            loading="lazy" referrerpolicy="no-referrer"
+            allow="autoplay; fullscreen"></iframe>
+
+  It shows the live stream. Stills from the hut appear only while that stream is
+  starting, and only once the relay has answered at all -- see the three cases
+  below. That matters for who pays for what:
+
+    * A still is 88 KB and comes from the hut, over a domestic broadband line
+      that is at the same time recording the racing. Every viewer costs the hut
+      that, every refresh.
+    * The stream comes from the relay, and Cloudflare fans it out. MediaMTX
+      pulls the camera once however many people are watching -- so the first
+      viewer starts it and everyone after that is free.
+
+  So the stills are a waiting room, not the exhibit, and which room you are in
+  depends on what the relay says:
+
+    * it plays          -> the video, and the hut is not asked again;
+    * it answers but is
+      still starting    -> refreshing stills until it plays;
+    * it says nothing   -> the browser refused the frame, which means this
+                           origin is not in the relay's frame-ancestors. ONE
+                           still stays on screen and nothing further is asked
+                           of the hut. A refused frame is a misconfiguration,
+                           and quietly polling the hut for ever on every
+                           visitor would hide it while the club paid for it.
+
+  It still pauses when the tab is in the background and when it is scrolled out
+  of sight, which also lets the relay drop the stream when nobody is looking.
+
+  Nothing is loaded from anywhere else: no libraries, no fonts, no trackers.
+
+  The relay refuses to be framed by origins it does not know, so
+  pwllhelisailingclub.co.uk must be in `frame-ancestors` in
+  deploy/live_stream/Caddyfile. It is, as of v0.267 -- but if the video never
+  appears and the stills carry on for ever, that is the first thing to check.
+  See README.md beside this file.
+-->
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1f2937;
+    background: transparent;
+  }
+  .camera { max-width: 960px; margin: 0 auto; }
+  .camera-frame {
+    position: relative;
+    /* The stills are 960x540 and so is the video. Reserving the space stops the
+       page jumping, and stops it jumping again at the handover. */
+    aspect-ratio: 16 / 9;
+    background: #0f172a;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .camera-frame img,
+  .camera-frame iframe {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    border: 0;
+    display: block;
+  }
+  .camera-frame img { object-fit: cover; opacity: 0; transition: opacity .35s ease; }
+  .camera-frame img.shown { opacity: 1; }
+  /* The stream sits above the stills and is revealed only once it is playing,
+     so a frame that never loads leaves the stills showing rather than a black
+     box. */
+  .camera-frame iframe { opacity: 0; pointer-events: none; transition: opacity .4s ease; }
+  .camera-frame iframe.shown { opacity: 1; pointer-events: auto; }
+  .camera-overlay {
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    text-align: center;
+    padding: 1rem;
+    color: #e2e8f0;
+    font-size: .95rem;
+    text-shadow: 0 1px 3px rgba(0,0,0,.6);
+  }
+  .camera-overlay[hidden] { display: none; }
+  .camera-overlay button {
+    font: inherit;
+    margin-top: .6rem;
+    padding: .5rem 1rem;
+    border: 0; border-radius: 6px;
+    background: #2563eb; color: #fff;
+    cursor: pointer;
+  }
+  .camera-overlay button:hover { background: #1d4ed8; }
+  .camera-note {
+    margin: .5rem 0 0;
+    font-size: .85rem;
+    color: #6b7280;
+    display: flex; flex-wrap: wrap; gap: .4rem 1rem; align-items: baseline;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e5e7eb; }
+    .camera-note { color: #9ca3af; }
+  }
+</style>
+</head>
+<body>
+
+<figure class="camera" id="camera"
+        data-snapshot-src="https://pro.pwllhelisailingclub.org/public/video/live_frame.jpg"
+        data-stream-page="https://pro.pwllhelisailingclub.org/live"
+        data-snapshot-refresh-ms="4000"
+        data-blocked-ms="8000"
+        data-starting-ms="120000"
+        data-idle-stop-ms="900000">
+  <div class="camera-frame" id="cameraBox">
+    <img id="cameraImage" alt="The bay from the Pwllheli Sailing Club start hut">
+    <div class="camera-overlay" id="cameraOverlay">
+      <div>
+        <div id="cameraMessage">Starting the live view…</div>
+        <button type="button" id="cameraResume" hidden>Show the camera again</button>
+      </div>
+    </div>
+  </div>
+  <figcaption class="camera-note">
+    <span id="cameraCaption">Live from the start hut.</span>
+  </figcaption>
+</figure>
+
+<script>
+(function () {
+  "use strict";
+  var root      = document.getElementById("camera");
+  var box       = document.getElementById("cameraBox");
+  var image     = document.getElementById("cameraImage");
+  var overlay   = document.getElementById("cameraOverlay");
+  var message   = document.getElementById("cameraMessage");
+  var caption   = document.getElementById("cameraCaption");
+  var resumeBtn = document.getElementById("cameraResume");
+
+  var SNAPSHOT   = root.dataset.snapshotSrc;
+  var STREAM     = root.dataset.streamPage;
+  var REFRESH_MS = parseInt(root.dataset.snapshotRefreshMs, 10) || 4000;
+  // How long to wait for the relay page to say *anything*. It posts
+  // "connecting" as it loads, so silence means the browser refused the frame.
+  var BLOCKED_MS = parseInt(root.dataset.blockedMs, 10) || 8000;
+  // Once it has spoken, the frame works and the stream is merely starting --
+  // MediaMTX has to pull the camera and cut the first segments. That takes far
+  // longer than the "did it load?" wait, so be patient.
+  var STARTING_MS = parseInt(root.dataset.startingMs, 10) || 120000;
+  var IDLE_STOP   = parseInt(root.dataset.idleStopMs, 10) || 900000;
+
+  var STREAM_ORIGIN = (function () {
+    try { return new URL(STREAM, location.href).origin; } catch (e) { return ""; }
+  })();
+
+  var iframe = null;
+  var snapTimer = null;
+  var graceTimer = null;
+  var startedAt = 0;
+  var failures = 0;
+  var ticks = 0;
+  var connecting = false;      // the relay page has spoken, so it is not blocked
+  var streaming = false;       // the video is on screen; the hut is left alone
+  var onScreen = true;
+  var stoppedForIdle = false;
+  var blocked = false;         // the relay refused this origin: stop asking
+
+  function say(text, showButton) {
+    message.textContent = text;
+    resumeBtn.hidden = !showButton;
+    overlay.hidden = false;
+  }
+
+  // ---- the stills, which only run until the stream takes over ---------------
+
+  function nextUrl() {
+    // Without a changing query string a browser will happily show one frame for
+    // as long as it likes, whatever the server said about caching.
+    return SNAPSHOT + (SNAPSHOT.indexOf("?") < 0 ? "?" : "&") + "t=" + Date.now();
+  }
+
+  function loadSnapshot() {
+    if (streaming) return;
+    var next = new Image();
+    next.onload = function () {
+      if (streaming) return;                 // handover won the race; drop it
+      failures = 0;
+      image.src = next.src;
+      image.classList.add("shown");
+      if (!connecting) overlay.hidden = true;
+    };
+    next.onerror = function () {
+      failures += 1;
+      // One miss is nothing on a domestic line. Three in a row means the camera
+      // really is down, and there is no point hammering it.
+      if (failures >= 3) {
+        image.classList.remove("shown");
+        say("The camera is not available at the moment.", false);
+      }
+    };
+    next.src = nextUrl();
+  }
+
+  function snapshotTick() {
+    if (document.hidden || !onScreen || streaming) return;
+    if (IDLE_STOP && Date.now() - startedAt > IDLE_STOP) { stop(true); return; }
+    loadSnapshot();
+  }
+
+  function startSnapshots() {
+    if (snapTimer) return;
+    loadSnapshot();
+    snapTimer = setInterval(function () {
+      // Once it has failed a few times, ask only every sixth beat: a camera off
+      // all evening should be checked occasionally, not constantly.
+      if (failures >= 3 && ticks++ % 6) return;
+      snapshotTick();
+    }, REFRESH_MS);
+  }
+
+  function stopSnapshots() {
+    if (snapTimer) { clearInterval(snapTimer); snapTimer = null; }
+  }
+
+  // ---- the stream ----------------------------------------------------------
+
+  function addStream() {
+    if (iframe || !STREAM) return;
+    iframe = document.createElement("iframe");
+    iframe.title = "Live camera";
+    iframe.allow = "autoplay; fullscreen";
+    iframe.setAttribute("referrerpolicy", "no-referrer");
+    iframe.src = STREAM;
+    box.appendChild(iframe);
+    // If it says nothing at all, the browser refused the frame: keep the stills.
+    graceTimer = setTimeout(givenUpOnStream, BLOCKED_MS);
+  }
+
+  function removeStream() {
+    if (graceTimer) { clearTimeout(graceTimer); graceTimer = null; }
+    if (iframe) { iframe.remove(); iframe = null; }
+    connecting = false;
+    streaming = false;
+  }
+
+  function showStream() {
+    if (!iframe || streaming) return;
+    streaming = true;
+    if (graceTimer) { clearTimeout(graceTimer); graceTimer = null; }
+    iframe.classList.add("shown");
+    overlay.hidden = true;
+    image.classList.remove("shown");
+    // The point of the whole arrangement: from here the hut is not asked for
+    // anything. The relay is serving this viewer, and every other one.
+    stopSnapshots();
+    caption.textContent = "Live from the start hut.";
+  }
+
+  function givenUpOnStream() {
+    graceTimer = null;
+    removeStream();
+    // Silence means the browser refused the frame, which is a misconfiguration
+    // rather than a bad afternoon: this origin is not in the relay's
+    // frame-ancestors. Falling back to refreshing stills would hide that and
+    // quietly bill the club's uplink for it, on every visitor, indefinitely.
+    // So: keep the one picture already loaded, say what happened, ask for
+    // nothing further, and do not try again until the page is reloaded.
+    blocked = true;
+    stopSnapshots();
+    overlay.hidden = true;
+    caption.textContent = "Live view unavailable here — showing the latest picture.";
+    if (window.console && console.warn) {
+      console.warn("[club camera] The live stream at " + STREAM + " would not load in a "
+        + "frame on " + location.origin + ". Add this origin to frame-ancestors in the "
+        + "relay's Caddyfile. Showing a single still instead; the hut is not being polled.");
+    }
+  }
+
+  window.addEventListener("message", function (event) {
+    var data = event.data;
+    if (!data || data.source !== "psc-live") return;
+    // Only the frame we made, from the origin we asked for. A page can be sent
+    // any message by anyone.
+    if (!iframe || event.source !== iframe.contentWindow) return;
+    if (STREAM_ORIGIN && event.origin !== STREAM_ORIGIN) return;
+
+    if (data.state === "playing") {
+      showStream();
+    } else if (data.state === "connecting" && !connecting && !streaming) {
+      // It loaded, so it is not blocked -- swap the short "did it load?" wait
+      // for the patient one, once.
+      connecting = true;
+      // The frame is allowed and the stream is starting. Now the stills earn
+      // their keep: they cover the ten or twenty seconds MediaMTX needs.
+      startSnapshots();
+      if (graceTimer) clearTimeout(graceTimer);
+      graceTimer = setTimeout(function () {
+        // Still nothing after two minutes. The frame works and shows its own
+        // "Connecting…", so it is worth revealing rather than sitting on stills
+        // for ever.
+        graceTimer = null;
+        if (!streaming) showStream();
+      }, STARTING_MS);
+      say("Starting the live view…", false);
+    }
+  });
+
+  // ---- starting, pausing, stopping ----------------------------------------
+
+  function start() {
+    // Already handed over: the scroll and visibility observers both call this,
+    // and their first callback can arrive after the stream is up. Without this
+    // the "Starting the live view…" message reappears over the running video
+    // and the stills are put back on the hut's account.
+    if (streaming || blocked) return;
+    stoppedForIdle = false;
+    startedAt = Date.now();
+    failures = 0;
+    say("Starting the live view…", false);
+    // Exactly one still, so there is something to look at straight away. The
+    // refreshing loop does NOT start here: until the relay answers we do not
+    // know whether this page is even allowed to show the stream, and a page
+    // that is not allowed must not settle into polling the hut for ever.
+    loadSnapshot();
+    addStream();
+  }
+
+  function stop(forIdle) {
+    stopSnapshots();
+    removeStream();               // lets the relay drop the stream
+    if (forIdle) {
+      stoppedForIdle = true;
+      image.classList.remove("shown");
+      say("Paused. The club's camera is not being watched.", true);
+    }
+  }
+
+  resumeBtn.addEventListener("click", function () { overlay.hidden = true; start(); });
+
+  // Not while the tab is in the background. Most tabs on a home page are.
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      if (!stoppedForIdle) stop(false);
+    } else if (!stoppedForIdle) {
+      start();
+    }
+  });
+
+  // Nor while it is scrolled past -- which is also how the relay learns nobody
+  // is watching and stops pulling the camera.
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(function (entries) {
+      onScreen = entries[0].isIntersecting;
+      if (stoppedForIdle) return;
+      if (onScreen) start(); else stop(false);
+    }, {threshold: 0.05}).observe(root);
+  }
+
+  start();
+})();
+</script>
+
+</body>
+</html>

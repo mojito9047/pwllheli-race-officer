@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Documentation · Pwllheli Race Officer{% endblock %}
+{% block page_heading %}Documentation{% endblock %}
+{% block content %}
+<section class="hero">
+  <h2>User guides</h2>
+  <p class="muted">PDF guides bundled with this install. Each opens in a new tab.</p>
+</section>
+
+<div class="card-grid doc-grid">
+  {% for item in items %}
+  <section class="card doc-card">
+    <h3>{{ item.title }}</h3>
+    <p class="muted">{{ item.description }}</p>
+    {% if item.available %}
+      <a class="button doc-open" href="{{ url_for('documentation_file', slug=item.slug) }}" target="_blank" rel="noopener">Open PDF</a>
+    {% else %}
+      <p class="small muted doc-open">Not available in this install.</p>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+
+{# Two columns: the screens that live elsewhere, and the reference documentation.
+   The markdown files used to be readable only by finding them on the PC, which is
+   no use when TROUBLESHOOTING is the one you want *while* something is wrong. #}
+<div class="doc-columns">
+<section class="card" id="common-links">
+  <h3>Common links</h3>
+  <p class="muted">The screens that usually live somewhere other than this one.</p>
+  <ul class="link-list">
+    <li>
+      <a href="{{ url_for('split_screen') }}" target="_blank" rel="noopener">Split screen</a>
+      <span class="muted small">The race-office app and the competitor page side by side, for a wide monitor in the hut.</span>
+    </li>
+    <li>
+      <a href="{{ url_for('bar_display') }}" target="_blank" rel="noopener">Clubhouse display</a>
+      <span class="muted small">The full-screen chart for the television in the bar. Open it once and leave it &mdash; it follows the current race.</span>
+    </li>
+    <li>
+      <a href="{{ url_for('competitor_current_race') }}" target="_blank" rel="noopener">Competitor page</a>
+      <span class="muted small">What competitors see: the same page on a phone, a tablet or a PC. No login needed.</span>
+    </li>
+    <li>
+      <a href="{{ url_for('marks_ping_page') }}" target="_blank" rel="noopener">Set a mark position</a>
+      <span class="muted small">Taken out in the RIB to re-measure a mark that has dragged. Needs the club's <strong>https</strong> address rather than a LAN one: a browser will not give a position to an insecure page.</span>
+    </li>
+    <li>
+      <a href="{{ url_for('trackers_page') }}">Trackers</a>
+      <span class="muted small">Which tracker is on which boat, and whether each one is reporting.</span>
+    </li>
+    <li>
+      <a href="{{ url_for('power_history_page') }}">Hut power history</a>
+      <span class="muted small">Battery, solar and consumption over time.</span>
+    </li>
+  </ul>
+</section>
+
+{# Discovered by globbing docs/ and titled from each file's own first heading, so
+   a new document appears here without anyone registering it. #}
+<section class="card" id="reference-docs">
+  <h3>Reference documentation</h3>
+  <p class="muted">The detail behind the guides, opened here rather than found on the PC.</p>
+  {% if markdown_documents %}
+  <ul class="link-list doc-reference-list">
+    {% for doc in markdown_documents %}
+    <li><a href="{{ url_for('documentation_markdown', slug=doc.slug) }}">{{ doc.title }}</a></li>
+    {% endfor %}
+  </ul>
+  <p class="small muted">{{ markdown_documents|length }} documents. Each opens on this screen with its links to the others working.</p>
+  {% else %}
+  <p class="small muted">No markdown documentation was found in this install.</p>
+  {% endif %}
+</section>
+</div>
+{% endblock %}

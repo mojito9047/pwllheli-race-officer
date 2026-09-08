@@ -1,0 +1,65 @@
+# Hut live-stream relay as a container stack (run on a Docker host on Proxmox).
+#
+#   viewer -> Cloudflare (tunnel + cache) -> cloudflared-tunnel -> caddy
+#              -> /            watch page (site/index.html)
+#              -> /hut/*       mediamtx HLS
+#   mediamtx (on demand) -> branded ffmpeg encode -> pulls camera via
+#              cloudflared-camera (Cloudflare Access TCP) -> the hut.
+#
+# One hut stream regardless of viewer count; dropped ~20s after the last viewer.
+# Fill in .env (copy from .env.example) first, then: docker compose up -d --build
+name: hut-live-relay
+
+services:
+  mediamtx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      CAMERA_URL: "rtsp://${CAM_USER}:${CAM_PASS}@cloudflared-camera:18554/Streaming/Channels/102"
+      MANIFEST_URL: "${MANIFEST_URL}"
+      CAMERA_FPS: "${CAMERA_FPS:-15}"
+    volumes:
+      - ../mediamtx.yml:/mediamtx.yml:ro
+      - ../relay_branded_source.py:/opt/relay/relay_branded_source.py:ro
+      # ODM start-line overlay (optional; edit startline_config.json to tune/disable)
+      - ../relay_startline.py:/opt/relay/relay_startline.py:ro
+      - ../odm_detector.py:/opt/relay/odm_detector.py:ro
+      - ../startline_config.json:/opt/relay/startline_config.json:ro
+    networks: [relay]
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      MEDIAMTX_UPSTREAM: "mediamtx:8888"
+      SITE_ROOT: "/srv/site"
+    volumes:
+      - ../Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../site:/srv/site:ro
+    networks: [relay]
+
+  # Publishes pro.pwllhelisailingclub.org via a dashboard-managed (token) tunnel.
+  # In the Cloudflare dashboard, set that tunnel's Public Hostname to http://caddy:80.
+  cloudflared-tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    networks: [relay]
+
+  # Bridges the hut camera RTSP (a Cloudflare Access TCP hostname) to a local port
+  # inside the network. Listens on 0.0.0.0 so mediamtx can reach it by service name.
+  cloudflared-camera:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: >
+      access tcp
+      --hostname ${CAM_HOSTNAME}
+      --url 0.0.0.0:18554
+      --service-token-id ${CAM_ACCESS_ID}
+      --service-token-secret ${CAM_ACCESS_SECRET}
+    networks: [relay]
+
+networks:
+  relay:

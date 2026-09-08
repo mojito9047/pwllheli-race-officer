@@ -1,0 +1,181 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}{{ series.name }} - Series{% endblock %}
+{% block content %}
+<section class="race-header race-summary">
+  <div class="race-summary-main">
+    <h2>{{ series.name }}</h2>
+    <p>{{ series.description or 'No series notes.' }}</p>
+    <div class="summary-grid small">
+      <span><strong>{{ races|length }}</strong> races in series</span>
+      <span>IRC scored races: <strong>{{ results.irc.race_count }}</strong></span>
+      <span>YTC scored races: <strong>{{ results.ytc.race_count }}</strong></span>
+    </div>
+  </div>
+  <div class="actions">
+    <a class="button" href="{{ url_for('new_race', series_id=series.id) }}">Add race to series</a>
+    {# One row per boat per race, races numbered in series order: what Sailwave's
+       importer reads. It works out its own totals and discards from those. #}
+    <a class="button secondary" href="{{ url_for('series_results_csv', series_id=series.id, rating='irc') }}">Sailwave CSV (IRC)</a>
+    <a class="button secondary" href="{{ url_for('series_results_csv', series_id=series.id, rating='ytc') }}">Sailwave CSV (YTC)</a>
+    <a class="button secondary" href="{{ url_for('series_publish_html', series_id=series.id) }}" target="_blank">Preview HTML</a>
+    <a class="button secondary" href="{{ url_for('series_publish_html', series_id=series.id, download=1) }}">Download HTML</a>
+    {# Preview and Download hand you a file. This one puts it on the web, which
+       is the step that used to need somebody with an FTP client on Monday. #}
+    {% if publish_ready %}
+    <form method="post" action="{{ url_for('series_publish', series_id=series.id) }}" class="inline"
+          onsubmit="return confirm('Publish the results as they stand now to the club website?')">
+      <button type="submit">Publish to website</button>
+    </form>
+    {% endif %}
+    {% if published %}
+    <button type="button" class="button secondary" data-help="publishedDialog">Published&hellip;</button>
+    {% endif %}
+  </div>
+</section>
+
+{% if publish_ready or published %}
+<dialog id="publishedDialog" class="help-dialog published-dialog">
+  <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+  <h4>Published results for {{ series.name }}</h4>
+  {% if published %}
+  <p class="small muted">The <strong>latest</strong> link always shows the most recent publish, so
+    it is the one to put on the club website &mdash; paste it once and it keeps up for the season.
+    The dated links never change, so each is a record of what went out that evening.</p>
+  <p class="publish-latest">
+    <label class="small muted" for="publishStableUrl">Link for the club website</label>
+    <span class="copy-row">
+      <input id="publishStableUrl" class="copy-field" readonly value="{{ published[0].stable_url }}">
+      <button type="button" class="small secondary" data-copy="#publishStableUrl">Copy</button>
+      <a class="small" href="{{ published[0].stable_url }}" target="_blank" rel="noopener">Open</a>
+    </span>
+  </p>
+  <table class="compact">
+    <thead><tr><th>Published</th><th>By</th><th>Size</th><th></th></tr></thead>
+    <tbody>
+      {% for p in published %}
+      <tr>
+        <td>{{ dt_full_display(p.published_at) or p.published_at }}</td>
+        <td>{{ p.published_by or '' }}</td>
+        <td>{{ '%.0f'|format((p.size_bytes or 0) / 1024) }} KB</td>
+        <td><a href="{{ p.url }}" target="_blank" rel="noopener">Open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Nothing has been published for this series yet. <strong>Publish to website</strong> puts the
+    results as they stand on the club's public bucket and gives you a link to paste.</p>
+  {% endif %}
+</dialog>
+{% endif %}
+
+<section class="card">
+  <details>
+    <summary>Edit series details</summary>
+    {% with form_action=url_for('series_detail', series_id=series.id), submit_label='Save series' %}
+      {% include "partials/series_form.html" %}
+    {% endwith %}
+    {# Deleting lives at the bottom of the editor rather than in the header row,
+       which is otherwise all exports: a destructive button among five harmless
+       ones is one mis-click away from a season. #}
+    <div class="section-head">
+      <div>
+        <h4>Delete this series</h4>
+        {% if delete_block %}
+          <p class="small muted">{{ delete_block }}</p>
+        {% else %}
+          <p class="small muted">Nothing is in it, so it can go. This cannot be undone.</p>
+        {% endif %}
+      </div>
+      <div class="actions">
+        {% if not delete_block %}
+        <form method="post" action="{{ url_for('series_delete', series_id=series.id) }}" class="inline"
+              onsubmit="return confirm('Delete series {{ series.name }}?')">
+          <button class="small danger" type="submit">Delete series</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </details>
+</section>
+
+<section class="card">
+  <div class="section-head">
+    <h3>Races in this series</h3>
+    <a class="button small secondary" href="{{ url_for('new_race', series_id=series.id) }}">New race in this series</a>
+  </div>
+  {% if races %}
+  <table>
+    <thead><tr><th>First warning</th><th>Race</th><th>Course</th><th></th></tr></thead>
+    <tbody>
+      {% for r in races %}
+      <tr>
+        <td>{{ dt_full_display(r.start_time) or 'Not set' }}</td>
+        <td>{{ r.name }}</td>
+        <td>{% if r.custom_course_json %}Made up{% elif not r.course_set %}<em class="muted">not set</em>{% else %}{{ r.course_no }}{% endif %}</td>
+        <td><a href="{{ url_for('race_detail', race_id=r.id) }}">Open race</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No races have been added to this series yet.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3>Series results
+    <button type="button" class="help-link" data-help="seriesScoringHelp" aria-label="How the series is scored">?</button>
+  </h3>
+  <dialog id="seriesScoringHelp" class="help-dialog">
+    <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+    <h4>How the series is scored</h4>
+    <p>Low-point scoring, using this series' discard profile. A race counts if it had entries in
+      the relevant IRC or YTC class, <strong>even if nobody in that class finished</strong>.</p>
+    <p>Series ties are broken under <strong>RRS Appendix A8</strong>; ties within a single race use
+      <strong>Appendix A7</strong> equal-points scoring.</p>
+    <p>The series is flagged as <em>constituted</em> once it has reached the configured minimum
+      number of included races. Overall tables appear where classes under the same rating rule
+      share one start.</p>
+  </dialog>
+  <div class="results-grid">
+    {% for key, group in [('irc', results.irc), ('ytc', results.ytc)] %}
+      {% for table in group.tables %}
+      <div class="result-card">
+        <h4>{{ table.title }}</h4>
+        <p class="muted small">Scored races: {{ table.race_count }} · Discards: {{ table.discard_count }} · Profile {{ table.discard_profile }} · Minimum to constitute: {{ table.min_races_to_constitute }} · {% if table.constituted %}Series constituted{% else %}Not yet constituted{% endif %}</p>
+        {% if table.rows %}
+        <table class="compact series-table">
+          <thead>
+            <tr>
+              <th>Rank</th><th>Boat</th><th>Sail</th><th>Total</th>
+              {% for r in table.races %}<th>{{ loop.index }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in table.rows %}
+            <tr>
+              <td class="big">{{ row.rank }}{% if row.tied %}<span class="small muted"> tie</span>{% endif %}</td>
+              <td>{{ row.competitor.boat_name }}</td>
+              <td>{{ row.competitor.sail_no or '' }}</td>
+              <td><strong>{{ '%g'|format(row.total) }}</strong></td>
+              {% for score in row.scores %}
+                <td class="{% if score.discard %}discard-score{% endif %}">
+                  {% if score.rank %}{{ score.rank }}{% else %}{{ score.code }}{% endif %}
+                  <span class="small muted">{{ '%g'|format(score.points) }}{% if score.non_excludable %} NE{% endif %}</span>
+                </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="muted">No scored {{ table.rating_label }} races yet for this class.</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

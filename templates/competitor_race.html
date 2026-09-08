@@ -1,0 +1,796 @@
+<!doctype html>
+<!-- Copyright © 2026 CapeNet Ltd. All Rights Reserved. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if race %}{{ race.name }} - Race information{% else %}Race information{% endif %}</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
+  {% include 'partials/theme_links.html' %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <script src="{{ url_for('static', filename='countdown.js') }}?v={{ app_version }}"></script>
+</head>
+<body class="public-page competitor-race-page{% if mobile_view %} public-mobile{% endif %}">
+<header>
+  <a class="public-club-brand" href="{{ public_urls.current if public_urls is defined else url_for('competitor_current_race') }}" aria-label="Pwllheli Sailing Club competitor home">
+    <img src="{{ url_for('static', filename='img/psc_public_header.png') }}" alt="Clwb Hwylio Pwllheli Sailing Club">
+  </a>
+  <nav>
+    {# One responsive page now serves phones, tablets and PCs, so there is no
+       desktop/mobile toggle to offer. #}
+    <a href="{{ public_urls.current if public_urls is defined else url_for('competitor_current_race') }}">Competitor home</a>
+  </nav>
+</header>
+<main>
+{% if not race %}
+  <section class="card">
+    <div class="empty-state">
+      <span class="empty-state-icon">{% include 'icons/flag.svg' %}</span>
+      <h3>No current race</h3>
+      <p>No race has been created yet.</p>
+    </div>
+  </section>
+{% else %}
+{# See race.html: a race carries a fallback course number before anybody chooses
+   one, and `course_set` is what tells the two apart. The header already said
+   "not set yet" while the board below it drew the fallback's marks. #}
+{% set course_shown = course_set or is_custom_course %}
+<section class="race-header race-summary public-summary">
+  <div class="race-summary-main">
+    <h2>{{ race.name }}{% if not pinned_race %}
+      <button type="button" class="help-link" data-help="followHelp" aria-label="Why this page changes race by itself">?</button>{% endif %}</h2>
+    {% if not pinned_race %}
+    {# Three lines of explanation across a 390px phone pushed the race name, the
+       course board, the flags and the clock down the screen. It is read once and
+       then in the way, which is what the "?" is for everywhere else. #}
+    <dialog id="followHelp" class="help-dialog">
+      <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+      <h4>This page follows the racing</h4>
+      <p>It shows whichever race is current, so when the race officer finishes the fleet and
+        starts the next race this page moves on to it by itself. There is nothing to press and no
+        need to go back to the home page.</p>
+      <p>If you would rather stay where you are &mdash; to look back over a race that has
+        finished, say &mdash; <a href="{{ public_urls.desktop }}">open this race on its own page</a>.
+        That one stays put, and is the link to share with somebody.</p>
+    </dialog>
+    {% endif %}
+    <p><strong>First warning:</strong> {{ dt_full_display(first_warning_time) or 'Not set' }} · <strong>First start:</strong> {{ dt_full_display(first_start_time) or 'Not set' }} · {% if is_pursuit %}<strong>Finish signal:</strong> {{ dt_full_display(pursuit_finish_time) or 'Not set' }} · {% endif %}<strong>Course:</strong> {% if is_custom_course %}Made up course{% elif not course_set %}<em>not set yet</em>{% else %}{{ race.course_no }}{% endif %} · <strong>Series:</strong> {{ current_series.name if current_series else '—' }}</p>
+    {% if course_shortened %}
+    <p style="margin:0.4rem 0;padding:0.4rem 0.7rem;background:#fff3cd;border:1px solid #ffe69c;border-radius:6px;color:#664d03;"><strong>Shortened course</strong> — round mark {{ shorten_mark }}, then proceed directly to the finish.</p>
+    {% endif %}
+    {% if pinned_race and not is_current_race %}
+    <p class="small muted">This is one particular race, and it is not the one being sailed now.
+      <a href="{{ url_for('competitor_current_race_sheet') }}">Go to the current race</a>.</p>
+    {% endif %}
+    {% if course_shown %}
+    <p class="sequence">
+      {% for m in (course.board_marks or course.marks) %}<span class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</span>{% endfor %}
+      {% if course_shortened %}<span class="mark" style="background:#664d03;color:#fff;">→ Finish</span>{% endif %}
+    </p>
+    {% else %}
+    <p class="small muted">The race officer has not set the course yet.</p>
+    {% endif %}
+    <div class="summary-grid small">
+      <span><strong>{{ entries|length }}</strong> entries</span>
+      <span><strong>{{ finished_count }}</strong> finished</span>
+      <span><strong>{{ racing_count }}</strong> racing</span>
+      <span>Predicted: <strong id="publicPredictedTime">{% if course_shown %}{{ course_analysis.predicted_display }}{% else %}&mdash;{% endif %}</strong></span>
+    </div>
+  </div>
+  <div class="flag-status-panel race-header-flags" data-start="{{ first_start_time }}" data-race-finished="{{ 1 if race_finished else 0 }}" data-course-shortened="{{ 1 if course_shortened else 0 }}" data-postponed="{{ postponed_flag or '' }}" data-postponement-ends-at="{{ postponement_ends_at or '' }}">
+    <div class="flag-row" aria-label="Current race signals"></div>
+  </div>
+  <div class="countdown" data-start="{{ first_start_time }}" data-race-finished="{{ 1 if race_finished else 0 }}" data-postponed="{{ postponed_flag or '' }}" data-postponement-ends-at="{{ postponement_ends_at or '' }}">
+    <span class="label">Race status</span>
+    <span class="time" id="publicCountdownTime">--:--</span>
+    <span class="state" id="publicCountdownState">Waiting</span>
+  </div>
+</section>
+
+{# Tabs keep the page short — especially on a phone. The race header, flags and
+   countdown stay above them and are always visible. The Leader board tab only
+   exists once the race has finished, and is then the tab shown first. #}
+<section class="race-tabs card public-tabs" data-default-tab="{{ 'ptab-results' if race_finished else 'ptab-entries' }}">
+  <nav class="tab-nav" aria-label="Race information tabs">
+    {% if race_finished %}<button type="button" class="tab-button active" data-tab="ptab-results">Leader board</button>{% endif %}
+    <button type="button" class="tab-button{% if not race_finished %} active{% endif %}" data-tab="ptab-entries">{% if is_pursuit %}Start times{% else %}Entries{% endif %}</button>
+    <button type="button" class="tab-button" data-tab="ptab-chart">Chart</button>
+    <button type="button" class="tab-button" data-tab="ptab-analysis">Course analysis</button>
+  </nav>
+
+  {% if race_finished %}
+  {# Results live in their own tab so the entries, chart and course analysis
+     stay available after the race. Named "Leader board" because a live
+     handicap-corrected order during the race will belong here too. #}
+  <div class="tab-pane active" id="ptab-results">
+    <div id="publicResultsPanel">
+    {% if is_pursuit %}
+  <h3>Results (finishing order)</h3>
+  {% if pursuit_ranked %}
+  <table class="entry-list stack-table">
+    <thead><tr><th>Position</th><th>Boat</th><th>Sail no.</th><th>Status</th><th>Start video</th></tr></thead>
+    <tbody>
+      {% for e in pursuit_ranked %}
+      <tr>
+        <td data-label="Position">{{ e.pursuit_position }}</td>
+        <td data-label="Boat">{{ e.boat_name }}</td>
+        <td data-label="Sail no.">{{ e.sail_no or '—' }}</td>
+        <td data-label="Status">{{ entry_display_status(e, race) }}</td>
+        <td data-label="Start video">
+          {% set clip = pursuit_start_video_by_entry.get(e.id) if pursuit_start_video_by_entry else none %}
+          {% if clip and public_video_clip_is_viewable(clip) %}
+            <a href="{{ public_video_clip_href(clip) }}" target="_blank" rel="noopener">View</a>
+          {% elif clip %}
+            <span class="muted small">{{ public_video_clip_link_text(clip) }}</span>
+          {% else %}
+            <span class="muted small">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">Finishing positions not published yet.</p>{% endif %}
+    {% else %}
+  <h3>Results</h3>
+  {% if dual_results %}
+    <p class="muted">All entered boats are no longer racing. Provisional results are shown below.</p>
+    <p class="small"><strong>Start video:</strong>
+      {% if start_video_clip and public_video_clip_is_viewable(start_video_clip) %}
+        <a href="{{ public_video_clip_href(start_video_clip) }}" target="_blank" rel="noopener">View start video</a>
+      {% elif start_video_clip %}
+        {{ public_video_clip_link_text(start_video_clip) }}{% if start_video_clip.public_message %} — {{ start_video_clip.public_message }}{% elif start_video_clip.message %} — {{ start_video_clip.message }}{% endif %}
+      {% else %}
+        No start video scheduled.
+      {% endif %}
+    </p>
+    <div class="results-grid">
+      {% for key, group in [('irc', dual_results.irc), ('ytc', dual_results.ytc)] %}
+        {% for table in group.tables %}
+        <div class="result-card">
+          <h4>{{ table.title }}</h4>
+          <p class="small muted">{{ table.formula }}{% if table.start_note %} · {{ table.start_note }}{% endif %}</p>
+          {% if table.rows %}
+          <table class="stack-table">
+            <thead><tr><th>Rank</th><th>Boat</th><th>Sail</th><th>Start</th><th>{{ table.rating_label }}</th><th>Status</th><th>Elapsed</th><th>Corrected</th><th>Finish video</th></tr></thead>
+            <tbody>
+            {% for row in table.rows %}
+              {% set e = row.entry %}
+              {% set b = row.boat %}
+              <tr>
+                <td data-label="Rank">{{ row.rank or '—' }}</td>
+                <td data-label="Boat">{{ b.boat_name if b else e.boat_name }}</td>
+                <td data-label="Sail">{{ b.sail_no if b else (e.sail_no or '') }}</td>
+                <td data-label="Start">{{ row.start_label }}<br><span class="small muted">{{ dt_display(row.start_time) }}</span></td>
+                <td data-label="{{ table.rating_label }}">{% if key == 'irc' %}{{ '%.3f'|format(row.rating) }}{% else %}{% if row.rating >= 10 %}{{ '%.0f'|format(row.rating) }}{% else %}{{ '%.4f'|format(row.rating) }}{% endif %}{% endif %}</td>
+                <td data-label="Status">{{ entry_display_status(e, race) }}</td>
+                <td data-label="Elapsed">{{ row.elapsed_text or '—' }}</td>
+                <td data-label="Corrected">{{ row.corrected_text or '—' }}</td>
+                <td data-label="Finish video">
+                  {% set clip = finish_video_by_entry.get(e.id) if finish_video_by_entry else none %}
+                  {% if clip and public_video_clip_is_viewable(clip) %}
+                    <a href="{{ public_video_clip_href(clip) }}" target="_blank" rel="noopener">View</a>
+                  {% elif clip %}
+                    <span class="muted small">{{ public_video_clip_link_text(clip) }}</span>
+                  {% else %}
+                    <span class="muted small">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+            <p>No boats are in this {{ table.rating_label }} class yet.</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+        {% if group.excluded %}
+        <div class="result-card">
+          <h4>{{ group.title }} — excluded / unclassed</h4>
+          <ul class="excluded-list">
+            {% for item in group.excluded %}
+              {% if item.entry is defined %}
+                {% set e = item.entry %}
+                <li>{{ e.boat_name }}{% if e.sail_no %} — {{ e.sail_no }}{% endif %}: {{ item.reason }}</li>
+              {% else %}
+                <li>{{ item.boat_name }}{% if item.sail_no %} — {{ item.sail_no }}{% endif %}: Missing {{ group.rating_label }}</li>
+              {% endif %}
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">No results are available yet.</p>
+  {% endif %}
+    {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% set show_tracking = gps_tracking_enabled and not race_finished %}
+  <div class="tab-pane{% if not race_finished %} active{% endif %}" id="ptab-entries">
+  {% if is_pursuit %}
+    <div id="publicPursuitPanel">
+    <h3>Start times</h3>
+    <p class="muted">This is a pursuit race: slower boats start first, then the others, so on handicap they would finish together. {% if pursuit_timing_ready %}The next boat to start is highlighted.{% else %}Start times below are offsets from the first boat until the race officer sets the start time.{% endif %}</p>
+    {% if pursuit_start_rows %}
+    <table class="entry-list stack-table" id="publicPursuitLadder">
+      <thead><tr><th>#</th><th>Boat</th><th>Sail no.</th><th>{{ pursuit_rating_type }}</th><th>Start time</th><th>In</th></tr></thead>
+      <tbody>
+        {% for row in pursuit_start_rows %}
+        {% set e = row.entry %}
+        <tr {% if row.start_iso %}data-start="{{ row.start_iso }}"{% endif %}>
+          <td data-label="#">{{ loop.index }}</td>
+          <td data-label="Boat">{{ e.boat_name }}</td>
+          <td data-label="Sail no.">{{ e.sail_no or '—' }}</td>
+          <td data-label="{{ pursuit_rating_type }}">{% if pursuit_rating_type == 'IRC' %}{{ '%.3f'|format(e.manual_irc_rating) if e.manual_irc_rating is not none else '—' }}{% else %}{{ '%.0f'|format(e.manual_ytc_rating) if e.manual_ytc_rating is not none else '—' }}{% endif %}</td>
+          <td data-label="Start time">{% if row.start_iso %}{{ dt_full_display(row.start_iso) }}{% elif row.offset_text %}<span class="muted">{{ row.offset_text }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td class="pursuit-countdown" data-label="In">—</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="muted">Start times not published yet.</p>{% endif %}
+    {% if pursuit_finish_time %}<p class="small"><strong>Finish signal:</strong> {{ dt_full_display(pursuit_finish_time) }}</p>{% endif %}
+    </div>
+  {% else %}
+    <div id="publicEntriesPanel">
+    <h3>Entries</h3>
+    {% if entries %}
+    <table class="entry-list stack-table" id="publicEntriesTable">
+      <thead>
+        <tr><th>Boat</th><th>Sail no.</th><th>Class</th><th>IRC</th><th>YTC</th><th>Status</th>{% if show_tracking %}<th>Marks</th><th>Next</th><th>To go</th><th>SOG</th><th>Fix</th>{% endif %}</tr>
+      </thead>
+      <tbody>
+        {% for e in entries %}
+        <tr data-entry-id="{{ e.id }}">
+          <td data-label="Boat">{{ e.boat_name }}</td>
+          <td data-label="Sail no.">{{ e.sail_no or '—' }}</td>
+          <td data-label="Class">{% if entry_class_labels %}{{ entry_class_labels.get(e.id) or '—' }}{% else %}{{ e.class_name or '—' }}{% endif %}</td>
+          <td data-label="IRC">{{ '%.3f'|format(e.manual_irc_rating) if e.manual_irc_rating is not none else '—' }}</td>
+          <td data-label="YTC">{{ '%.3f'|format(e.manual_ytc_rating) if e.manual_ytc_rating is not none else '—' }}</td>
+          <td data-label="Status">{{ entry_display_status(e, race) }}</td>
+          {% if show_tracking %}
+          <td class="trk-marks" data-label="Marks">—</td><td class="trk-next" data-label="Next">—</td><td class="trk-togo" data-label="To go">—</td><td class="trk-sog" data-label="SOG">—</td><td class="trk-fix" data-label="Fix">—</td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if show_tracking %}
+    <p class="small muted">Boat positions come from GPS trackers and are shown on the course chart below. Progress is the order <strong>on the water</strong>, not corrected for handicap.</p>
+    {% endif %}
+    {% else %}
+    <p class="muted">No entries yet.</p>
+    {% endif %}
+    </div>
+  {% endif %}
+  </div>
+
+  {# One chart tab, not two. With tracking on it carries the fleet and a timeline:
+     it opens at the latest positions (live) and winds back through the race. With
+     tracking off it is the plain course chart it has always been. #}
+  <div class="tab-pane" id="ptab-chart">
+  {% if gps_tracking_enabled %}
+    <div data-replay data-track-url="{{ public_urls.track }}"
+         data-race-finished="{{ 1 if race_finished else 0 }}">
+      <div class="section-head">
+        <h3>Chart</h3>
+        <span class="replay-status small"></span>
+      </div>
+      <button type="button" class="replay-exit" hidden aria-label="Leave full screen">✕</button>
+      <div class="replay-map course-map-wrap">
+        {% with gauge_id='chartWindGauge', gauge_class='chart-wind-gauge', gauge_manual=1 %}
+          {% include 'partials/wind_gauge.html' %}
+        {% endwith %}
+        <p class="chart-wind-caption small" hidden>Wind at the hut</p>
+        <div class="course-map" data-base-tile-url="{{ course_chart.course_chart_tile_url }}" data-overlay-tile-url="{{ course_chart.course_chart_overlay_url }}" data-all-marks='{{ marks_data|tojson }}' data-course-marks='{{ (course.marks if course_shown else [])|tojson }}' data-wind-direction="{{ analysis_twd if analysis_twd is not none else '' }}" data-start-finish-mark="{{ course_chart.start_finish_mark }}" data-bridge-lat="{{ course_chart.bridge_window_lat }}" data-bridge-lon="{{ course_chart.bridge_window_lon }}" data-line-seaward-lat="{{ course_chart.line_seaward_lat }}" data-line-seaward-lon="{{ course_chart.line_seaward_lon }}" data-line-shore-lat="{{ course_chart.line_shore_lat }}" data-line-shore-lon="{{ course_chart.line_shore_lon }}" data-line-seaward-label="{{ course_chart.line_seaward_label }}" data-line-shore-label="{{ course_chart.line_shore_label }}" data-shortened="{{ 1 if course_shortened else 0 }}"></div>
+        <p class="small muted course-map-message"></p>
+      </div>
+      <div class="replay-controls">
+        <button type="button" class="replay-play button small" disabled aria-pressed="false">▶ Play</button>
+        <button type="button" class="replay-speed button secondary small" title="Playback speed">4×</button>
+        <input type="range" class="replay-slider" min="0" max="1" value="0" step="1" disabled
+               aria-label="Position in the race">
+        <span class="replay-clock">--:--:--</span>
+        <span class="replay-elapsed small muted">0:00</span>
+        <button type="button" class="replay-live button secondary small"
+                title="Jump to the latest positions">Live</button>
+        <button type="button" class="replay-full button secondary small"
+                aria-pressed="false" title="Fill the screen with the chart">⛶ Full screen</button>
+      </div>
+      {# Starts rolled away in the markup, not just once the script runs, so the
+         board never flashes open on first paint. #}
+      <div class="replay-sheet" data-rolled="1">
+        <button type="button" class="replay-sheet-tab" aria-expanded="false">
+          <span class="replay-sheet-caret">▾</span> Leaderboard
+        </button>
+        <div class="replay-sheet-body">
+      <div class="replay-board-picker">
+        <label>Leaderboard
+          <select class="replay-board-mode">
+            <option value="line" selected>Line honours</option>
+            <option value="irc">IRC corrected</option>
+            <option value="ytc">YTC corrected</option>
+          </select>
+        </label>
+        <label class="replay-class-wrap" hidden>Class
+          <select class="replay-board-class"><option value="">Overall</option></select>
+        </label>
+        <label class="replay-method-wrap" hidden>Estimate by
+          <select class="replay-board-method">
+            <option value="start" selected>Average pace since the start</option>
+            <option value="recent">Recent pace (last 20 min)</option>
+            <option value="pace">Polar pace factor</option>
+          </select>
+        </label>
+      </div>
+      <p class="small muted replay-board-at"></p>
+      <table class="replay-board stack-table">
+        <thead>
+          <tr><th>#</th><th>Boat</th><th>Marks</th><th>Next</th><th>To go</th><th>SOG</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p class="small muted replay-board-note">Order <strong>on the water</strong> at the moment shown — not corrected for handicap.</p>
+        </div>
+      </div>
+    </div>
+      <p class="small muted replay-footnote">Boats are drawn between their reported positions, so the line between two fixes is interpolated, not observed.
+        Click a boat to highlight its track. While the race is on this keeps up with the latest positions;
+        wind it back to see where the boats have been.</p>
+  {% else %}
+    <h3>Course chart</h3>
+    {% if wind_record %}<p class="small muted">Wind shown is the average over the race ({{ '%.0f°T'|format(wind_record.twd) if wind_record.twd is not none else '—' }}), not the wind now.</p>{% endif %}
+      <div class="course-map-wrap">
+        <div class="course-map" data-base-tile-url="{{ course_chart.course_chart_tile_url }}" data-overlay-tile-url="{{ course_chart.course_chart_overlay_url }}" data-all-marks='{{ marks_data|tojson }}' data-course-marks='{{ (course.marks if course_shown else [])|tojson }}' data-wind-direction="{{ analysis_twd if analysis_twd is not none else '' }}" data-start-finish-mark="{{ course_chart.start_finish_mark }}" data-bridge-lat="{{ course_chart.bridge_window_lat }}" data-bridge-lon="{{ course_chart.bridge_window_lon }}" data-line-seaward-lat="{{ course_chart.line_seaward_lat }}" data-line-seaward-lon="{{ course_chart.line_seaward_lon }}" data-line-shore-lat="{{ course_chart.line_shore_lat }}" data-line-shore-lon="{{ course_chart.line_shore_lon }}" data-line-seaward-label="{{ course_chart.line_seaward_label }}" data-line-shore-label="{{ course_chart.line_shore_label }}" data-shortened="{{ 1 if course_shortened else 0 }}"></div>
+        <p class="small muted course-map-message"></p>
+      </div>
+  {% endif %}
+  </div>
+
+  <div class="tab-pane" id="ptab-analysis">
+    <div id="publicCourseAnalysisPanel">
+    <div class="section-head">
+      <div>
+        <h3>Course analysis</h3>
+        {% if wind_record %}
+        <p class="muted">A record of the conditions: the average wind measured at the start hut between the warning signal and the last boat finishing.</p>
+        {% else %}
+        <p class="muted">Wind information is measured at the start hut and may differ from the wind on the race course.</p>
+        {% endif %}
+      </div>
+      <form method="get" class="form-row">
+        <label>Polar
+          <select name="polar_file" id="publicPolarFile" onchange="this.form.submit()">
+            {% for p in polar_files %}
+              <option value="{{ p }}" {% if p == selected_polar %}selected{% endif %}>{{ p.rsplit('.', 1)[0] }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </form>
+    </div>
+    <div class="weather-controls">
+    {% if wind_record %}
+      <span class="wind-chip" id="publicLatestTwd">Average TWD {{ '%.0f°T'|format(wind_record.twd) if wind_record.twd is not none else '—' }}</span>
+      <span class="wind-chip" id="publicLatestTws">Average TWS {{ '%.1f kt'|format(wind_record.tws) if wind_record.tws is not none else '—' }}{% if wind_record.tws_min is not none and wind_record.tws_max is not none %} <span class="small">({{ '%.0f'|format(wind_record.tws_min) }}–{{ '%.0f'|format(wind_record.tws_max) }})</span>{% endif %}</span>
+      <span class="wind-chip" id="publicLatestGust">Peak gust {{ '%.1f kt'|format(wind_record.gust) if wind_record.gust is not none else '—' }}</span>
+      <span class="muted small" id="publicWindStatus">Averaged over the race, from the warning signal to the last finish.</span>
+    {% else %}
+      <span class="wind-chip" id="publicLatestTwd">TWD at hut {{ '%.0f°T'|format(latest_wind.twd) if latest_wind and latest_wind.twd is not none else '—' }}</span>
+      <span class="wind-chip" id="publicLatestTws">TWS at hut {{ '%.1f kt'|format(latest_wind.tws) if latest_wind and latest_wind.tws is not none else '—' }}</span>
+      <span class="wind-chip" id="publicLatestGust">Gust at hut {{ '%.1f kt'|format(latest_wind.gust) if latest_wind and latest_wind.gust is not none else '—' }}</span>
+      <span class="muted small" id="publicWindStatus">{{ weather_status.message }}</span>
+    {% endif %}
+    </div>
+    {% if not course_shown %}
+    <p class="small muted">The race officer has not set the course yet, so there is nothing to
+      analyse. This fills in as soon as the course is chosen.</p>
+    {% else %}
+    <div class="analysis-summary small muted">
+      Predicted time: <strong id="publicAnalysisPredicted">{{ course_analysis.predicted_display }}</strong> ·
+      First leg: <strong id="publicFirstLeg">{{ course_analysis.first_leg_display }}</strong> ·
+      Shape: <strong id="publicShape">{{ course_analysis.upwind_legs }} upwind · {{ course_analysis.reach_legs }} reach · {{ course_analysis.downwind_legs }} downwind</strong> ·
+      Sail changes: <strong id="publicSailChanges">{{ course_analysis.sail_changes }}</strong>
+    </div>
+    <table class="stack-table" id="publicLegAnalysisTable" data-custom="{{ 1 if is_custom_course else 0 }}" data-marks='{{ course.marks|tojson }}' data-api="{% if is_custom_course %}{{ url_for('api_custom_leg_analysis') }}{% else %}{{ url_for('api_course_leg_analysis', course_no=course.course_no) }}{% endif %}">
+      <thead><tr><th>Leg</th><th>Distance</th><th>Bearing</th><th>TWA</th><th>Side</th><th>Sail</th><th>Target</th><th>Time</th><th>Point</th></tr></thead>
+      <tbody>
+        {% for leg in legs %}
+        <tr>
+          <td data-label="Leg">{{ leg.from }} → {{ leg.to }}</td>
+          <td data-label="Distance">{{ '%.2f'|format(leg.distance_nm) if leg.distance_nm is not none else '—' }} nm</td>
+          <td data-label="Bearing">{{ '%.0f'|format(leg.bearing_deg) if leg.bearing_deg is not none else '—' }}°T</td>
+          <td data-label="TWA">{{ '%.0f'|format(leg.twa) if leg.twa is not none else '—' }}°</td>
+          <td data-label="Side">{{ leg.side }}</td>
+          <td data-label="Sail"><strong>{{ leg.sail }}</strong></td>
+          <td data-label="Target">{{ format_target(leg.target) }}</td>
+          <td data-label="Time">{{ format_minutes(leg.leg_minutes) }}</td>
+          <td data-label="Point">{{ leg.point_of_sail }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+    </div>
+  </div>
+</section>
+{% if is_pursuit %}
+<script>
+(function () {
+  function tick() {
+    const now = Date.now();
+    const rows = Array.from(document.querySelectorAll('#publicPursuitLadder tr[data-start]'));
+    rows.forEach(tr => {
+      const t = new Date(tr.dataset.start).getTime();
+      const cell = tr.querySelector('.pursuit-countdown');
+      const diff = Math.round((t - now) / 1000);
+      tr.classList.remove('next-start');
+      if (diff <= 0) { cell.textContent = 'started'; }
+      else { cell.textContent = roCountdownBody(diff); }
+    });
+    const next = rows.filter(tr => new Date(tr.dataset.start).getTime() > now)
+      .sort((a, b) => new Date(a.dataset.start) - new Date(b.dataset.start))[0];
+    if (next) next.classList.add('next-start');
+  }
+  tick(); setInterval(tick, 1000);
+})();
+</script>
+{% endif %}
+
+{% endif %}
+</main>
+{% if race %}
+<script src="{{ url_for('static', filename='signal_flags.js') }}?v={{ app_version }}"></script>
+<script>
+(function () {
+  const startBox = document.querySelector('.countdown');
+  const signalSchedule = {{ signal_panel_schedule|tojson }};
+  // Which flags are up, and their markup, are shared with the clubhouse display
+  // (static/signal_flags.js). The image paths are built here because they need url_for.
+  const flagSrcs = {
+    numeralBase: "{{ url_for('static', filename='img/class_flags/numeral_0.png') }}".replace('numeral_0.png', 'numeral_'),
+    prep: "{{ url_for('static', filename='img/class_flags/p.png') }}",
+    codeS: "{{ url_for('static', filename='img/class_flags/s.png') }}"
+  };
+  function updatePublicFlagPanel() {
+    const now = new Date();
+    document.querySelectorAll('.flag-status-panel').forEach(panel => {
+      const row = panel.querySelector('.flag-row');
+      const label = panel.querySelector('.raceFlagStage');
+      if (!row) return;
+      const finished = panel.dataset.raceFinished === '1';
+      const shortened = panel.dataset.courseShortened === '1' && !finished;
+      const postponed = finished ? '' : SignalFlags.postponedNow(
+        panel.dataset.postponed, panel.dataset.postponementEndsAt, now);
+      let flags = [];
+      if (postponed) {
+        // AP replaces the sequence rather than joining it: while it is up no warning,
+        // preparatory or starting signal is made, so no class flag and no P is flying.
+        flags = SignalFlags.postponementFlags(postponed);
+      } else if (!finished) {
+        if (signalSchedule.length) flags = SignalFlags.liveFlags(signalSchedule, now);
+        if (shortened) flags.push({kind: 'code-s', label: 'Code flag S (shortened course)'});
+      }
+      panel.classList.toggle('postponed', !!postponed);
+      row.innerHTML = SignalFlags.markup(flags, flagSrcs);
+      panel.classList.toggle('no-flags-up', flags.length === 0);
+      if (label) {
+        label.textContent = SignalFlags.summary(flags, {
+          raceFinished: finished, shortened: shortened, postponed: postponed,
+          hasSchedule: signalSchedule.length > 0});
+      }
+    });
+  }
+  function updateCountdown() {
+    if (!startBox) return;
+    const timeEl = document.getElementById('publicCountdownTime');
+    const stateEl = document.getElementById('publicCountdownState');
+    if (startBox.dataset.raceFinished === '1') {
+      if (timeEl) timeEl.textContent = 'Finished';
+      if (stateEl) stateEl.textContent = 'Race finished';
+      updatePublicFlagPanel(null, -1);
+      return;
+    }
+    // A postponed race keeps its old start time until AP comes down. Counting
+    // down to it would tell the fleet a gun is coming that is not.
+    const nowPostponed = SignalFlags.postponedNow(
+      startBox.dataset.postponed, startBox.dataset.postponementEndsAt);
+    if (nowPostponed) {
+      if (timeEl) timeEl.textContent = '--:--';
+      if (stateEl) stateEl.textContent = SignalFlags.postponedLabel(nowPostponed);
+      updatePublicFlagPanel(null, 999999);
+      return;
+    }
+    const start = new Date(startBox.dataset.start || '');
+    if (Number.isNaN(start.getTime())) {
+      if (timeEl) timeEl.textContent = '--:--';
+      if (stateEl) stateEl.textContent = 'Start not set';
+      updatePublicFlagPanel(null, 999999);
+      return;
+    }
+    const diff = Math.round((start - new Date()) / 1000);
+    const abs = Math.abs(diff);
+    if (timeEl) timeEl.textContent = (diff < 0 ? '+' : '-') + roCountdownBody(abs);
+    if (stateEl) stateEl.textContent = diff > 0 ? 'Counting down' : 'Race started';
+    updatePublicFlagPanel(start, diff);
+  }
+  updateCountdown();
+  setInterval(updateCountdown, 1000);
+})();
+
+// The same one-line delegated handler base.html gives every race-office page.
+// This page is standalone -- it builds its own <head> -- so it needs its own.
+document.addEventListener('click', (ev) => {
+  const trigger = ev.target.closest('[data-help]');
+  if (!trigger) return;
+  const dlg = document.getElementById(trigger.getAttribute('data-help'));
+  if (!dlg) return;
+  ev.preventDefault();
+  if (typeof dlg.showModal === 'function') dlg.showModal();
+  else dlg.setAttribute('open', '');
+});
+
+(function () {
+  const initialSignature = {{ public_state_signature|tojson }};
+  const stateUrl = {{ public_urls.state|tojson }};
+  const renderedRaceId = {{ race.id }};
+  // Where the viewer was, carried across a reload this page asked for. Keyed by
+  // race so it cannot be applied to a different one, and cleared as it is read.
+  const SCROLL_KEY = 'roScroll:{{ race.id }}';
+  let lastSignature = initialSignature;
+  let reloading = false;
+  // Reloading throws away where somebody had scrubbed the replay to, so it is held
+  // back while they are studying a moment in the past — but *only* then.
+  //
+  // This used to hold the reload for as long as the Chart tab was open at all, on the
+  // reasoning that a replay is a record of a race that has already happened and so
+  // cannot go stale. That is wrong for a race still being sailed, and the chart is
+  // exactly where somebody watches one: a start time set, a course changed or a
+  // shortened course called never reached the viewers most likely to care, and the
+  // page sat on "Start not set" until they reloaded it themselves.
+  //
+  // At the live edge a reload costs nothing, so take it.
+  function replayInUse() {
+    const pane = document.getElementById('ptab-chart');
+    if (!pane || !pane.classList.contains('active')) return false;
+    const viewer = pane.querySelector('[data-at-live]');
+    // Nothing reporting means the replay has no track loaded — which is exactly the
+    // case of a race whose start has not been set yet, the one this all started with.
+    // There is no scrub position to lose, so there is nothing to protect: let it go.
+    if (!viewer) return false;
+    return viewer.dataset.atLive !== '1';
+  }
+  async function checkRaceState() {
+    if (reloading || replayInUse()) return;
+    try {
+      const url = new URL(stateUrl, window.location.href);
+      const polar = document.getElementById('publicPolarFile');
+      if (polar && polar.value) url.searchParams.set('polar_file', polar.value);
+      const res = await fetch(url, {headers: {'Accept':'application/json'}, cache: 'no-store'});
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.ok) return;
+      if (data.signature && data.signature !== lastSignature) {
+        reloading = true;
+        const next = new URL(window.location.href);
+        if (polar && polar.value) next.searchParams.set('polar_file', polar.value);
+        next.searchParams.set('_', String(Date.now()));
+        // The URL carries the open tab as a #fragment, and a browser honours a
+        // fragment before any of this page's script runs -- so every reload
+        // landed at the tabs, wherever the viewer actually was. Scrolled up to
+        // watch the countdown when the race officer changes the course, you were
+        // thrown down to the chart and never saw the course board or the clock
+        // change: the reload was carrying you away from the very thing it was
+        // delivering. So the tab moves to a query parameter on EVERY state
+        // reload, and there is no anchor left to jump to.
+        const tab = (next.hash || '').slice(1);
+        next.hash = '';
+        if (tab) next.searchParams.set('tab', tab);
+        // Then land somewhere deliberate. A different race: the top, because the
+        // news is the header -- name, course board, flags, clock. The same race:
+        // exactly where the viewer was, which is not the same as "at the tabs"
+        // and was never what the old behaviour did.
+        try {
+          if (data.race_id && data.race_id !== renderedRaceId) {
+            sessionStorage.removeItem(SCROLL_KEY);
+          } else {
+            sessionStorage.setItem(SCROLL_KEY, String(Math.round(window.scrollY)));
+          }
+        } catch (err) {
+          // Private browsing, or storage turned off. The page still reloads and
+          // still shows the right race; it just starts at the top.
+        }
+        window.location.replace(next.toString());
+      }
+    } catch (err) {
+      // Keep the public page usable if the race-office laptop briefly drops offline.
+    }
+  }
+  setInterval(checkRaceState, 2000);
+  setTimeout(checkRaceState, 500);
+})();
+
+{% if not race_finished %}
+// While the race is on, the analysis follows the live hut wind. Once it has
+// finished the page shows the race's average wind instead, which never changes,
+// so there is nothing to poll for.
+(function () {
+  const table = document.getElementById('publicLegAnalysisTable');
+  if (!table) return;
+  const polarSelect = document.getElementById('publicPolarFile');
+  function fmt(v, digits=0) { return (v === null || v === undefined || Number.isNaN(Number(v))) ? '—' : Number(v).toFixed(digits); }
+  async function refresh() {
+    const polar = polarSelect ? polarSelect.value : {{ selected_polar|tojson }};
+    let data;
+    if (table.dataset.custom === '1') {
+      const res = await fetch(table.dataset.api, {method: 'POST', headers: {'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify({use_live:true, polar_file:polar, marks: JSON.parse(table.dataset.marks || '[]')})});
+      data = await res.json();
+    } else {
+      const url = new URL(table.dataset.api, window.location.href);
+      url.searchParams.set('use_live', '1');
+      url.searchParams.set('polar_file', polar);
+      const res = await fetch(url, {headers:{'Accept':'application/json'}});
+      data = await res.json();
+    }
+    if (!data.ok) return;
+    const tbody = table.querySelector('tbody');
+    tbody.innerHTML = '';
+    for (const leg of data.legs || []) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td data-label="Leg">${leg.from} → ${leg.to}</td><td data-label="Distance">${fmt(leg.distance_nm,2)} nm</td><td data-label="Bearing">${fmt(leg.bearing_deg,0)}°T</td><td data-label="TWA">${fmt(leg.twa,0)}°</td><td data-label="Side">${leg.side || '—'}</td><td data-label="Sail"><strong>${leg.sail || '—'}</strong></td><td data-label="Target">${leg.target_display || '—'}</td><td data-label="Time">${leg.leg_time_display || '—'}</td><td data-label="Point">${leg.point_of_sail || '—'}</td>`;
+      tbody.appendChild(tr);
+    }
+    const w = (data.wind && data.wind.latest) || null;
+    if (w) {
+      const twd = w.twd !== null && w.twd !== undefined ? `${Number(w.twd).toFixed(0)}°T` : '—';
+      const tws = w.tws !== null && w.tws !== undefined ? `${Number(w.tws).toFixed(1)} kt` : '—';
+      const gust = w.gust !== null && w.gust !== undefined ? `${Number(w.gust).toFixed(1)} kt` : '—';
+      document.getElementById('publicLatestTwd').textContent = 'TWD at hut ' + twd;
+      document.getElementById('publicLatestTws').textContent = 'TWS at hut ' + tws;
+      document.getElementById('publicLatestGust').textContent = 'Gust at hut ' + gust;
+      if (window.RaceCourseMap && w.twd !== null && w.twd !== undefined) {
+        window.RaceCourseMap.updateAllWind(document, Number(w.twd));
+      }
+    }
+    document.getElementById('publicAnalysisPredicted').textContent = data.predicted_display || '—';
+    document.getElementById('publicPredictedTime').textContent = data.predicted_display || '—';
+    document.getElementById('publicFirstLeg').textContent = data.first_leg_display || '—';
+    document.getElementById('publicShape').textContent = `${data.upwind_legs || 0} upwind · ${data.reach_legs || 0} reach · ${data.downwind_legs || 0} downwind`;
+    document.getElementById('publicSailChanges').textContent = data.sail_changes ?? '—';
+  }
+  refresh();
+  setInterval(refresh, 5000);
+})();
+{% endif %}
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="{{ url_for('static', filename='course_map.js') }}"></script>
+{% if gps_tracking_enabled %}<script src="{{ url_for('static', filename='wind_gauge.js') }}?v={{ app_version }}" defer></script>
+<script src="{{ url_for('static', filename='race_replay.js') }}?v={{ app_version }}" defer></script>{% endif %}
+{% endif %}
+{% if gps_tracking_enabled and not race_finished %}
+<script>
+// Live boat positions on the public race page: the course chart shows each
+// tracked boat, and the Entries table gains its progress on the water.
+(function () {
+  const url = {{ public_urls.positions|tojson }};
+  const table = document.getElementById('publicEntriesTable');
+  function fmtAge(s) {
+    if (s === null || s === undefined) return '—';
+    s = Math.round(s);
+    if (s < 90) return s + 's ago';
+    return Math.round(s / 60) + 'm ago';
+  }
+  async function refreshBoats() {
+    try {
+      const res = await fetch(url, {headers: {'Accept': 'application/json'}, cache: 'no-store'});
+      if (!res.ok) return;
+      const data = await res.json();
+      // Deliberately does NOT draw boats. The chart tab owns its own map and
+      // keeps itself up to date from the track feed; a second writer here is what
+      // made the fleet jump in v0.199. This poll is only for the Entries table.
+      if (!table) return;
+      (data.leaderboard || []).forEach(function (b) {
+        const row = table.querySelector('tr[data-entry-id="' + b.entry_id + '"]');
+        if (!row) return;
+        const set = (cls, val) => { const c = row.querySelector('.' + cls); if (c) c.textContent = val; };
+        // Three states, not two. "No tracker" means the app knows of no
+        // tracker for this boat. A boat that HAS one but has not reported
+        // recently used to fall through to the live branch and show "0/7
+        // marks, next 1" beside an empty Fix -- which reads as live data and
+        // is really "we have no idea where this boat is". It says so now.
+        //
+        // Which of the two it is turns on the tracker the boat has *now*, not
+        // on whether the server could find a track to look for: a boat that
+        // once carried a tracker and does not any more has not gone quiet.
+        if (!b.lat && b.lat !== 0) {
+          set('trk-marks', '—'); set('trk-next', '—'); set('trk-togo', '—');
+          set('trk-sog', '—');
+          set('trk-fix', b.tracker_assigned ? 'Not reporting' : 'No tracker');
+          return;
+        }
+        set('trk-marks', b.finished ? 'Finished'
+          : (b.total ? (b.rounded + '/' + b.total) : '—'));
+        set('trk-next', b.finished ? '—' : (b.next_mark || '—'));
+        set('trk-togo', (b.finished || b.dist_remaining_nm === null || b.dist_remaining_nm === undefined)
+          ? '—' : Number(b.dist_remaining_nm).toFixed(2) + ' nm');
+        set('trk-sog', (b.sog === null || b.sog === undefined) ? '—' : Number(b.sog).toFixed(1) + ' kn');
+        set('trk-fix', fmtAge(b.age));
+      });
+    } catch (err) { /* keep the last render on a transient error */ }
+  }
+  refreshBoats();
+  setInterval(refreshBoats, 5000);
+})();
+</script>
+{% endif %}
+{% if race %}
+<script>
+// Public race-page tabs. The chart holds a Leaflet map, which renders at zero
+// size while its tab is hidden, so the first time that tab is shown we resize
+// and re-render it (boat markers live on their own layer and survive).
+(function () {
+  const buttons = Array.from(document.querySelectorAll('.public-tabs .tab-button'));
+  const panes = Array.from(document.querySelectorAll('.public-tabs .tab-pane'));
+  if (!buttons.length) return;
+  const mapsReady = {};
+  function fixChart(tabId) {
+    if (mapsReady[tabId]) return;
+    document.querySelectorAll('#' + tabId + ' .course-map').forEach(function (el) {
+      if (el._courseMap && el._courseMap.map) {
+        el._courseMap.map.invalidateSize();
+        if (window.RaceCourseMap) window.RaceCourseMap.render(el);
+      }
+    });
+    mapsReady[tabId] = true;
+  }
+  // rememberInUrl is false on first load: writing the fragment then makes the
+  // browser jump past the race header to the tabs, which is disorienting.
+  const tabsRoot = document.querySelector('.public-tabs');
+  const defaultTab = (tabsRoot && tabsRoot.dataset.defaultTab) || 'ptab-entries';
+  function show(tabId, rememberInUrl) {
+    if (tabId === 'ptab-replay') tabId = 'ptab-chart';   // the two tabs merged
+    if (!document.getElementById(tabId)) tabId = defaultTab;
+    buttons.forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+    panes.forEach(p => p.classList.toggle('active', p.id === tabId));
+    if (rememberInUrl && location.hash !== '#' + tabId) history.replaceState(null, '', '#' + tabId);
+    // Both map tabs render at zero size while hidden; resize on first show.
+    if (tabId === 'ptab-chart') setTimeout(() => fixChart(tabId), 50);
+  }
+  buttons.forEach(b => b.addEventListener('click', () => show(b.dataset.tab, true)));
+  // ?tab= is how a reload onto a different race keeps the open tab without an
+  // anchor for the browser to scroll to; the hash is how it is remembered and
+  // shared otherwise. The hash wins where both are present, because a
+  // race-change reload strips it -- so the parameter only decides when it is the
+  // newer of the two. Getting that the wrong way round would send somebody who
+  // had since changed tab back to the one they were on two races ago. It is then
+  // dropped, so a URL copied off the address bar has one answer in it, not two.
+  const queryTab = new URLSearchParams(location.search).get('tab');
+  show(location.hash ? location.hash.slice(1) : (queryTab || defaultTab), false);
+  if (queryTab) {
+    const clean = new URL(location.href);
+    clean.searchParams.delete('tab');
+    history.replaceState(null, '', clean.toString());   // replaceState never scrolls
+    // Put the viewer back where they were. Only ever set by a reload this page
+    // asked for, and only for the same race -- a race change clears it, so a new
+    // race starts at the top with its own header in view. Read once.
+    try {
+      const y = sessionStorage.getItem('roScroll:{{ race.id }}');
+      sessionStorage.removeItem('roScroll:{{ race.id }}');
+      if (y !== null) window.scrollTo(0, parseInt(y, 10) || 0);
+    } catch (err) {
+      // No storage: the page opens at the top, which is a fine place to be.
+    }
+  }
+})();
+</script>
+{% endif %}
+<footer class="public-footer">Pwllheli Race Officer v{{ app_version }} · Provisional information for competitors. Race officer decisions and published results remain authoritative. · {% if public_live_stream_url %}<a href="{{ public_live_stream_url }}" target="_blank" rel="noopener">Watch live</a> · {% endif %}<a href="/documentation/competitor-guide" target="_blank" rel="noopener">Competitor's guide (PDF)</a> · <a href="{{ source_url }}" target="_blank" rel="noopener">Source on GitHub</a> · Copyright © 2026 CapeNet Ltd. All Rights Reserved.</footer>
+</body>
+</html>

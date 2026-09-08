@@ -1,0 +1,156 @@
+<!doctype html>
+<!-- Copyright © 2026 CapeNet Ltd. All Rights Reserved. -->
+{# The clubhouse TV. Opened once on a display in the bar and left alone, so it
+   follows the current race by default and needs nobody to touch it between
+   races. Everything is an overlay on one full-screen chart: race information
+   across the top, the order down the right, and the start-hut camera over the
+   chart for the two moments worth watching — the start, and each boat coming in
+   to finish. Read from across a room, so type is large and there are no controls
+   at all. #}
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if race %}{{ race.name }} — clubhouse display{% else %}Clubhouse display{% endif %}</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
+  {% include 'partials/theme_links.html' %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+</head>
+<body class="bar-page">
+{% if not race %}
+  <div class="bar-empty">
+    <img src="{{ url_for('static', filename='img/psc_public_header.png') }}" alt="Clwb Hwylio Pwllheli Sailing Club">
+    <h1>No race running</h1>
+    <p>This display will pick up the next race on its own.</p>
+  </div>
+{% else %}
+<div class="bar-stage" data-bar
+     data-race-id="{{ race.id }}"
+     data-pinned="{{ 1 if pinned_race else 0 }}"
+     data-track-url="{{ public_urls.track }}"
+     data-state-url="{{ url_for('bar_display_state', race_id=race.id) }}"
+     {# What this page was rendered from: the course, the start time the clock counts
+        from, and the schedule the flags come from. The state poll compares it, so
+        shortening the course, setting the start, changing the course or re-measuring a
+        mark all reach the television without anyone going to find a keyboard. #}
+     {% if replay_plan %}data-replay='{{ replay_plan|tojson }}'
+       {% endif %}data-render-signature="{{ public_render_signature }}"
+     data-start="{{ first_start_time }}">
+
+  {# The chart fills the screen; everything else sits on top of it. #}
+  <div class="bar-map course-map-wrap">
+    <div class="course-map"
+         data-base-tile-url="{{ course_chart.course_chart_tile_url }}"
+         data-overlay-tile-url="{{ course_chart.course_chart_overlay_url }}"
+         data-all-marks='{{ marks_data|tojson }}'
+         data-course-marks='{{ course.marks|tojson }}'
+         data-wind-direction="{{ analysis_twd if analysis_twd is not none else '' }}"
+         data-start-finish-mark="{{ course_chart.start_finish_mark }}"
+         data-bridge-lat="{{ course_chart.bridge_window_lat }}"
+         data-bridge-lon="{{ course_chart.bridge_window_lon }}"
+        data-line-seaward-lat="{{ course_chart.line_seaward_lat }}" data-line-seaward-lon="{{ course_chart.line_seaward_lon }}" data-line-shore-lat="{{ course_chart.line_shore_lat }}" data-line-shore-lon="{{ course_chart.line_shore_lon }}" data-line-seaward-label="{{ course_chart.line_seaward_label }}" data-line-shore-label="{{ course_chart.line_shore_label }}"
+         data-shortened="{{ 1 if course_shortened else 0 }}"></div>
+  </div>
+
+  {# The wind, over the top-left of the chart. The bar had no wind reading at all,
+     and it is the first thing anyone watching a race asks about.
+
+     A sibling of .bar-map rather than a child of .course-map, because that div is
+     Leaflet's container and it rewrites its own children.
+
+     Deliberately *above* the camera panel (z-index above .bar-video), so the wind
+     is still readable when the camera takes over the chart for a start or a
+     finish — the moments the room most wants it. #}
+  <div class="bar-wind"{% if replay_plan %} hidden{% endif %}>
+    {# Replaying, the gauge is driven by the replay clock from the readings that
+       came down with the track: the live poll would put this afternoon's wind
+       over a race sailed on Sunday, and it would sit there not moving. #}
+    {% with gauge_id='barWindGauge', gauge_class='bar-wind-gauge',
+            gauge_manual=(replay_plan is not none) %}
+      {% include 'partials/wind_gauge.html' %}
+    {% endwith %}
+    <p class="bar-wind-note">Wind at the start hut</p>
+  </div>
+
+  <header class="bar-top">
+    <img class="bar-crest" src="{{ url_for('static', filename='img/psc_public_header.png') }}" alt="">
+    <div class="bar-race">
+      <h1>{{ race.name }}</h1>
+      <p>
+        <span>Start <strong>{{ dt_full_display(first_start_time) or 'not set' }}</strong></span>
+        <span>Course <strong>{% if is_custom_course %}Made up{% else %}{{ race.course_no }}{% endif %}</strong></span>
+        <span class="bar-sequence">{% for m in (course.board_marks or course.marks) %}<em class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</em>{% endfor %}{% if course_shortened %}<em class="mark bar-shorten">→ Finish</em>{% endif %}</span>
+      </p>
+    </div>
+    {# Beside the countdown, because that is where the room is already looking during a
+       start sequence. Laid out right-to-left (see .bar-flags): the first flag hoisted
+       sits nearest the clock and later ones are added to its left, the way they go up
+       the mast. Rendered by static/bar_display.js from the shared rule in
+       static/signal_flags.js, which is also what the competitor page uses. #}
+    <div class="bar-flags" aria-label="Signal flags hoisted"
+         data-schedule='{{ signal_panel_schedule|tojson }}'
+         data-shortened="{{ 1 if course_shortened else 0 }}"
+         data-postponed="{{ postponed_flag or '' }}"
+         data-postponement-ends-at="{{ postponement_ends_at or '' }}"
+         data-race-finished="{{ 1 if race_finished else 0 }}"
+         data-numeral-base="{{ url_for('static', filename='img/class_flags/numeral_0.png') }}"
+         data-prep-src="{{ url_for('static', filename='img/class_flags/p.png') }}"
+         data-code-s-src="{{ url_for('static', filename='img/class_flags/s.png') }}"></div>
+    <div class="bar-clock">
+      <span class="bar-clock-time">--:--</span>
+      <span class="bar-clock-state">Waiting</span>
+    </div>
+  </header>
+
+  {# The board cycles through every leaderboard the fleet is rated for — nobody
+     is going to walk up to the television and change it. The heading and the
+     last column are rewritten per board by static/bar_display.js. #}
+  <aside class="bar-board">
+    <div class="bar-board-head">
+      <h2>Order on the water</h2>
+      <span class="bar-board-dots"></span>
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>Boat</th><th>Marks</th><th>SOG</th><th>To go</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="bar-board-note"></p>
+  </aside>
+
+  {# Over the chart at the start and at each finish. The same snapshot-then-stream
+     panel the competitor pages use (static/live_camera.js), started and stopped
+     by the bar script so the relay only serves it when it is on screen. #}
+  <section class="bar-video" hidden>
+    <div class="live-video-frame-wrap live-camera" id="barCameraWrap"
+         data-snapshot-src="{{ public_live_image.src }}"
+         data-snapshot-refresh-ms="{{ public_live_image.refresh_ms }}"
+         {% if public_live_stream_url %}data-stream-page="{{ public_live_stream_url }}"{% endif %}
+         data-snapshot-note=""
+         data-starting-note=""
+         data-stream-note="">
+      <img id="barCameraFrame" class="live-video-frame live-camera-snapshot" data-provider="{{ public_live_image.provider }}" alt="Start hut camera">
+      <p class="live-camera-note small muted"></p>
+    </div>
+    {# Replay only: the recorded clips play here instead of the live camera.
+       Muted because the recorder captures no audio at all (-an), and a bar
+       television that unexpectedly makes a noise is a television somebody
+       turns down and leaves down. #}
+    <video class="bar-replay-video" id="barReplayVideo" muted playsinline hidden></video>
+    <p class="bar-video-caption"></p>
+  </section>
+
+  <p class="bar-status"></p>
+</div>
+{% endif %}
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="{{ url_for('static', filename='course_map.js') }}?v={{ app_version }}"></script>
+{# Drives .wind-gauge and polls /api/weather/current itself every 5 seconds, so
+   the dial keeps up without the bar script doing anything. #}
+<script src="{{ url_for('static', filename='wind_gauge.js') }}?v={{ app_version }}"></script>
+<script src="{{ url_for('static', filename='live_camera.js') }}?v={{ app_version }}"></script>
+<script src="{{ url_for('static', filename='signal_flags.js') }}?v={{ app_version }}"></script>
+<script src="{{ url_for('static', filename='bar_display.js') }}?v={{ app_version }}"></script>
+</body>
+</html>

@@ -1,0 +1,3077 @@
+/* Copyright © 2026 CapeNet Ltd. All Rights Reserved. */
+/*
+ * UniFi-inspired management-console styling.  Keep shared primitives here
+ * (cards, tables, forms, tabs, race header, flags) so templates remain mostly
+ * semantic HTML and can be adjusted without changing route code.
+ */
+:root {
+  --bg: #f4f6f9;
+  --bg-soft: #f8fafc;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --text: #1f2937;
+  --muted: #687386;
+  --line: #e4e9f2;
+  --line-strong: #d4dce9;
+  --port: #dc3545;
+  --starboard: #22a35a;
+  --blue: #1c5aa8;
+  --blue-soft: #e9f0fb;
+  --navy-900: #0a2138;
+  --navy-800: #0f314e;
+  --navy-700: #164267;
+  --gold: #d99a2b;
+  --gold-dark: #a8710f;
+  --gold-soft: #fbf1de;
+  --nav-bg: #fbfcfe;
+  --nav-width: 236px;
+  --topbar-height: 64px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 8px 26px rgba(28, 39, 62, 0.08);
+  --radius: 14px;
+}
+* { box-sizing: border-box; }
+html { min-height: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(28,90,168,0.07), transparent 30rem),
+    linear-gradient(180deg, #fbfcff 0%, var(--bg) 100%);
+  color: var(--text);
+  font-size: 14px;
+}
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.app-layout { min-height: 100vh; display: grid; grid-template-columns: var(--nav-width) minmax(0, 1fr); }
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  background: rgba(255,255,255,0.92);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  z-index: 40;
+  backdrop-filter: blur(12px);
+}
+.brand {
+  height: var(--topbar-height);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, var(--blue), #7aa5ff);
+  font-weight: 900;
+  box-shadow: 0 8px 18px rgba(47,109,246,0.25);
+}
+.brand-title { font-weight: 850; letter-spacing: -0.02em; line-height: 1.15; }
+.brand-title small { display: block; color: var(--muted); font-weight: 650; font-size: 11px; margin-top: 2px; }
+.side-nav { display: flex; flex-direction: column; gap: 4px; padding: 14px 10px; }
+.side-nav a {
+  color: #4b5565;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 11px;
+  padding: 10px 12px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.side-nav-bottom { margin-top: auto; padding-top: 0; padding-bottom: 8px; }
+.sidebar-footer {
+  margin-top: 0;
+  border-top: 1px solid var(--line);
+  padding: 12px 14px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.app-main { min-width: 0; display: flex; min-height: 100vh; flex-direction: column; }
+.topbar {
+  height: var(--topbar-height);
+  background: rgba(255,255,255,0.88);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  backdrop-filter: blur(12px);
+}
+.topbar h1 { font-size: 18px; margin: 0; letter-spacing: -0.02em; color: #1f2937; }
+.topbar-actions { display: flex; align-items: center; gap: 10px; color: var(--muted); font-weight: 650; }
+.topbar-actions .button { box-shadow: none; }
+main { width: 100%; max-width: 1540px; margin: 0 auto; padding: 22px 24px 34px; flex: 1; }
+footer {
+  padding: 14px 24px 20px;
+  color: var(--muted);
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+h1, h2, h3, h4 { color: #1f2937; letter-spacing: -0.02em; }
+h2 { margin-top: 0; }
+.hero, .card, .race-header {
+  background: rgba(255,255,255,0.96);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-sm);
+}
+.hero { box-shadow: var(--shadow-md); }
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.actions, .section-head { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.button, button {
+  border: 1px solid transparent;
+  background: var(--blue);
+  color: white;
+  border-radius: 10px;
+  padding: 9px 13px;
+  text-decoration: none;
+  cursor: pointer;
+  font-weight: 800;
+  box-shadow: 0 2px 6px rgba(28,90,168,0.22);
+  transition: transform 0.08s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+.button:hover, button:hover { text-decoration: none; transform: translateY(-1px); box-shadow: 0 5px 14px rgba(28,90,168,0.2); }
+button.secondary, .button.secondary { background: #f5f7fb; color: #344054; border-color: var(--line-strong); box-shadow: none; }
+button.danger, .button.danger { background: #d92d20; color: white; }
+button.small, .button.small { padding: 6px 9px; font-size: 13px; border-radius: 8px; }
+/* A button that is really a link: no chrome, just the text. The class was in use
+   on the Trackers page before any rule existed for it, so those buttons rendered
+   at full weight — three heavy blue buttons in one table cell, for what should
+   read as a word you can click. */
+button.link, .button.link {
+  background: none; border: none; box-shadow: none; padding: 0;
+  color: var(--brand, #1c5aa8); font: inherit; font-weight: 600;
+  text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+  width: auto; min-height: 0;
+}
+button.link:hover, .button.link:hover {
+  background: none; text-decoration: none; transform: none; box-shadow: none;
+}
+
+/* Dialogs had no rule of any kind, so they sized to their widest child — which
+   with a full-width table inside is the whole viewport. */
+dialog {
+  max-width: min(30rem, calc(100vw - 2rem));
+  border: 1px solid var(--line-strong); border-radius: 12px;
+  padding: 18px; box-shadow: 0 12px 32px rgba(15,23,42,0.22);
+}
+dialog.dialog-wide { max-width: min(46rem, calc(100vw - 2rem)); }
+dialog::backdrop { background: rgba(15,23,42,0.45); }
+.dialog-close-row { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+
+/* A "?" beside a heading instead of four lines of prose beneath it. The
+   explanations on the race page are read once, by a race officer new to the
+   app; after that they are only distance between the officer and the control
+   they came for. The text is still on the page -- just folded away. */
+.help-link {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; padding: 0; margin-left: 8px;
+  border: 1px solid var(--line-strong); border-radius: 50%;
+  background: none; color: var(--muted);
+  font: 700 12px/1 inherit; cursor: pointer; vertical-align: middle;
+}
+.help-link:hover {
+  background: var(--line); color: var(--text);
+  box-shadow: none; transform: none;
+}
+dialog.help-dialog { max-width: min(34rem, calc(100vw - 2rem)); }
+.help-dialog h4 { margin: 0 0 8px; font-size: 15px; }
+.help-dialog h4 + h4 { margin-top: 14px; }
+.help-dialog p { margin: 0 0 10px; font-size: 14px; line-height: 1.5; }
+.help-dialog p + h4 { margin-top: 14px; }
+.help-dialog p:last-child { margin-bottom: 0; }
+
+/* Buttons under the heading rather than opposite it. A .section-head puts
+   them at the far right of a 1100px row, which is where nobody looks. */
+.head-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+
+/* Label/value pairs, without the heavy dark header cells a table gives them. */
+/* The SIM dialogs. Both are a stack of small tables and short notes, and they
+   were laid out as tightly as the tracker table they came from -- which is a
+   full page wide, where these are a dialog. `padding: 4px 0` in particular gave
+   the columns NO horizontal gap at all: in the narrower per-SIM dialog the row
+   label ran straight into its number ("This billing period6.60$0.20").
+   Every cell is padded, the outer ones included. Zeroing those was a first
+   attempt at keeping the rules running the full width of the table -- which
+   they do anyway, since a cell's border-bottom spans its whole box and padding
+   does not shorten it. All it actually did was press the first column against
+   the table's own 1px border. */
+/* A published link, sized to be read and copied rather than to fit. */
+.published-dialog { max-width: min(46rem, calc(100vw - 2rem)); }
+.copy-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.copy-field {
+  flex: 1 1 22rem;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+}
+.publish-latest { margin: 0 0 16px; }
+
+.sim-detail {
+  display: grid; grid-template-columns: auto 1fr; gap: 7px 18px;
+  margin: 0 0 16px; font-size: 13px;
+}
+.sim-detail dt { color: #667085; white-space: nowrap; }
+.sim-detail dd { margin: 0; }
+.sim-usage { width: 100%; font-size: 13px; border-collapse: collapse; margin-bottom: 14px; }
+.sim-usage th, .sim-usage td { padding: 7px 14px; text-align: right; white-space: nowrap; }
+.sim-usage th:first-child, .sim-usage td:first-child { text-align: left; }
+.sim-usage thead th { color: #667085; font-weight: 600; border-bottom: 1px solid var(--line); }
+.sim-usage tfoot td { border-top: 1px solid var(--line); }
+.sim-usage tfoot tr:last-child td { font-weight: 800; }
+
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+th, td { text-align: left; padding: 10px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+th { background: var(--navy-800); color: #eaf1fb; font-weight: 850; font-size: 12px; text-transform: uppercase; letter-spacing: 0.035em; border-bottom-color: rgba(255,255,255,0.14); }
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: #fbfdff; }
+input, select, textarea {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  font: inherit;
+  background: white;
+  color: var(--text);
+  box-shadow: inset 0 1px 1px rgba(15,23,42,0.02);
+}
+input:focus, select:focus, textarea:focus { outline: 3px solid rgba(28,90,168,0.18); border-color: var(--blue); }
+/* align-content: start matters more than it looks. A label is itself a grid, and
+   as a grid *item* of .two-col/.three-col it is stretched to the tallest cell in
+   the row. Its own rows are auto-sized, so the leftover height was shared out
+   between them and the input slid down the cell: put one field with a paragraph of
+   help text beside two without, and the row reads as three labels along the top
+   with their boxes stranded at the bottom. That is what the GPS tracking section
+   looked like in v0.258, and it was reported as simply messy.
+
+   Measured, as the offset from the top of a label to its own control over the
+   label's height: v0.258 put track_retention_days and track_rounding_radius_m at
+   0.47, the worst on the page, against 0.39 for a label whose row is even. This
+   line alone brings them back to 0.39 — the markup was tidied in the same change,
+   but this is what fixes the alignment, and it fixes it everywhere rather than in
+   the one section somebody noticed. */
+label { font-weight: 750; color: #4b5565; display: grid; gap: 6px; min-width: 150px; align-content: start; }
+.form-row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+.stacked { display: grid; gap: 14px; max-width: 760px; }
+.sequence { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+.sequence.large { font-size: 18px; }
+.mark { color: white; font-weight: 900; border-radius: 7px; padding: 4px 7px; display: inline-block; min-width: 34px; text-align: center; box-shadow: var(--shadow-sm); }
+.mark.p { background: var(--port); }
+.mark.s { background: var(--starboard); }
+/* A waypoint bends a leg and is not rounded, so it is neither the port red nor the
+   starboard green: a grey chip, matching the grey leg the chart draws into it. */
+.mark.via { background: #6b7280; }
+.big { font-weight: 850; font-size: 18px; }
+.race-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; }
+.countdown {
+  background: linear-gradient(145deg, #172033, #0f172a);
+  color: white;
+  border-radius: 16px;
+  padding: 14px 18px;
+  min-width: 220px;
+  text-align: center;
+  display: grid;
+  gap: 4px;
+  box-shadow: 0 9px 22px rgba(15,23,42,0.18);
+}
+.countdown .label { color: #d0d5dd; font-size: 13px; }
+.countdown .time { font-size: 38px; font-weight: 950; letter-spacing: 1px; }
+.countdown .state { font-weight: 800; color: #f2c94c; }
+.messages { margin-bottom: 18px; display: grid; gap: 8px; }
+.message { padding: 10px 12px; border-radius: 10px; background: #ecfdf3; color: #05603a; border: 1px solid #abefc6; }
+.message.error { background: #fef3f2; color: #912018; border-color: #fecdca; }
+.actions-cell { white-space: nowrap; }
+.inline { display: inline; }
+details { margin-top: 12px; }
+summary { cursor: pointer; color: var(--blue); font-weight: 800; }
+@media (max-width: 1020px) {
+  /* minmax(0, 1fr), not 1fr. `1fr` means `minmax(auto, 1fr)`, and that `auto`
+     floor is the content's MIN-CONTENT width -- so one wide table stretched the
+     single grid track to 1043px on a 375px phone and dragged the entire page
+     sideways with it, header, tabs and all. Measured on the race sheet: 585px
+     of horizontal scroll before this, none after. */
+  .app-layout { grid-template-columns: minmax(0, 1fr); }
+  .app-main, .app-main > main { min-width: 0; }
+  /* A table too wide for a phone scrolls inside its own box rather than taking
+     the page with it. .stack-table is exempt: below 760px it stops being a
+     table at all and becomes one card per boat. */
+  table:not(.stack-table) { display: block; overflow-x: auto; max-width: 100%; }
+  /* A bare URL is a single unbreakable word, and the IRC/YTC source links on
+     the boat form are long enough to push a phone sideways on their own.
+
+     break-word rather than anywhere: both break the URL when it will not fit,
+     but `anywhere` also breaks ordinary words mid-word wherever a box is tight,
+     and the marks list came out reading "waypoin t" in its narrow code column.
+     (That column is narrow in its own right -- v0.274 wraps the same note over
+     six lines -- but it wrapped between words, which is the difference.) */
+  a, code, .small { overflow-wrap: break-word; }
+  .sidebar { position: relative; height: auto; }
+  .brand { height: auto; padding: 14px 16px; }
+  .side-nav { flex-direction: row; overflow-x: auto; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .side-nav a { white-space: nowrap; }
+  .sidebar-footer { display: none; }
+  .topbar { position: relative; height: auto; padding: 14px 16px; }
+  main { padding: 14px; }
+}
+@media (max-width: 900px) { table { font-size: 13px; } th, td { padding: 7px; } }
+
+.checkbox { display: block; margin: 0.6rem 0; font-weight: 600; }
+.muted { color: #667; }
+.controls-grid { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr); gap: 1.5rem; }
+.large-countdown .time { font-size: 3rem; }
+table.compact th, table.compact td { padding: 0.35rem 0.5rem; }
+pre { background: #f5f7fb; border: 1px solid #d9e0ee; padding: 1rem; border-radius: 8px; overflow-x: auto; }
+button.danger, .button.danger { background: #b3261e; color: white; }
+@media (max-width: 800px) { .controls-grid { grid-template-columns: 1fr; } }
+.small { font-size: 0.86rem; }
+.detail-row td { background: #fbfcfe; border-top: 0; padding-top: 0; }
+.nested { margin-top: 0.75rem; font-size: 0.92rem; }
+.nested th { background: #f3f6fa; color: #4b5565; }
+.two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.three-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.wide-form { max-width: 1100px; }
+.small-top { margin-top: 12px; }
+
+/* The GPS finish controls sit on one line — two tick boxes and Apply — with any
+   proposals in a table beneath them. Centred rather than the .form-row default of
+   bottom-aligned, which is for labelled inputs of differing height. */
+/* One strip, not a card. Arming GPS finishes is two tick boxes and a button, and
+   starting a bar replay is one button; as full cards with their own headings and
+   a paragraph underneath, each took three stacked rows of a tab whose actual job
+   is the list below it. */
+.gps-finish-panel, .panel-strip {
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg-soft); padding: 8px 12px; margin: 0 0 14px;
+}
+.gps-finish-row, .panel-strip-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin: 0;
+}
+.gps-finish-row .checkbox-inline { min-width: 0; }
+
+/* A tab's own heading sits right at the top of the pane. */
+h3.tab-heading { margin: 0 0 12px; }
+.checkbox-inline { display: flex; flex-direction: row; align-items: center; gap: 8px; min-width: 180px; }
+.checkbox-inline input { width: auto; }
+.weather-panel { border: 1px solid #d0d5dd; border-radius: 12px; padding: 14px; margin: 16px 0; background: #f8fafc; }
+.weather-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.weather-head h3 { margin: 0 0 4px 0; }
+.wind-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.wind-chip { display: inline-block; padding: 7px 10px; border-radius: 999px; background: #111827; color: white; font-weight: 800; }
+.weather-controls { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin: 10px 0; }
+.wind-history, .wind-history-canvas { display: block; width: 100%; min-height: 0; border-radius: 10px; background: #020617; }
+.wind-history { height: 300px; max-height: 300px; }
+.pill-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
+.pill { display: inline-block; padding: 6px 9px; border-radius: 999px; background: #eef2f7; color: #344054; font-weight: 650; font-size: 0.9rem; }
+/* Something to tidy rather than something wrong: amber, not red. */
+.warn-pill { background: #fdf1dc; color: #8a5a00; padding: 2px 7px; }
+
+/* Documentation cards. The descriptions run to different lengths, so without
+   pushing the button to the bottom of its own card the row of "Open PDF"
+   buttons steps up and down across the grid. */
+.doc-card { display: flex; flex-direction: column; }
+.doc-card .doc-open { margin-top: auto; align-self: flex-start; }
+.doc-card p { margin-bottom: 1rem; }
+
+.link-list { list-style: none; padding: 0; margin: 0.6rem 0 0; }
+.link-list li { padding: 0.55rem 0; border-top: 1px solid var(--line); }
+.link-list li:first-child { border-top: 0; }
+.link-list a { font-weight: 650; }
+.link-list span { display: block; margin-top: 0.15rem; }
+
+/* Documentation page: the common links beside the reference documentation, and
+   the rendered markdown itself. -------------------------------------------- */
+.doc-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+/* Twenty-odd documents in one column is a long scroll on a wide screen, so the
+   list flows into as many columns as it is given room for. */
+.doc-reference-list { columns: 2; column-gap: 22px; }
+.doc-reference-list li { break-inside: avoid; }
+@media (max-width: 720px) {
+  .doc-reference-list { columns: 1; }
+}
+
+.doc-read-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+/* The reading column is sized to the measure the prose is set to, so the card
+   ends where the text ends rather than leaving a band of empty card beside it. */
+.doc-read-layout { grid-template-columns: minmax(0, 84ch) minmax(220px, 1fr); }
+.doc-read-nav .doc-reference-list { columns: 1; }
+@media (max-width: 900px) {
+  .doc-read-layout { grid-template-columns: 1fr; }
+}
+
+/* Rendered markdown. Measured line length, because these are pages of prose
+   rather than the short labels the rest of the app is built from. */
+.doc-markdown { max-width: 80ch; line-height: 1.62; }
+.doc-markdown > :first-child { margin-top: 0; }
+.doc-markdown h1 { font-size: 1.5rem; margin: 0 0 0.8rem; }
+.doc-markdown h2 {
+  font-size: 1.18rem;
+  margin: 1.8rem 0 0.6rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--line);
+}
+.doc-markdown h3 { font-size: 1.02rem; margin: 1.3rem 0 0.4rem; }
+.doc-markdown h4 { font-size: 0.95rem; margin: 1.1rem 0 0.3rem; color: #344054; }
+.doc-markdown p, .doc-markdown ul, .doc-markdown ol { margin: 0 0 0.85rem; }
+.doc-markdown li { margin: 0.25rem 0; }
+.doc-markdown code {
+  background: #f2f4f8;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0.05rem 0.3rem;
+  font-size: 0.9em;
+}
+/* Code blocks and tables scroll inside themselves rather than widening the page. */
+.doc-markdown pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  overflow-x: auto;
+}
+.doc-markdown pre code { background: none; border: 0; padding: 0; color: inherit; }
+.doc-markdown table { display: block; width: 100%; overflow-x: auto; border-collapse: collapse; }
+.doc-markdown th, .doc-markdown td { border: 1px solid var(--line); padding: 6px 9px; text-align: left; }
+.doc-markdown th { background: #f7f9fc; }
+.doc-markdown blockquote {
+  margin: 0 0 0.85rem;
+  padding: 0.4rem 0.9rem;
+  border-left: 3px solid var(--line);
+  color: #475467;
+}
+.doc-markdown hr { border: 0; border-top: 1px solid var(--line); margin: 1.6rem 0; }
+.doc-markdown img { max-width: 100%; }
+/* The unrendered fallback when the markdown package is absent. */
+.doc-raw { white-space: pre-wrap; overflow-x: auto; }
+.subtle-fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: #fbfcfe; }
+.subtle-fieldset legend { font-weight: 800; color: #344054; padding: 0 6px; }
+.checkbox-row { display: flex; flex-direction: row; align-items: center; gap: 8px; min-width: 0; }
+.checkbox-row input { width: auto; }
+.results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; align-items: start; }
+/* A grid item defaults to min-width: auto, so a wide results table pushed the
+   card out past its track and .race-tabs (overflow: hidden, for its rounded
+   corners) quietly cut the right-hand columns off. Letting the card shrink to
+   its track hands the overflow to the table, which scrolls. */
+.results-grid > * { min-width: 0; }
+.result-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.result-card h4 { margin: 0 0 6px 0; }
+.result-card table { font-size: 0.92rem; }
+.excluded-list { margin: 8px 0 0 0; padding-left: 18px; color: var(--muted); font-size: 0.9rem; }
+@media (max-width: 700px) { .results-grid { grid-template-columns: 1fr; } }
+
+/* Race workflow tabs */
+.race-summary-main { flex: 1 1 520px; }
+.summary-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.summary-grid span { display: inline-block; padding: 6px 9px; border-radius: 999px; background: #eef2f7; color: #344054; }
+.race-tabs { padding: 0; overflow: hidden; }
+.tab-nav { display: flex; gap: 0; flex-wrap: wrap; background: #eef2f7; border-bottom: 1px solid var(--line); }
+.tab-button { border-radius: 0; background: transparent; color: #344054; border-right: 1px solid var(--line); padding: 14px 16px; }
+.tab-button.active { background: var(--card); color: var(--blue); box-shadow: inset 0 -3px 0 var(--blue); }
+.tab-pane { display: none; padding: 18px; }
+.tab-pane.active { display: block; }
+.subsection { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+.start-tab-header { box-shadow: none; }
+@media (max-width: 700px) {
+  .tab-nav { display: grid; grid-template-columns: 1fr; }
+  .tab-button { border-right: 0; border-bottom: 1px solid var(--line); text-align: left; }
+}
+.course-builder-grid { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr); gap: 16px; align-items: start; }
+.mark-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; max-height: 640px; overflow: auto; padding-right: 4px; }
+.mark-choice { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: white; }
+.mark-choice .port-add { background: var(--port); }
+.mark-choice .starboard-add { background: var(--starboard); }
+.compact-form { gap: 6px; align-items: center; }
+.compact-form select { min-width: 160px; }
+@media (max-width: 900px) { .course-builder-grid { grid-template-columns: 1fr; } }
+.readonly-input { background: #f2f4f7; color: #667085; cursor: not-allowed; }
+.discard-score { color: #98a2b3; text-decoration: line-through; }
+.series-table th, .series-table td { white-space: nowrap; }
+
+/* Public competitor and login pages */
+.login-main { max-width: 520px; margin: 7vh auto; }
+.login-card h1 { margin-top: 0; }
+.public-page main { max-width: 1280px; }
+.public-summary { border-left: 6px solid var(--blue); }
+
+.log-pre {
+  white-space: pre-wrap;
+  overflow-x: auto;
+  max-height: 18rem;
+  padding: 0.75rem;
+  background: #f6f8fb;
+  border: 1px solid #d9e0ea;
+  border-radius: 0.5rem;
+}
+
+.live-video-panel { margin-bottom: 18px; }
+.compact-head { align-items: start; gap: 12px; }
+.live-video-frame-wrap { background: #0b1220; border: 1px solid var(--line); border-radius: 12px; padding: 8px; max-width: 980px; }
+.live-video-frame { display: block; width: 100%; max-height: 58vh; object-fit: contain; border-radius: 8px; background: #111827; }
+
+/* Course chart / map ------------------------------------------------------ */
+.course-map-wrap {
+  margin: 0.8rem 0 1rem;
+}
+/* The dashboard map is a glance, not a chart to work from: it sits below the
+   race and wind cards and must not push the status cards under it off the fold.
+   The race pages keep the taller default. */
+.dashboard-map-wrap .course-map { max-height: 30rem; }
+.course-map {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  /* Square by preference, but never taller than about half the window. At its
+     full 1200px the square ran well past the fold, so the playback controls and
+     the leaderboard under it could only be reached by scrolling the chart off
+     the top. On a wide screen the cap wins and the chart goes landscape, which
+     suits both the screen and a course that is wider than it is deep; on a
+     phone the width is the smaller bound, so it stays square as before. */
+  aspect-ratio: 1 / 1;
+  max-height: 55vh;
+  margin-inline: auto;   /* centre the square in its container */
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: #dbeafe;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+}
+.compact-map .course-map {
+  max-width: 960px;
+}
+.course-map-message {
+  margin: 0.35rem 0 0;
+}
+/* Marks are drawn to be read over a chart, not to dominate it: a translucent
+   disc with a hairline ring rather than a dense blob. Leaflet sets
+   `display: block` on .leaflet-marker-icon at our own specificity and later in
+   the cascade, so centring cannot go through flex here — the label is placed by
+   line-height instead, which the host stylesheet cannot override. */
+.course-map-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 20px;
+  text-align: center;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.18);
+}
+.course-map-mark span {
+  display: block;
+  line-height: inherit;
+}
+.course-map-mark-background {
+  background: rgba(254, 243, 199, 0.55);
+  color: #334155;
+  border: 1px solid rgba(71, 85, 105, 0.55);
+  font-weight: 600;
+}
+.course-map-mark-route {
+  color: #0f172a;
+  background: rgba(253, 224, 71, 0.6);
+  border: 2px solid rgba(17, 24, 39, 0.75);
+}
+.course-map-mark-route.port {
+  border-color: rgba(220, 38, 38, 0.8);
+}
+.course-map-mark-route.starboard {
+  border-color: rgba(21, 128, 61, 0.8);
+}
+.course-map-mark-route.start {
+  background: rgba(248, 250, 252, 0.75);
+  border-color: rgba(17, 24, 39, 0.8);
+}
+.course-map-arrow {
+  pointer-events: none;
+  filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.95));
+}
+.course-map-line-label span {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(17,24,39,0.25);
+  color: #334155;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.course-map-bridge-marker span {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(17, 24, 39, 0.7);
+  color: #f8fafc;
+  font-size: 10px;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.2);
+}
+/* The chart's own wind gauge: the same dial the race office and the landing page
+   use, floated transparently over the top-right of the map and driven by the
+   replay clock rather than by the live poll. It replaces the arrow-and-label
+   overlay on the chart that carries it, so there is one wind reading per chart. */
+.chart-wind-gauge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 500;
+  width: 116px;
+  pointer-events: none;              /* the map underneath stays draggable */
+  opacity: 0.86;
+  filter: drop-shadow(0 2px 6px rgba(16, 24, 40, 0.35));
+}
+.chart-wind-gauge svg.wind-dial { width: 100%; height: auto; }
+/* Transparent: the chart is the subject, the instrument is an overlay on it. */
+.chart-wind-gauge .dial-outer { fill: rgba(255, 255, 255, 0.30); stroke: rgba(255, 255, 255, 0.55); }
+.chart-wind-gauge .dial-face { fill: rgba(255, 255, 255, 0.55); }
+.chart-wind-gauge .wind-readout { font-size: 25px; }
+.chart-wind-gauge .gust-marker line { stroke-width: 5; }
+.chart-wind-gauge[hidden] { display: none; }
+.chart-wind-caption {
+  position: absolute;
+  top: 126px;
+  right: 8px;
+  z-index: 500;
+  margin: 0;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.62);
+  color: #475467;
+  pointer-events: none;
+}
+.replay-fullscreen .chart-wind-gauge { top: 56px; width: 148px; }
+.replay-fullscreen .chart-wind-caption { top: 214px; }
+@media (max-width: 640px) {
+  .chart-wind-gauge { width: 88px; }
+  .chart-wind-caption { top: 98px; font-size: 0.72rem; }
+  .replay-fullscreen .chart-wind-gauge { width: 104px; }
+  .replay-fullscreen .chart-wind-caption { top: 166px; }
+}
+
+.course-map-wind-overlay {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.9);
+  color: #7c2d12;
+  border: 1px solid rgba(124,45,18,0.3);
+  box-shadow: 0 1px 5px rgba(15,23,42,0.18);
+  pointer-events: none;
+}
+.course-map-wind-label {
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.course-map-wind-arrow {
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 900;
+  transform-origin: 50% 50%;
+}
+/* Tracker "last reported" RAG indicator (Trackers page). */
+.rag-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 4px;
+  border: 1px solid rgba(15, 23, 42, 0.35);
+}
+.rag-dot.rag-green { background: #16a34a; }
+.rag-dot.rag-amber { background: #f59e0b; }
+.rag-dot.rag-red { background: #dc2626; }
+.rag-dot.rag-none { background: #cbd5e1; }
+
+/* Live GPS boat markers (RaceCourseMap.updateBoats). */
+.course-map-boat {
+  line-height: 1;
+  pointer-events: none;
+}
+.course-map-boat-hull {
+  display: block;
+  filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.95));
+}
+/* Absolute, not a flex column: Leaflet's own marker rule wins over ours, so the
+   label used to sit beside the boat rather than under it. */
+.course-map-boat-label {
+  position: absolute;
+  top: 23px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 700;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(29, 78, 216, 0.55);
+  border-radius: 4px;
+  padding: 0 3px;
+  white-space: nowrap;
+}
+.course-map-boat.finished .course-map-boat-label { border-color: rgba(21, 128, 61, 0.7); }
+.course-map-boat.stale { opacity: 0.5; }
+.course-map-boat.stale .course-map-boat-label { border-style: dashed; }
+.course-map-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.course-map-fallback {
+  padding: 2rem;
+  color: #475569;
+  text-align: center;
+}
+.leaflet-container {
+  font-family: inherit;
+}
+
+/* Standalone public/login pages ------------------------------------------ */
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: 1fr auto;
+}
+.login-card { box-shadow: var(--shadow-md); }
+.login-footer, .public-footer {
+  padding: 14px 24px 20px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+.public-page > header {
+  background: rgba(255,255,255,0.9);
+  border-bottom: 1px solid var(--line);
+  height: var(--topbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  backdrop-filter: blur(12px);
+}
+.public-page > header h1 { font-size: 18px; margin: 0; }
+.public-page > header nav a {
+  color: var(--blue);
+  background: var(--blue-soft);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+.public-page main { max-width: 1280px; margin: 0 auto; padding: 22px 24px 34px; }
+
+/* v0.36 UI refinements */
+button.primary, .button.primary, .finish-button {
+  background: var(--blue);
+  color: #fff;
+  border-color: transparent;
+}
+.finish-button { min-width: 72px; font-weight: 900; }
+.manual-control-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  margin: 8px 0 12px;
+}
+.settings-section > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--text);
+  border-radius: 12px;
+}
+.settings-section > summary::-webkit-details-marker { display: none; }
+.settings-section > summary::after {
+  content: '▾';
+  color: var(--muted);
+  transition: transform 0.12s ease;
+}
+.settings-section[open] > summary::after { transform: rotate(180deg); }
+.settings-section > summary h3 { margin: 0; }
+.settings-section > summary span { color: var(--muted); font-size: 0.9rem; font-weight: 650; margin-left: auto; }
+.settings-section[open] > summary { margin-bottom: 14px; }
+.public-page .course-map-wrap { margin-top: 12px; }
+
+/* v0.37 visual refinements */
+.brand-mark.logo-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.10);
+  overflow: hidden;
+  padding: 2px;
+}
+.brand-mark.logo-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+footer { justify-content: flex-end; }
+.results-grid { grid-template-columns: 1fr; }
+.result-card { width: 100%; }
+.public-page .results-grid { grid-template-columns: 1fr; }
+.public-page > header nav { display: flex; gap: 8px; flex-wrap: wrap; }
+.public-mobile {
+  --topbar-height: 56px;
+  font-size: 15px;
+}
+.public-mobile > header {
+  height: auto;
+  min-height: var(--topbar-height);
+  padding: 10px 12px;
+  gap: 10px;
+  align-items: flex-start;
+}
+.public-mobile > header h1 { font-size: 16px; line-height: 1.2; }
+.public-mobile main { padding: 12px; }
+.public-mobile .race-header,
+.public-mobile .card { padding: 14px; border-radius: 12px; margin-bottom: 12px; }
+.public-mobile .summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.public-mobile .summary-grid span { border-radius: 10px; }
+.public-mobile .countdown { width: 100%; }
+.public-mobile .weather-controls { display: grid; grid-template-columns: 1fr; align-items: stretch; }
+.public-mobile .wind-chip { width: 100%; text-align: center; }
+.public-mobile .sequence.large,
+.public-mobile .sequence { gap: 6px; }
+.public-mobile .mark { padding: 5px 8px; }
+.public-mobile .course-map { max-width: 100%; }
+.public-mobile table { font-size: 0.9rem; }
+
+/* ---------------------------------------------------------------------------
+   Phones: one responsive public page (the separate /public/mobile/... variant
+   now redirects here). The wide data tables are the only thing that cannot fit
+   a phone, so each row becomes its own card with the column heading moved into
+   the cell — nothing is cut off and the page never scrolls sideways.
+   --------------------------------------------------------------------------- */
+@media (max-width: 700px) {
+  .public-page main { padding: 12px; }
+  .public-page .card,
+  .public-page .race-header { padding: 14px; border-radius: 12px; margin-bottom: 12px; }
+  .public-page .summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .public-page .summary-grid span { border-radius: 10px; }
+  .public-page .course-map { max-width: 100%; }
+  .public-page .countdown { width: 100%; }
+  .public-page .weather-controls { display: grid; grid-template-columns: 1fr; align-items: stretch; }
+  .public-page .wind-chip { width: 100%; text-align: center; }
+  .public-page .sequence { gap: 6px; }
+  .public-page .mark { padding: 5px 8px; }
+
+  /* Three nested frames - the tab panel, the results card, then each row card -
+     each paid for its own border and padding, and together they were spending
+     120px of a 390px screen before a single result was drawn. Once every row is
+     its own card the middle frame is only decoration, so it keeps its heading
+     and gives up its box, and the panel round it stops double-padding. */
+  .public-page .tab-pane { padding: 12px; }
+  /* The blanket .card padding above catches the tab panel too, which already
+     pads its own pane - the base rule sets .race-tabs to 0 for exactly that
+     reason, and the phone override was undoing it. */
+  .public-page .race-tabs { padding: 0; }
+  .public-page .result-card {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    background: none;
+  }
+
+  /* Table -> one card per row */
+  .public-page .stack-table { border: 0; box-shadow: none; background: none; }
+  .public-page .stack-table thead { display: none; }
+  .public-page .stack-table tbody,
+  .public-page .stack-table tr,
+  .public-page .stack-table td { display: block; width: auto; }
+  .public-page .stack-table tr {
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    background: var(--surface);
+  }
+  .public-page .stack-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    /* A grid/flex item defaults to min-width:auto and refuses to shrink below its
+       content, so a long value overflows the track instead of wrapping - which is
+       what put the label of the next cell underneath it. */
+    min-width: 0;
+    overflow-wrap: anywhere;
+    border: 0;
+    border-bottom: 1px dashed var(--line);
+    padding: 6px 0;
+    font-size: 0.95rem;
+    text-align: right;
+  }
+  .public-page .stack-table td:last-child { border-bottom: 0; }
+  .public-page .stack-table td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-weight: 700;
+    color: var(--muted);
+    text-align: left;
+  }
+  /* The first cell (boat name / leg) reads as the card's heading. */
+  .public-page .stack-table td:first-child {
+    font-weight: 800;
+    font-size: 1.05rem;
+    text-align: left;
+    border-bottom: 1px solid var(--line-strong);
+    padding-bottom: 8px;
+  }
+  .public-page .stack-table td:first-child::before { display: none; }
+  .public-page .stack-table tr.next-start { outline: 2px solid var(--gold, #b9800a); }
+
+  /* Two label/value pairs per line where there is room, one where there is not,
+     so a card stays compact without hiding any of the data (the name/leg still
+     spans the full width).
+
+     auto-fit, not a fixed two columns at a 380px viewport. These cards sit inside
+     a result card inside a grid, so at 390px - an iPhone 14/15 in portrait - the
+     inner width is about 244px and two columns are 114px each. "Start 1 20:22:00"
+     needs 142px and "Corrected 1:10:56" 129px, so the value ran under the next
+     column's label and the results were unreadable. Reported from an iPhone after
+     a night race, and 49 cells on that page were overflowing.
+
+     The viewport was never the right thing to measure: what matters is how wide
+     the card actually turned out, which only the browser knows. auto-fit drops to
+     one column whenever a 160px track will not fit, at any nesting depth. */
+  .public-page .stack-table tr {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    column-gap: 16px;
+  }
+  .public-page .stack-table td:first-child { grid-column: 1 / -1; }
+  /* A cell whose value runs to two lines — the replay board's boat name over
+     its sail number — needs the whole width, or it laps into the next column.
+     The card's heading there is the position, so the name cannot be first. */
+  .public-page .stack-table td.stack-wide { grid-column: 1 / -1; }
+
+  /* The public pages have three or four short tabs, so keep them side by side
+     rather than stacking them (the race-office page has seven and still stacks).
+     auto-fit divides the bar however many there are. */
+  .public-tabs .tab-nav { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); grid-auto-flow: column; }
+  .public-tabs .tab-button {
+    border-right: 1px solid var(--line);
+    border-bottom: 0;
+    text-align: center;
+    padding: 12px 6px;
+    font-size: 0.95rem;
+  }
+  .public-tabs .tab-button:last-child { border-right: 0; }
+
+  /* Safety net: any table not converted to cards scrolls inside its own box,
+     so it can never make the whole page pan sideways. */
+  .public-page table:not(.stack-table) {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Keep everything comfortably readable at arm's length on the water. */
+  .public-page table { font-size: 0.95rem; }
+  .public-page .small,
+  .public-page .muted { font-size: 0.9rem; }
+}
+
+/* Above the card breakpoint the stacked tables go back to being ordinary tables,
+   and the results table is nine columns wide. A phone held sideways is 844px and
+   a tablet 768 or 1024, so it is wider than the screen there — and it was simply
+   clipped at the right edge, the Finish video column falling off with nothing to
+   say it existed. Reported from an iPhone in landscape.
+   The same safety net the other public tables already have below 700px: scroll
+   inside its own box, so it can never make the whole page pan sideways.
+   width: max-content stops the block-level table squeezing its columns instead of
+   scrolling, and min-width: 100% keeps a table that does fit filling the card
+   rather than shrinking to its content. */
+@media (min-width: 701px) {
+  .public-page .stack-table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .public-page .stack-table > tbody,
+  .public-page .stack-table > thead { width: max-content; min-width: 100%; }
+}
+
+/* A phone held sideways is 844px and a tablet 768 or 1024, so they all land
+   above the card breakpoint and inherit the desktop page gutter - 118px of an
+   844px screen went on padding. Here the frames earn their keep: the public
+   results grid is one column at every width, so each card is what separates one
+   class's results from the next, and it keeps its border. Only the padding
+   comes down, to the same figures the phone layout uses.
+   Fluid rather than a second breakpoint: a hard edge at 1024px made the table
+   43px NARROWER one pixel wider, which looks like a bug when you resize. These
+   scale from the phone figures up to the desktop ones and meet both ends. */
+@media (min-width: 701px) {
+  .public-page main {
+    padding-left: clamp(12px, 1.6vw, 24px);
+    padding-right: clamp(12px, 1.6vw, 24px);
+  }
+  .public-page .tab-pane { padding: clamp(12px, 1.2vw, 18px); }
+  .public-page .result-card { padding: clamp(10px, 0.9vw, 14px); }
+}
+
+/* v0.38 race signal flags */
+.flag-status-panel {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fafc;
+  display: grid;
+  gap: 8px;
+  max-width: 620px;
+}
+.flag-stage-label {
+  font-weight: 850;
+  color: #344054;
+}
+.flag-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.signal-flag, .mini-flag {
+  position: relative;
+  width: 54px;
+  height: 36px;
+  border: 2px solid #111827;
+  border-radius: 5px;
+  display: inline-grid;
+  place-items: center;
+  font-weight: 950;
+  color: #111827;
+  box-shadow: 0 2px 7px rgba(15,23,42,0.18);
+  opacity: 0.28;
+  filter: grayscale(0.3);
+  vertical-align: middle;
+  transition: opacity 0.12s ease, transform 0.12s ease, filter 0.12s ease;
+  background: #fff;
+  overflow: hidden;
+}
+.signal-flag.flag-up {
+  opacity: 1;
+  filter: none;
+  transform: translateY(-1px);
+}
+.mini-flag {
+  width: 26px;
+  height: 18px;
+  border-width: 1px;
+  border-radius: 3px;
+  opacity: 1;
+  box-shadow: none;
+  font-size: 10px;
+}
+.signal-flag.class-one, .mini-flag.class-one { background: #fff; }
+.signal-flag.class-one::before, .mini-flag.class-one::before {
+  content: '';
+  width: 42%;
+  height: 42%;
+  border-radius: 50%;
+  background: #e11d48;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+.signal-flag.class-one span, .mini-flag.class-one span {
+  position: relative;
+  z-index: 1;
+  color: #111827;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.9);
+}
+.signal-flag.prep-p, .mini-flag.prep-p {
+  background: #174ea6;
+  color: #fff;
+}
+.signal-flag.prep-p::before, .mini-flag.prep-p::before {
+  content: '';
+  position: absolute;
+  inset: 20% 25%;
+  border: 2px solid #fff;
+  background: rgba(255,255,255,0.08);
+}
+.signal-flag.prep-p span, .mini-flag.prep-p span {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+}
+/* Postponement: AP, and the H or A it can fly over (RRS Race Signals).
+   Drawn entirely in CSS -- there are no images for these, so unlike the numerals
+   and P there is nothing to fall back to. That is why the letters are in the
+   markup: Code flag S rendered as a white box until v0.163 because a flag with
+   no per-class rule is just the base white box, and a white box on a race sheet
+   means nothing at all. */
+/* The answering pennant is a *pennant*: five vertical stripes, red at the hoist
+   and red at the fly, tapering along its whole length and ending blunt rather
+   than at a point. Drawn as one SVG rather than a striped rectangle with the
+   corners clipped, because the outline has to follow the taper too -- without
+   it the white stripes disappear into a white page and what is left reads as
+   three unrelated red bars. A rectangle here is not a rough likeness of AP; it
+   is a different flag. */
+.signal-flag.ap, .mini-flag.ap {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 66' preserveAspectRatio='none'%3E%3CclipPath id='p'%3E%3Cpolygon points='1,1 98,16 98,50 1,65'/%3E%3C/clipPath%3E%3Cg clip-path='url(%23p)'%3E%3Crect width='100' height='66' fill='%23ffffff'/%3E%3Crect x='0' width='20' height='66' fill='%23e11d48'/%3E%3Crect x='40' width='20' height='66' fill='%23e11d48'/%3E%3Crect x='80' width='20' height='66' fill='%23e11d48'/%3E%3C/g%3E%3Cpolygon points='1,1 98,16 98,50 1,65' fill='none' stroke='%23334155' stroke-width='2'/%3E%3C/svg%3E") no-repeat center / 100% 100%;
+  color: #111827;
+  border-color: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+/* The letter spans are hidden for every flag further down this file: the flags
+   are drawn, and the meaning is on the title and aria-label. They earn their
+   place only if this stylesheet never arrives at all, and then they are the
+   whole of what is left -- so AP keeps its span, and needs no styling of its
+   own to do it. The drawing is a data URI rather than a file, so unlike the
+   numerals and P there is nothing here that can fail to load on its own. */
+.signal-flag.code-h, .mini-flag.code-h {
+  background: linear-gradient(90deg, #fff 0 50%, #e11d48 50% 100%);
+}
+.signal-flag.code-a, .mini-flag.code-a {
+  background: linear-gradient(90deg, #fff 0 50%, #174ea6 50% 100%);
+}
+.signal-flag.code-h span, .signal-flag.code-a span,
+.mini-flag.code-h span, .mini-flag.code-a span {
+  position: relative;
+  z-index: 1;
+  color: #111827;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.9), 0 0 3px rgba(255,255,255,0.85);
+}
+/* A postponed race is not a race running normally, and the panel should not look
+   like one. */
+.flag-status-panel.postponed {
+  border-color: #b45309;
+  background: #fffbeb;
+}
+.flag-note { margin: 0; }
+.public-mobile .flag-status-panel { max-width: none; }
+.public-mobile .signal-flag { width: 48px; height: 32px; }
+
+
+/* v0.39 layout and flag refinements */
+.dashboard-recent-races { margin-bottom: 26px; }
+.race-header { align-items: center; }
+.race-header-flags {
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: 270px;
+  margin-top: 0;
+  padding: 10px 12px;
+  align-self: center;
+}
+.race-header-flags .flag-row { justify-content: center; flex-wrap: nowrap; }
+.race-header-flags .flag-stage-label { text-align: center; font-size: 0.92rem; }
+.flag-status-panel .flag-note { display: none; }
+.signal-flag span, .mini-flag span { display: none !important; }
+.signal-flag.class-one span, .mini-flag.class-one span,
+.signal-flag.prep-p span, .mini-flag.prep-p span { display: none !important; }
+.signal-flag.class-one::before, .mini-flag.class-one::before { z-index: 1; }
+.signal-flag.prep-p::before, .mini-flag.prep-p::before { z-index: 1; }
+@media (max-width: 980px) {
+  .race-header-flags { width: 100%; max-width: none; }
+  .race-header-flags .flag-row { justify-content: flex-start; }
+  .race-header-flags .flag-stage-label { text-align: left; }
+}
+
+/* v0.40 flag panel and signal-plan refinements */
+.race-header-flags {
+  width: 220px;
+  min-width: 220px;
+  min-height: 96px;
+  box-sizing: border-box;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #172033, #0f172a);
+  border-color: transparent;
+  box-shadow: 0 9px 22px rgba(15,23,42,0.18);
+}
+.race-header-flags .flag-stage-label { display: none !important; }
+.race-header-flags .flag-row {
+  width: 100%;
+  justify-content: center;
+  gap: 14px;
+}
+.race-header-flags .signal-flag {
+  width: 62px;
+  height: 42px;
+  opacity: 0.24;
+}
+.race-header-flags .signal-flag.flag-up { opacity: 1; }
+.signal-plan-table tr.signal-complete td {
+  background: #f2f4f7;
+  color: #98a2b3;
+  opacity: 0.72;
+}
+.signal-plan-table tr.signal-complete td:first-child {
+  color: #667085;
+  font-weight: 850;
+}
+.signal-plan-table tr.signal-complete .mini-flag {
+  opacity: 0.38;
+  filter: grayscale(0.7);
+}
+@media (max-width: 980px) {
+  .race-header-flags {
+    width: 220px;
+    min-width: 220px;
+    max-width: 220px;
+  }
+  .race-header-flags .flag-row { justify-content: center; }
+}
+
+/* v0.41 start-console cleanup */
+.start-controls-grid {
+  grid-template-columns: 1fr;
+}
+.full-width-fieldset {
+  width: 100%;
+  box-sizing: border-box;
+}
+#tab-start .manual-control-buttons {
+  width: 100%;
+  justify-content: flex-start;
+}
+#tab-start .manual-control-buttons button {
+  min-width: 150px;
+}
+
+/* Graphical series class/start editors */
+.wide-form { max-width: 1160px; }
+.subsection { margin-top: 1rem; }
+.class-grid-table input, .start-grid-table input { min-width: 0; }
+input.compact-check {
+  width: auto;
+  min-width: 18px;
+  height: 18px;
+  margin: 0;
+  box-shadow: none;
+}
+.inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  margin: 0.2rem 0.7rem 0.2rem 0;
+  font-weight: 700;
+  color: #4b5565;
+}
+.inline-check input { width: auto; box-shadow: none; }
+.class-checkbox-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  align-items: center;
+}
+.muted-disabled {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+.keep-series-start-plan {
+  margin: 0.7rem 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+@media (max-width: 900px) {
+  .class-grid-table, .start-grid-table { display: block; overflow-x: auto; white-space: nowrap; }
+}
+
+/* v0.53 dynamic numeral class flags */
+.signal-flag.numeral-flag, .mini-flag.numeral-flag {
+  background: #fff;
+  color: #111827;
+}
+.signal-flag.numeral-flag::before, .mini-flag.numeral-flag::before {
+  content: attr(data-numeral);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-weight: 950;
+  font-size: 1.25rem;
+  color: #111827;
+}
+.mini-flag.numeral-flag::before { font-size: 0.72rem; }
+.signal-flag.numeral-flag span, .mini-flag.numeral-flag span { display: none !important; }
+.race-header-flags {
+  width: auto;
+  min-width: 220px;
+  max-width: 430px;
+  min-height: 76px;
+}
+.race-header-flags .flag-row {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.race-header-flags.no-flags-up {
+  min-width: 150px;
+}
+.race-header-flags.no-flags-up .flag-row::before {
+  content: 'No flags up';
+  color: #cbd5e1;
+  font-weight: 850;
+  font-size: 0.9rem;
+}
+.public-mobile .race-header-flags {
+  max-width: none;
+}
+
+/* v0.54 real numeral pennant class flags */
+.class-flag-preview {
+  width: 58px;
+  height: auto;
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #fff;
+}
+.signal-flag.numeral-flag, .mini-flag.numeral-flag {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+  width: 118px;
+  height: 72px;
+  padding: 0;
+}
+.signal-flag.numeral-flag::before, .mini-flag.numeral-flag::before { content: none !important; }
+.signal-flag.numeral-flag img, .mini-flag.numeral-flag img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.race-header-flags .flag-row {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 7px;
+}
+.race-header-flags .signal-flag.numeral-flag {
+  width: 126px;
+  height: 77px;
+}
+.race-header-flags .signal-flag.prep-p {
+  width: 64px;
+  height: 42px;
+}
+.flag-status-panel .signal-flag.numeral-flag {
+  width: 120px;
+  height: 73px;
+}
+.public-mobile .signal-flag.numeral-flag {
+  width: 98px;
+  height: 60px;
+}
+.public-mobile .race-header-flags .signal-flag.numeral-flag {
+  width: 106px;
+  height: 64px;
+}
+.public-mobile .race-header-flags .signal-flag.prep-p {
+  width: 58px;
+  height: 38px;
+}
+@media (max-width: 640px) {
+  .race-header-flags .signal-flag.numeral-flag { width: 104px; height: 63px; }
+  .flag-status-panel .signal-flag.numeral-flag { width: 100px; height: 61px; }
+}
+
+
+
+/* v0.55 real preparatory P flag image */
+.signal-flag.prep-p, .mini-flag.prep-p {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  overflow: visible;
+  padding: 0;
+  width: 72px;
+  height: 72px;
+}
+.signal-flag.prep-p::before, .mini-flag.prep-p::before { content: none !important; }
+.signal-flag.prep-p img, .mini-flag.prep-p img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.race-header-flags .signal-flag.prep-p { width: 74px; height: 74px; }
+.flag-status-panel .signal-flag.prep-p { width: 72px; height: 72px; }
+.public-mobile .signal-flag.prep-p { width: 64px; height: 64px; }
+.public-mobile .race-header-flags .signal-flag.prep-p { width: 64px; height: 64px; }
+@media (max-width: 640px) {
+  .race-header-flags .signal-flag.prep-p { width: 62px; height: 62px; }
+  .flag-status-panel .signal-flag.prep-p { width: 62px; height: 62px; }
+}
+
+/* v0.162 code flag S (shortened course) — real flag image, drawn like the P flag */
+.signal-flag.code-s, .mini-flag.code-s {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  overflow: visible;
+  padding: 0;
+  width: 72px;
+  height: 72px;
+}
+.signal-flag.code-s::before, .mini-flag.code-s::before { content: none !important; }
+.signal-flag.code-s img, .mini-flag.code-s img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.race-header-flags .signal-flag.code-s { width: 74px; height: 74px; }
+.flag-status-panel .signal-flag.code-s { width: 72px; height: 72px; }
+.public-mobile .signal-flag.code-s { width: 64px; height: 64px; }
+.public-mobile .race-header-flags .signal-flag.code-s { width: 64px; height: 64px; }
+@media (max-width: 640px) {
+  .race-header-flags .signal-flag.code-s { width: 62px; height: 62px; }
+  .flag-status-panel .signal-flag.code-s { width: 62px; height: 62px; }
+}
+
+
+/* v0.56 races roll-up page and white signal flag panels */
+.race-rollups { display: grid; gap: 14px; }
+/* A roll-up is a card, but it is also a grid item, and it draws its own inset:
+   the summary carries the padding, and the rule under the summary has to reach
+   both edges of the card. So the card's own padding and margin have to come off,
+   and two classes deep so it stays off -- the theme layer loads after this file
+   and re-declares a bare `.card { padding: 16px 18px }`, which at equal
+   specificity wins on order. Measured with them on: every collapsed roll-up was
+   99px tall for one line of text, inset twice, with 44px of dead space under it
+   (18px card margin + 14px grid gap + 12px) -- which is what "huge, with big
+   gaps" looked like. Off, the same row is 65px with the grid's own 14px under it. */
+.race-rollup { overflow: hidden; }
+.race-rollups > .race-rollup { padding: 0; margin: 0; }
+.race-rollup > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.race-rollup > summary::-webkit-details-marker { display: none; }
+.race-rollup > summary::before {
+  content: '▸';
+  color: #667085;
+  font-weight: 900;
+  transition: transform 0.12s ease;
+}
+.race-rollup[open] > summary::before { transform: rotate(90deg); }
+.race-rollup > summary span:first-child {
+  display: grid;
+  gap: 2px;
+  margin-right: auto;
+}
+.race-rollup > summary small { color: var(--muted); font-weight: 650; }
+.race-rollup-count {
+  color: #344054;
+  background: #f2f4f7;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+.race-rollup-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 18px;
+}
+.race-rollup table { border-left: 0; border-right: 0; border-bottom: 0; border-radius: 0; box-shadow: none; }
+.race-rollup p { padding: 0 18px 18px; margin-top: 0; color: var(--muted); }
+.flag-status-panel,
+.race-header-flags {
+  background: #ffffff !important;
+  border: 1px solid #d0d5dd !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+.race-header-flags.no-flags-up .flag-row::before { color: #667085; }
+
+.entry-rating-cell label {
+  display: block;
+  margin: 0.15rem 0;
+}
+.entry-rating-cell input {
+  width: 6.5rem;
+  margin-left: 0.35rem;
+}
+.tiny {
+  font-size: 0.75rem;
+}
+
+/* v0.69 public share links for Cloudflare/remote access */
+.public-share-box {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  max-width: 920px;
+}
+.public-share-box summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: #1d2939;
+}
+.public-share-box label {
+  display: block;
+  margin: 8px 0;
+  font-weight: 700;
+}
+.public-share-box .copy-link-input {
+  width: 100%;
+  margin-top: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+}
+
+/* v0.72 dashboard and weather-source controls */
+.radio-stack {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+.radio-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+/* Radio/checkbox inside a card must not inherit the full-width text-input styling */
+.radio-card input[type="radio"], .radio-card input[type="checkbox"] {
+  width: auto; flex: none; margin: 3px 0 0; padding: 0; border: 0; border-radius: 0;
+  box-shadow: none; accent-color: var(--blue);
+}
+/* Weather source choice: cards side by side, clear selected state */
+.radio-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin: 12px 0 16px; }
+.radio-card:has(input:checked) { border-color: var(--blue); background: var(--blue-soft); }
+/* Settings: keep the Save bar reachable while scrolling the long page */
+.settings-savebar { position: sticky; top: 0; z-index: 30; box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06); }
+.settings-section { scroll-margin-top: 104px; }
+/* Read-only wrapper for race officers: strip default fieldset chrome */
+.settings-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.readonly-pill { background: #fef3c7; color: #92400e; }
+/* Pursuit-race start ladder: highlight the next boat due to start */
+tr.next-start { background: var(--blue-soft); }
+tr.next-start td { font-weight: 700; }
+.inline-countdown {
+  max-width: 360px;
+}
+.dashboard-system .summary-grid {
+  margin-top: 10px;
+}
+
+/* v0.78 public competitor landing page */
+.wind-history-canvas { height: 320px; max-height: 320px; }
+/* v0.180: the public Wind tab has the page to itself, so its plot runs taller. */
+.wind-history-canvas.tall { height: 560px; max-height: 560px; }
+
+/* v0.182: live camera panels swap a refreshing snapshot for the relay's live
+   stream (an iframe of the relay watch page) once it is playing. Both sit in the
+   same box so the panel does not jump when it switches. */
+.live-camera { position: relative; }
+/* .live-video-frame sets display:block, which beats the browser's own
+   [hidden] { display: none } — so say it here, or hiding the snapshot when the
+   stream takes over has no visible effect. */
+.live-camera .live-camera-snapshot[hidden],
+.live-camera .live-camera-stream[hidden] { display: none; }
+/* The stream while it is still starting: rendered (so the browser actually
+   starts playing it — a display:none video may never start, and would then
+   never report that it is playing) but invisible behind the snapshot. */
+.live-camera .live-camera-stream[data-loading] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.live-camera .live-camera-stream {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 10px;
+  background: #000;
+}
+.live-camera .live-camera-note { margin: 6px 0 0; }
+.live-camera.streaming .live-camera-note { color: var(--muted); }
+
+/* v0.188: on a phone the start-hut camera is the point of the tab, so give it
+   the width and drop the chrome around it. The pane bleeds to the card edges,
+   the header shrinks to a single compact line, and the 16:9 video fills the
+   full device width (taller than the boxed-in version it replaces). */
+@media (max-width: 700px) {
+  /* Reclaim the tabs card's own padding + side border while the camera tab is
+     showing, so the video sits nearly edge-to-edge (the card has overflow:hidden,
+     so a negative-margin bleed would just be clipped — drop the padding instead).
+     Enhancement only: where :has() is unsupported the video still fills the card's
+     content box, one step narrower. */
+  .public-page .public-tabs:has(#htab-camera.active) {
+    padding: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+  #htab-camera { padding: 0; }
+  #htab-camera .camera-head { padding: 12px 12px 8px; margin: 0; }
+  #htab-camera .camera-head h3 { margin: 0; font-size: 1.05rem; }
+  #htab-camera .camera-head p { margin: 2px 0 0; font-size: 0.85rem; }
+  #htab-camera .live-video-frame-wrap {
+    max-width: none;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    padding: 0;
+  }
+  #htab-camera .live-video-frame,
+  #htab-camera .live-camera .live-camera-stream {
+    border-radius: 0;
+    max-height: none;                 /* let the 16:9 frame use the full width */
+  }
+  #htab-camera .live-camera-note { margin: 6px 12px 10px; }
+}
+
+/* v0.181: the wind instrument in the public race-information header, beside the
+   race details and the current race's countdown. Smaller than the dashboard's
+   gauge, which has a card to itself. */
+.public-wind-instrument {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+.public-wind-instrument .public-wind-gauge { min-height: 0; display: grid; place-items: center; }
+.public-wind-instrument .wind-dial { width: min(100%, 260px); }
+.public-wind-instrument p { margin: 0; text-align: center; }
+@media (max-width: 700px) {
+  /* On a phone the header stacks, so give the dial the full width it can use. */
+  .public-wind-instrument { width: 100%; }
+  .public-wind-instrument .wind-dial { width: min(100%, 240px); }
+}
+@media (max-width: 700px) { .wind-history-canvas.tall { height: 420px; max-height: 420px; } }
+.highlight-row { background: rgba(59, 130, 246, 0.12); }
+.checkbox-line { display: inline-flex; gap: 8px; align-items: center; font-weight: 600; }
+.public-page .compact td .button { white-space: nowrap; }
+
+/* v0.79 public competitor banner refinements */
+.public-club-brand {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  text-decoration: none;
+}
+.public-club-brand img {
+  display: block;
+  height: 54px;
+  width: auto;
+  max-width: min(820px, calc(100vw - 260px));
+  object-fit: contain;
+}
+.public-mobile .public-club-brand img {
+  height: 42px;
+  max-width: calc(100vw - 150px);
+}
+@media (max-width: 640px) {
+  .public-club-brand img {
+    height: 38px;
+    max-width: calc(100vw - 130px);
+  }
+}
+
+/* v0.88: keep competitor-race navigation below the club logo so it cannot wrap over the banner. */
+.competitor-race-page > header {
+  height: auto;
+  min-height: var(--topbar-height);
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 8px;
+  padding-top: 8px;
+  padding-bottom: 10px;
+}
+.competitor-race-page > header .public-club-brand {
+  width: 100%;
+  justify-content: flex-start;
+}
+.competitor-race-page > header .public-club-brand img {
+  max-width: 100%;
+}
+.competitor-race-page > header nav {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+
+/* v0.122 public page centring and cleaner race/admin panels */
+.public-page > header {
+  justify-content: center;
+  text-align: center;
+}
+.public-page > header nav {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.public-page .public-club-brand {
+  justify-content: center;
+}
+.public-action-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+.competitor-race-page > header {
+  align-items: center;
+}
+.competitor-race-page > header .public-club-brand,
+.competitor-race-page > header nav {
+  justify-content: center;
+}
+.entries-simple-list table {
+  margin-top: 8px;
+}
+.horn-config-line {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 10px 0 0;
+}
+.horn-config-line span {
+  display: inline-flex;
+  gap: 4px;
+  align-items: baseline;
+}
+.settings-subsection {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  background: #fbfcfe;
+  margin-top: 14px;
+}
+.settings-subsection h4 {
+  margin: 0 0 6px;
+}
+.settings-subsection > p:first-of-type {
+  margin-top: 0;
+}
+.settings-status-stack {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* v0.89 dashboard current-race + analog wind instrument */
+.dashboard-race-wind-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.05fr) minmax(300px, 0.95fr);
+  gap: 16px;
+  align-items: stretch;
+  margin-bottom: 16px;
+}
+.dashboard-race-summary-card,
+.dashboard-wind-card {
+  min-height: 370px;
+}
+.dashboard-race-summary-card {
+  display: flex;
+  flex-direction: column;
+}
+.dashboard-current-actions {
+  margin-top: 14px;
+}
+.dashboard-summary-grid {
+  margin-bottom: 10px;
+}
+.dashboard-wind-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+}
+/* The two dashboard cards share one head so their rules line up across the
+   page, and the row is left to take its height from the heading. No floor: the
+   h2 is 31px and the Weather settings button 30px, so the heading governs both
+   cards and they agree without being told to. A min-height here would only add
+   the air the h2's stray bottom margin was already adding. */
+.dashboard-race-summary-card > .section-head,
+.dashboard-wind-card > .section-head {
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+}
+.dashboard-wind-status { margin: 0 0 10px; }
+/* The course board the fleet is sailing, under the clock. */
+.dashboard-course-board { margin: 12px 0 0; }
+.dashboard-wind-gauge {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+}
+.wind-dial {
+  width: min(100%, 360px);
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+.wind-dial .dial-outer {
+  fill: #f3f6fb;
+  stroke: #d7deeb;
+  stroke-width: 2;
+}
+.wind-dial .dial-face {
+  fill: #ffffff;
+  stroke: #c9d2e1;
+  stroke-width: 2;
+}
+.wind-dial .speed-band-low,
+.wind-dial .speed-band-mid,
+.wind-dial .speed-band-high {
+  fill: none;
+  stroke-width: 9;
+  stroke-linecap: round;
+  opacity: 0.75;
+}
+.wind-dial .speed-band-low { stroke: #c9f0d8; }
+.wind-dial .speed-band-mid { stroke: #f7d6ea; }
+.wind-dial .speed-band-high { stroke: #ffd1d1; }
+.wind-dial .direction-major-tick,
+.wind-dial .direction-minor-tick,
+.wind-dial .speed-major-tick,
+.wind-dial .speed-minor-tick {
+  stroke: #6b7280;
+  stroke-linecap: round;
+}
+.wind-dial .direction-major-tick { stroke-width: 1.6; }
+.wind-dial .direction-minor-tick { stroke-width: 0.7; opacity: 0.65; }
+.wind-dial .speed-major-tick { stroke-width: 1.3; }
+.wind-dial .speed-minor-tick { stroke-width: 0.7; opacity: 0.6; }
+.wind-dial .direction-label,
+.wind-dial .speed-label {
+  fill: #667085;
+  font-size: 9px;
+  font-weight: 750;
+  font-family: inherit;
+}
+/* Four cardinal letters rather than twelve numbers, so they can afford to be
+   bigger and darker — this is the ring you read at a glance. */
+.wind-dial .direction-label {
+  font-size: 13px;
+  font-weight: 800;
+  fill: #475467;
+}
+/* The knots ring. At 8px this was the smallest text on a display meant to be read
+   from across a bar, and it sits outside the bezel on the page background rather
+   than on the white face, so it needs the weight as well as the size. */
+.wind-dial .speed-label {
+  font-size: 11.5px;
+  font-weight: 800;
+  fill: #475467;
+}
+.wind-dial .speed-needle polygon {
+  fill: #94a3b8;
+  stroke: #475467;
+  stroke-width: 0.8;
+  opacity: 0.85;
+}
+/* The gust, on the speed scale rather than written underneath it. Same family as
+   the speed needle it belongs to, but a rim marker rather than a pointer, so the
+   two are never confused for one reading. */
+.wind-dial .gust-marker line {
+  stroke: #b45309;               /* warm, so it is never read as one of the ticks */
+  stroke-width: 4.2;
+  stroke-linecap: round;
+}
+.wind-dial .direction-needle polygon {
+  fill: #ff3b18;
+  stroke: #b42318;
+  stroke-width: 0.8;
+}
+.wind-dial .dial-hub {
+  fill: #ff5d32;
+  stroke: #b42318;
+  stroke-width: 2;
+}
+/* The two numbers anyone actually reads, so they get the clear space in the
+   middle of the dial and enough size to be read across a room. They were
+   overlapping the direction numbers that used to be drawn on top of them. */
+.wind-dial .wind-readout {
+  text-anchor: middle;
+  dominant-baseline: middle;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 900;
+  /* A soft halo, so a needle passing beneath a digit never breaks it up. */
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+/* Same size: neither reading is the secondary one. The direction takes the space
+   the "WIND" label used to occupy above the hub, the speed sits below it. */
+.wind-dial .wind-readout.twd {
+  fill: #101828;
+  font-size: 20px;
+}
+.wind-dial .wind-readout.tws {
+  fill: #101828;
+  font-size: 20px;
+}
+@media (max-width: 980px) {
+  .dashboard-race-wind-layout {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-race-summary-card,
+  .dashboard-wind-card {
+    min-height: auto;
+  }
+}
+
+/* Split-screen race officer view */
+.split-screen-page {
+  margin: 0;
+  min-height: 100vh;
+  overflow: hidden;
+  background: #e9eef8;
+}
+
+.split-screen-layout {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 8px;
+  width: 100vw;
+  height: 100vh;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.split-screen-pane {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.12);
+}
+
+.split-screen-bar {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 0.9rem;
+}
+
+.split-screen-bar span {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.82rem;
+}
+
+.split-screen-bar a {
+  margin-left: auto;
+  color: #ffffff;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-weight: 700;
+}
+
+.split-screen-frame {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  background: #ffffff;
+}
+
+@media (max-width: 900px) {
+  .split-screen-page {
+    overflow: auto;
+  }
+  .split-screen-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(70vh, 1fr) minmax(70vh, 1fr);
+    height: auto;
+    min-height: 100vh;
+  }
+  .split-screen-pane {
+    min-height: 70vh;
+  }
+}
+
+/* v0.94 polar and sail-chart file management */
+.polar-upload-form input[type="file"],
+.polar-assets-table input[type="file"] { max-width: 260px; }
+.polar-assets-table td { vertical-align: middle; }
+.file-delete-actions { white-space: nowrap; }
+.file-delete-actions form { margin-right: 6px; }
+
+.status-box {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #d0d5dd;
+  background: #f9fafb;
+  color: #344054;
+}
+.status-box.ok { background: #ecfdf3; color: #05603a; border-color: #abefc6; }
+.status-box.warn { background: #fffaeb; color: #93370d; border-color: #fedf89; }
+.status-box code { overflow-wrap: anywhere; }
+
+/* Public branding overlays for line-camera preview and public-media settings */
+.public-branded-live-wrap { position: relative; overflow: hidden; }
+.public-live-club-logo {
+  position: absolute;
+  top: 2.2%;
+  left: 2%;
+  max-width: 22%;
+  max-height: 15%;
+  opacity: 0.82;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.55));
+}
+.public-live-sponsors {
+  position: absolute;
+  top: 2.2%;
+  left: 27%;
+  right: 2%;
+  height: 15%;
+  display: flex;
+  flex-direction: row;
+  gap: 2%;
+  align-items: flex-start;
+  justify-content: space-evenly;
+  pointer-events: none;
+}
+.public-live-sponsors img {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.9;
+  background: rgba(255,255,255,0.52);
+  border-radius: 8px;
+  padding: 4px;
+  box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.24);
+}
+.branding-preview-logo { max-width: 220px; max-height: 90px; object-fit: contain; display: block; background: #f8fafc; border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+.branding-sponsor-thumb { max-width: 96px; max-height: 42px; object-fit: contain; background: #f8fafc; border: 1px solid var(--line); border-radius: 6px; padding: 4px; }
+.branding-assets-table td { vertical-align: middle; }
+@media (max-width: 760px) {
+  .public-live-club-logo { top: 2%; left: 2%; max-width: 25%; max-height: 15%; }
+  .public-live-sponsors { top: 2%; left: 30%; right: 2%; height: 15%; gap: 1.5%; }
+  .public-live-sponsors img { padding: 3px; border-radius: 6px; }
+}
+
+/* v0.124 backup/restore page */
+.backup-restore-grid { align-items: start; }
+.stacked-form { display: grid; gap: 12px; }
+.checkbox-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfcfe;
+  padding: 12px;
+}
+.checkbox-card input { width: auto; margin-top: 2px; }
+.checkbox-card strong { display: block; }
+.checkbox-card small { display: block; color: var(--muted); margin-top: 2px; line-height: 1.35; }
+.checkbox-card em { display: block; color: #9a6700; font-style: normal; font-weight: 700; margin-top: 4px; }
+.checkbox-card.warning { border-color: #f3c96a; background: #fffaf0; }
+.notice {
+  border: 1px solid #b9d0ff;
+  background: #eef5ff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: #24436f;
+}
+.notice.danger-soft {
+  border-color: #f2b8b5;
+  background: #fff1f0;
+  color: #842029;
+}
+
+/* v0.130 nautical dark-sidebar refresh --------------------------------- */
+.sidebar {
+  background: linear-gradient(190deg, var(--navy-900) 0%, var(--navy-800) 60%, var(--navy-700) 100%);
+  border-right: none;
+  box-shadow: 4px 0 24px rgba(6, 16, 28, 0.18);
+  backdrop-filter: none;
+}
+.brand { border-bottom: 1px solid rgba(255,255,255,0.09); }
+.brand-title { color: #f3f6fb; }
+.brand-title small { color: #93aac4; }
+.brand-mark.logo-mark {
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(3, 10, 20, 0.4), 0 0 0 3px rgba(217,154,43,0.18);
+}
+.side-nav a {
+  color: #b7c6db;
+  font-weight: 650;
+  border: 1px solid transparent;
+}
+.side-nav a svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  stroke: currentColor;
+  opacity: 0.85;
+}
+.side-nav a:hover { background: rgba(255,255,255,0.07); color: #ffffff; }
+.side-nav a:hover svg { opacity: 1; }
+.side-nav a.active {
+  background: linear-gradient(135deg, rgba(217,154,43,0.16), rgba(217,154,43,0.05));
+  color: #ffffff;
+  border-color: rgba(217,154,43,0.35);
+  box-shadow: inset 3px 0 0 var(--gold);
+  font-weight: 800;
+}
+.side-nav a.active svg { opacity: 1; stroke: var(--gold); }
+.side-nav-bottom { border-top: 1px solid rgba(255,255,255,0.09); padding-top: 10px; }
+.sidebar-footer {
+  border-top: 1px solid rgba(255,255,255,0.09);
+  color: #7f95ae;
+}
+.sidebar-footer strong { color: #cfdcec; }
+@media (max-width: 1020px) {
+  .sidebar { box-shadow: 0 4px 18px rgba(6,16,28,0.15); }
+}
+
+/* Card + hero accent */
+.hero {
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--navy-800), var(--gold) 65%, var(--gold-soft));
+}
+
+/* Countdown + signal-flag panel unified as one "race control" cluster */
+.race-header-flags {
+  background: linear-gradient(150deg, var(--navy-800), var(--navy-900)) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: 0 9px 22px rgba(10, 22, 38, 0.28) !important;
+  color: #e7edf5;
+}
+.race-header-flags .flag-row::before { color: #7f93ab !important; }
+.race-header-flags.no-flags-up { border-style: dashed !important; }
+
+/* Empty states ----------------------------------------------------------- */
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 44px 24px;
+  color: var(--muted);
+}
+.empty-state .empty-state-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--blue-soft);
+  color: var(--blue);
+  margin-bottom: 4px;
+}
+.empty-state .empty-state-icon svg { width: 26px; height: 26px; stroke: currentColor; }
+.empty-state h3 { margin: 0; color: var(--text); font-size: 16px; }
+.empty-state p { margin: 0; max-width: 440px; color: var(--muted); }
+.empty-state .button { margin-top: 6px; }
+
+/* ---------------------------------------------------------------- Race replay
+   The timeline sits directly under the map so the two read as one instrument.
+   On a phone the controls wrap and the slider takes a full row of its own,
+   because a 40px-wide scrubber is unusable. */
+.replay-map { margin-bottom: 8px; position: relative; }
+.replay-controls {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 10px; background: var(--blue-soft, #eef5ff);
+  border: 1px solid var(--line, #d4dce9); border-radius: 8px;
+}
+.replay-controls .replay-slider { flex: 1 1 240px; min-width: 160px; accent-color: var(--blue, #0f314e); }
+.replay-controls .replay-play { min-width: 92px; }
+.replay-controls .replay-speed { min-width: 52px; }
+.replay-clock { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 15px; }
+.replay-elapsed { font-variant-numeric: tabular-nums; }
+.replay-status.warn { color: #93370d; }
+.replay-swatch {
+  display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+  margin-right: 6px; vertical-align: baseline;
+}
+/* The chart panel ---------------------------------------------------------
+   One layout at two sizes. The panel is a flex column that owns a height: the
+   chart takes whatever is left after the control bar, and the leaderboard floats
+   over the chart as a translucent roll-up rather than sitting under it pushing
+   it small. Full screen is the same layout pinned to the viewport.
+
+   It is driven by a class rather than the Fullscreen API because iOS Safari
+   refuses requestFullscreen() on anything but a <video> — and a phone is exactly
+   where this is worth having. Where the real API exists it is asked for as well,
+   to drop the browser chrome too; nothing here depends on getting it. */
+[data-replay] {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: min(78vh, 820px);
+  min-height: 380px;
+}
+[data-replay] .replay-map {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0.4rem 0 0;
+}
+/* Inside the panel the chart fills its share: the square-and-capped rule that
+   keeps a standalone course chart above the fold is exactly wrong here. */
+[data-replay] .course-map {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: auto;
+}
+[data-replay] .replay-controls { flex: 0 0 auto; }
+[data-replay] .replay-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* Above the playback controls, never over them: a board covering Play and the
+     timeline would make the chart unusable the moment it was opened. The height
+     is measured and published as a custom property. */
+  bottom: var(--replay-controls-h, 0px);
+  /* Above Leaflet's own control layer, which sits at 1000: on a phone the
+     attribution line wraps across the full width of the map and swallowed every
+     tap on the roll-up tab. */
+  z-index: 1200;
+  /* Never more than about half: the board is floating over the chart, and a
+     chart you cannot see is not worth the space the board saved. It scrolls
+     beyond this, and one tap rolls it away entirely. */
+  max-height: 46%;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+[data-replay] .replay-sheet-tab {
+  pointer-events: auto;
+  align-self: flex-start;
+  margin: 0 0 -1px 10px;
+  border: 1px solid var(--line, #d4dce9);
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  background: rgba(255, 255, 255, 0.86);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  font: 600 13px/1 inherit;
+  color: var(--blue, #0f314e);
+  padding: 9px 14px;
+  cursor: pointer;
+}
+[data-replay] .replay-sheet-body {
+  pointer-events: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: rgba(255, 255, 255, 0.5);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  backdrop-filter: blur(12px) saturate(1.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.7);
+  padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+}
+/* Translucency has to hold all the way down: the panel's blur counts for nothing
+   while the table on it, or the row cards inside that, are solid white. */
+[data-replay] .replay-sheet-body .replay-board,
+[data-replay] .replay-sheet-body .replay-board thead th { background: transparent; }
+[data-replay] .replay-sheet-body .replay-board thead th {
+  color: var(--blue, #0f314e);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.25);
+}
+[data-replay] .replay-sheet-body .stack-table tr,
+[data-replay] .replay-sheet-body .replay-board tbody tr {
+  background: rgba(255, 255, 255, 0.42);
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: none;
+}
+[data-replay] .replay-sheet-body .replay-board tbody tr.selected {
+  background: rgba(255, 243, 205, 0.72);
+}
+[data-replay] .replay-sheet[data-rolled="1"] .replay-sheet-body { display: none; }
+[data-replay] .replay-sheet-caret { display: inline-block; transition: transform 0.15s; }
+[data-replay] .replay-sheet[data-rolled="1"] .replay-sheet-caret { transform: rotate(180deg); }
+[data-replay] .replay-board-at { margin: 2px 0 6px; }
+[data-replay] .replay-board-picker { margin-top: 4px; }
+
+/* Full screen: the same layout, pinned to the viewport. */
+body.replay-fullscreen-open { overflow: hidden; }
+.replay-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  height: auto;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  background: var(--surface, #fff);
+}
+.replay-fullscreen .section-head { display: none; }
+.replay-fullscreen .replay-map { margin: 0; }
+.replay-fullscreen .course-map { border: 0; border-radius: 0; }
+.replay-fullscreen .replay-controls {
+  gap: 8px;
+  padding-top: 6px;
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+}
+.replay-fullscreen .replay-sheet { z-index: 4001; max-height: 58%; }
+.replay-fullscreen .replay-full { display: none; }   /* the ✕ replaces it */
+/* Move the wind chip clear of the ✕ rather than letting them share the corner. */
+.replay-fullscreen .course-map-wind-overlay { top: 58px; }
+@media (max-width: 640px) {
+  .replay-fullscreen .replay-elapsed { display: none; }   /* the clock is enough */
+}
+/* Always reachable: the roll-up sheet can cover the control bar's own button,
+   so leaving full screen gets a control of its own that nothing overlaps. */
+.replay-exit {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 4002;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--line, #d4dce9);
+  background: rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  font-size: 17px;
+  line-height: 1;
+  color: var(--blue, #0f314e);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.2);
+}
+.replay-footnote { margin-top: 0.6rem; }
+
+.replay-board-picker { margin-top: 4px; }
+.replay-board-picker {
+  display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-top: 14px;
+}
+.replay-board-picker label {
+  display: flex; flex-direction: column; gap: 3px;
+  font-size: 13px; font-weight: 600; color: var(--muted, #667);
+}
+.replay-board-picker select { min-width: 150px; }
+.replay-board-picker label[hidden] { display: none; }
+.replay-board { width: 100%; margin-top: 12px; }
+.replay-board tbody tr { cursor: pointer; }
+.replay-board tbody tr:hover { background: var(--blue-soft, #eef5ff); }
+.replay-board tbody tr.selected { background: #fff3cd; }
+.replay-board tbody tr.finished td { color: var(--muted, #667); }
+@media (max-width: 640px) {
+  .replay-controls { gap: 8px; }
+  .replay-controls .replay-slider { flex: 1 0 100%; order: 5; }
+}
+
+/* Clubhouse TV (/bar) -------------------------------------------------------
+   One full-screen chart with everything else laid over it. Sized to be read from
+   across a room rather than from a desk, and with no controls at all: it is
+   opened once on a display and left alone. */
+.bar-page {
+  margin: 0;
+  height: 100vh;
+  overflow: hidden;
+  background: #0b1b2b;
+  color: #0f172a;
+}
+.bar-stage { position: fixed; inset: 0; }
+.bar-map { position: absolute; inset: 0; margin: 0; }
+.bar-map .course-map {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+}
+/* Leaflet's zoom buttons and attribution are clutter on a screen nobody touches;
+   the attribution moves rather than goes, because the tiles still require it. */
+.bar-stage .leaflet-control-zoom { display: none; }
+.bar-stage .leaflet-control-attribution { opacity: 0.55; font-size: 10px; }
+
+.bar-top {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 14px 24px;
+  background: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+}
+.bar-crest { height: 46px; width: auto; }
+.bar-race { flex: 1 1 auto; min-width: 0; }
+.bar-race h1 {
+  margin: 0;
+  font-size: clamp(22px, 2.4vw, 40px);
+  line-height: 1.1;
+  color: var(--blue, #0f314e);
+}
+.bar-race p {
+  margin: 4px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  align-items: center;
+  font-size: clamp(13px, 1.1vw, 19px);
+  color: #334155;
+}
+.bar-sequence { display: flex; gap: 4px; flex-wrap: wrap; }
+.bar-sequence .mark {
+  font-style: normal;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: #e2e8f0;
+  color: #0f172a;
+}
+/* The solid port/starboard of the rest of the app, not a pale tint: this is read
+   from across a room, where #dcfce7 and #fee2e2 are both simply "grey". */
+.bar-sequence .mark.s { background: var(--starboard); color: #fff; }
+.bar-sequence .mark.p { background: var(--port); color: #fff; }
+.bar-sequence .bar-shorten { background: #664d03; color: #fff; }
+/* Hoisted signal flags, beside the countdown on the clubhouse display.
+   row-reverse is the point of it: the first flag hoisted renders at the right of the
+   row, nearest the clock, and each later one is added to its left — the way they go up
+   the mast. Sized between the competitor page's flags and the clock's own type, so a
+   start sequence reads from the far side of the room. */
+.bar-flags {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: clamp(6px, 0.7vw, 14px);
+}
+.bar-flags-empty { display: none; }        /* no flags up: no gap in the header either */
+.bar-flags .signal-flag.numeral-flag {
+  width: clamp(64px, 7vw, 132px);
+  height: clamp(39px, 4.3vw, 80px);
+}
+.bar-flags .signal-flag.prep-p,
+.bar-flags .signal-flag.code-s {
+  width: clamp(39px, 4.3vw, 80px);
+  height: clamp(39px, 4.3vw, 80px);
+}
+.bar-clock {
+  flex: 0 0 auto;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.bar-clock-time {
+  display: block;
+  font-size: clamp(26px, 3vw, 52px);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--blue, #0f314e);
+}
+.bar-clock-state {
+  display: block;
+  font-size: clamp(11px, 0.9vw, 15px);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+.bar-prestart .bar-clock-time { color: #b45309; }
+.bar-finished .bar-clock-time { color: #15803d; }
+
+.bar-board {
+  position: absolute;
+  top: 96px; right: 0; bottom: 0;
+  z-index: 1300;
+  width: clamp(300px, 26vw, 460px);
+  overflow-y: auto;
+  padding: 14px 18px 20px;
+  background: rgba(255, 255, 255, 0.8);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+  border-left: 1px solid rgba(15, 23, 42, 0.12);
+}
+.bar-board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.bar-board-dots { display: flex; gap: 5px; flex: 0 0 auto; }
+.bar-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.22);
+}
+.bar-dot.on { background: var(--blue, #0f314e); }
+.bar-board h2 {
+  margin: 0 0 8px;
+  font-size: clamp(13px, 1vw, 17px);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #64748b;
+}
+.bar-board table { width: 100%; border-collapse: collapse; }
+.bar-board thead th {
+  text-align: left;
+  font-size: clamp(10px, 0.8vw, 13px);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.18);
+  padding: 0 6px 5px 0;
+}
+.bar-board tbody td {
+  padding: 9px 6px 9px 0;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  font-size: clamp(14px, 1.25vw, 22px);
+  font-variant-numeric: tabular-nums;
+  vertical-align: baseline;
+}
+.bar-board tbody td:first-child { font-weight: 800; width: 1.6em; }
+.bar-board tbody td .bar-sail {
+  display: block;
+  font-size: 0.72em;
+  color: #64748b;
+  font-weight: 500;
+}
+.bar-board tbody tr.finished td { color: #15803d; }
+.bar-swatch {
+  display: inline-block;
+  width: 0.6em; height: 0.6em;
+  border-radius: 2px;
+  margin-right: 0.45em;
+}
+.bar-board-note {
+  margin: 10px 0 0;
+  font-size: clamp(10px, 0.8vw, 13px);
+  color: #64748b;
+}
+
+/* The wind dial, floated over the top-left of the chart. The bar display carried
+   no wind reading at all, which is the first thing anyone watching a race asks.
+   Semi-transparent so whatever is underneath still reads through it.
+
+   z-index 1250 puts it ABOVE .bar-video (1200), so it stays on screen when the
+   camera takes over the chart for a start or a finish — those are exactly the
+   moments the room is asking what the wind is doing. Still below .bar-top and
+   .bar-board (1300), and it starts below the header anyway. */
+.bar-wind {
+  position: absolute;
+  top: 108px;
+  left: 18px;
+  z-index: 1250;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 10px 12px 8px;
+  border-radius: 14px;
+  /* 0.82, the same as .bar-top and .bar-board on this screen.
+     It has to hold up over three very different backgrounds, because the dial now
+     stays on screen while the camera is up: pale map tiles, and — top-left of a
+     start-hut view — most likely bright sky, with dark water or dusk the other
+     way. A translucent white card disappears against white sky, so the border and
+     the shadow are doing real work here rather than decoration: they are what
+     separates the panel from whatever is behind it. */
+  background: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: blur(10px) saturate(1.15);
+  backdrop-filter: blur(10px) saturate(1.15);
+  border: 1px solid rgba(15, 23, 42, 0.22);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.22);
+  pointer-events: none;          /* nobody touches this screen; never steal a map drag */
+}
+.bar-wind-gauge { display: grid; place-items: center; min-height: 0; }
+/* Sized to be read from across a room, but capped so it never crowds the chart on
+   a small display. */
+.bar-wind .wind-dial { width: clamp(150px, 13vw, 240px); }
+.bar-wind-note {
+  margin: 0;
+  font-size: clamp(10px, 0.75vw, 13px);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #334155;
+}
+
+/* The camera takes the chart's space, leaving the race information and the order
+   in place — a bar wants to know which boat it is watching come in. */
+.bar-video {
+  position: absolute;
+  top: 96px; left: 0; bottom: 0;
+  right: clamp(300px, 26vw, 460px);
+  z-index: 1200;
+  background: #06121e;
+  display: flex;
+  flex-direction: column;
+}
+/* `display: flex` above is a class selector and beats the UA stylesheet's
+   `[hidden] { display: none }` on source order, so the panel stayed on screen
+   covering the whole chart while claiming to be hidden. */
+.bar-video[hidden] { display: none; }
+/* The shared wrap is built for a card on a page — 980px wide with a border and
+   padding. On a television it is the picture, so all of that comes off and the
+   frame is centred in whatever space is left beside the leaderboard. */
+.bar-video .live-video-frame-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: #06121e;
+}
+.bar-video .live-video-frame,
+.bar-video iframe {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border: 0;
+  border-radius: 0;
+  background: #06121e;
+}
+.bar-video .live-camera-note { display: none; }
+.bar-video-caption {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 12px 24px calc(14px + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--blue, #0f314e);
+  font-size: clamp(18px, 2vw, 34px);
+  font-weight: 800;
+  text-align: center;
+}
+.bar-status {
+  position: absolute;
+  left: 24px; bottom: 18px;
+  z-index: 1300;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #7c2d12;
+  font-size: 15px;
+}
+.bar-status:empty { display: none; }
+.bar-empty {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: #f8fafc;
+  text-align: center;
+}
+.bar-empty img { max-width: 520px; width: 60%; }
+.bar-empty h1 { margin: 0; font-size: clamp(28px, 3vw, 48px); color: var(--blue, #0f314e); }
+.bar-empty p { margin: 0; font-size: clamp(15px, 1.4vw, 22px); color: #64748b; }
+
+/* Setting a mark position from the water (/marks/ping) ----------------------
+   Used one-handed on a phone in a small boat, so everything is large, there is
+   one job on screen, and the button that writes a change is unmissable. */
+.ping-body {
+  margin: 0;
+  background: var(--surface, #fff);
+  -webkit-text-size-adjust: 100%;
+}
+.ping-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 1rem;
+  background: var(--blue, #0f314e);
+  color: #fff;
+}
+.ping-top .ping-back { color: #fff; font-weight: 700; text-decoration: none; font-size: 17px; }
+.ping-who { font-size: 14px; opacity: 0.8; }
+.ping-page {
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 1rem 1rem calc(2rem + env(safe-area-inset-bottom, 0px));
+}
+.ping-page h1 { margin: 0 0 0.4rem; font-size: clamp(22px, 6vw, 30px); color: var(--blue, #0f314e); }
+.ping-intro, .ping-note { color: var(--muted, #667); font-size: 15px; }
+.ping-warning {
+  display: block;
+  margin: 0.8rem 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  background: #fff1f0;
+  border: 1px solid #f2b8b5;
+  color: #7f1d1d;
+  font-size: 15px;
+}
+.ping-warning[hidden] { display: none; }
+.ping-warning-detail { display: block; margin-top: 0.3rem; font-weight: 400; }
+.ping-fix {
+  margin: 1rem 0;
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+  background: var(--blue-soft, #eef5ff);
+  border: 1px solid var(--line, #d4dce9);
+}
+.ping-fix-label {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #667);
+}
+.ping-fix-value {
+  display: block;
+  font-size: clamp(20px, 6vw, 28px);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--blue, #0f314e);
+  line-height: 1.2;
+}
+.ping-fix-accuracy { display: block; font-size: 15px; font-weight: 600; }
+.ping-fix-accuracy.good { color: #15803d; }
+.ping-fix-accuracy.poor { color: #b45309; }
+.ping-pick { display: block; margin: 1.2rem 0 0.4rem; font-weight: 700; }
+.ping-pick select {
+  display: block;
+  width: 100%;
+  margin-top: 0.3rem;
+  font-size: 18px;
+  padding: 0.6rem 0.5rem;
+}
+.ping-current { margin: 0.8rem 0; }
+.ping-current p { margin: 0.2rem 0; }
+.ping-current-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #667);
+  margin-right: 0.5rem;
+}
+.ping-current-value { font-variant-numeric: tabular-nums; font-weight: 600; }
+.ping-distance { font-size: 17px; font-weight: 700; color: var(--blue, #0f314e); }
+.ping-distance.warn { color: #b45309; }
+.ping-set {
+  display: block;
+  width: 100%;
+  margin: 1.2rem 0 0.6rem;
+  padding: 1rem;
+  font-size: 18px;
+  font-weight: 800;
+}
+.ping-set:disabled { opacity: 0.55; }
+.ping-result { min-height: 1.4em; font-size: 17px; font-weight: 700; }
+.ping-result.good { color: #15803d; }
+.ping-result.bad { color: #b91c1c; }
+.ping-note { margin-top: 1.4rem; }
+/* The mark edit panel.
+ *
+ * It lives in a row of its own spanning the table, not in the actions cell. A
+ * table cell is sized to its content, so a flex row inside one is granted every
+ * pixel it asks for and `flex-wrap` never fires: with six fields on it, opening
+ * one panel made the page 1216px wider than the window, and reading the rest of
+ * the table meant scrolling right past the form. Given a full-width row the
+ * fields have a bounded width to wrap inside.
+ */
+/* Fixed layout is what actually holds the panel in: with the default automatic
+ * algorithm a cell is sized to its content, so the full-width row was still free
+ * to make the table as wide as the unwrapped form wanted. Fixed layout takes the
+ * widths from these columns instead, and the content wraps inside them. */
+.marks-table { table-layout: fixed; min-width: 46rem; }
+.marks-table .col-code { width: 4.5rem; }
+.marks-table .col-round { width: 6rem; }
+.marks-table .col-actions { width: 5.5rem; }
+.marks-table .col-pos { width: 22%; }
+.marks-table .col-name { width: 18%; }
+.marks-table .col-buoy { width: 14%; }
+/* Below the table's minimum the table scrolls inside its own box rather than
+   taking the whole page sideways with it. */
+.table-scroll { overflow-x: auto; }
+
+.mark-edit summary { cursor: pointer; color: var(--blue, #0f314e); font-weight: 600; }
+.mark-edit-row > td { padding-top: 0; padding-bottom: 0.5rem; }
+.mark-edit-row .mark-edit:not([open]) + * { margin-top: 0; }
+.mark-edit .compact-form {
+  /* Grid rather than the inherited flex row: the columns line up down the form
+     and the count follows the width, so it is one row on a desk and a stack on
+     a phone without a breakpoint for each. */
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.5rem 0.9rem;
+  align-items: end;
+  margin-top: 0.5rem;
+  max-width: 78rem;
+}
+.mark-edit .compact-form label { display: flex; flex-direction: column; gap: 0.15rem; }
+.mark-edit .compact-form input { width: 100%; min-width: 0; }
+.mark-edit .compact-form button { justify-self: start; align-self: end; }
+.mark-edit .tiny.muted { max-width: 60rem; margin-top: 0.5rem; }
+.checkbox-inline { display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap; }
+.ping-status { display: block; font-size: 15px; color: var(--muted, #667); margin-top: 0.2rem; }
+.ping-status:empty { display: none; }
+.ping-start { display: block; width: 100%; margin: 0.6rem 0 0; padding: 0.8rem; font-size: 16px; }
+.ping-start[hidden] { display: none; }
+.ping-diag { margin-top: 1.2rem; font-size: 12px; word-break: break-all; }
+
+/* The race sheet's "Sailing to" arrows: correcting the mark a boat is heading
+   for when a wide rounding went undetected. Tight and square, because the cell
+   sits at the end of a compact table row that redraws every few seconds. */
+.next-mark-cell { white-space: nowrap; }
+.next-mark-arrows { display: inline-flex; align-items: center; gap: 0.25rem; }
+.next-mark-arrows button { padding: 2px 8px; font-size: 15px; line-height: 1.2; min-width: 2rem; }
+.next-mark-arrows button:disabled { opacity: 0.35; cursor: not-allowed; }
+/* Says the progress was set by hand rather than seen by GPS, so nobody reads a
+   corrected boat as a detection and goes looking for a fault that is not there. */
+.next-mark-flag {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 1px 5px; border-radius: 6px;
+  background: var(--chip-bg, #eef1f5); color: var(--muted, #667);
+}
+
+/* Activity log viewer (Settings -> Activity log). Monospaced and dense: it is a
+   plain-text record and reads best as one, but the lines are long, so each wraps
+   with its continuation indented rather than being cut off or forcing a
+   horizontal scrollbar down the whole page. */
+.log-days { display: flex; flex-wrap: wrap; gap: 6px; margin: 0.6rem 0 1rem; }
+.log-days .button.active { background: var(--ink, #0f172a); color: #fff; }
+.log-view {
+  border: 1px solid var(--line, #dfe3ea);
+  border-radius: var(--radius, 8px);
+  background: #fbfcfd;
+  padding: 0.6rem 0.8rem;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.log-line {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  padding: 1px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding-left: 1.4rem;
+  text-indent: -1.4rem;      /* wrapped continuations sit in from the timestamp */
+}
+.log-line + .log-line { border-top: 1px solid #eef1f5; }
+
+/* Low tracker batteries on the dashboard. A short list rather than a count, because
+   the useful thing is which boat to go and find before Saturday. */
+.battery-warning-list { list-style: none; margin: 0.4rem 0 0.8rem; padding: 0; }
+.battery-warning-list li { padding: 2px 0; }
+.battery-warning-list strong { font-variant-numeric: tabular-nums; }
+/* Battery column on the Trackers page. */
+.tracker-battery { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------------------
+   On the water: the command page, built for one hand on a phone.
+   Big targets, a readable thread, and the answer buttons where a thumb is.
+   --------------------------------------------------------------------------- */
+.onwater-body { margin: 0; padding: 0.9rem; background: #eef2f7; }
+.onwater { max-width: 42rem; margin-inline: auto; display: grid; gap: 0.75rem; }
+.onwater-head h2 { margin: 0 0 0.15rem; }
+
+/* The status strip. Two lines and a rolled-up chart, and it has to stay two
+   lines: every row here is a row of conversation pushed off a phone screen.
+   The race sheet's header alone is taller than this whole page has to spare. */
+.ow-now {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem;
+  margin-top: 0.35rem;
+}
+.ow-now-race { min-width: 0; }                 /* so the name truncates, not the clock */
+.ow-now-name {
+  display: block; font-weight: 700; font-size: 1.05rem; color: #0f314e;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ow-now-state { font-size: 0.82rem; color: #55637a; }
+.ow-now-clock {
+  font-size: 1.7rem; font-weight: 700; line-height: 1; color: #0f314e;
+  font-variant-numeric: tabular-nums;         /* so it does not jitter each second */
+  white-space: nowrap;
+}
+/* The last five minutes, when the sequence is running and nobody should have to
+   read a number to know it. */
+.ow-imminent { color: #b42318; }
+.ow-now-course {
+  display: flex; justify-content: space-between; gap: 0.6rem;
+  font-size: 0.92rem; color: #1f2937; margin-top: 0.1rem;
+}
+.ow-now-wind { color: #55637a; white-space: nowrap; }
+.ow-chart { margin-top: 0.35rem; }
+.ow-chart > summary {
+  cursor: pointer; font-size: 0.9rem; color: #0d5bd8; padding: 0.15rem 0;
+}
+.ow-chart .course-map { height: 46vw; max-height: 15rem; margin-top: 0.35rem; }
+.ow-chart .course-map svg { width: 100%; height: 100%; }
+/* Here the plotted-marks drawing is the design and not a failure to load tiles,
+   so the note that says so would be telling somebody at sea about a problem
+   they do not have. */
+.ow-chart .course-map-fallback-note { display: none; }
+.ow-mast { margin: 0; font-size: 0.8rem; color: #55637a; }
+/* No interpreter, no page: said once, in the colour of a thing that is off
+   rather than a thing that is broken. */
+.ow-unavailable { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
+
+
+/* The course board. The same marks and hands the race sheet and the clubhouse
+   display show — the thing that gets read out over the VHF — but sized for a
+   phone, where the full-size chips would take two rows on their own. */
+.ow-board { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.35rem; }
+.ow-board:empty { display: none; }
+.ow-board .mark {
+  font-size: 0.78rem; padding: 2px 5px; min-width: 26px; border-radius: 5px;
+  box-shadow: none;
+}
+.ow-interpreter {
+  margin: 0.4rem 0 0; padding: 0.5rem 0.65rem; border-radius: 8px;
+  background: #fff8e6; border: 1px solid #f0d48a; color: #6b4e0e;
+  font-size: 0.9rem; line-height: 1.35;
+}
+.onwater-thread {
+  display: grid; gap: 0.55rem; padding: 0.65rem;
+  background: #f6f8fb; border: 1px solid #d4dce9; border-radius: 10px;
+  min-height: 9rem; max-height: 52vh; overflow-y: auto;
+}
+.ow-msg { padding: 0.6rem 0.75rem; border-radius: 10px; }
+.ow-msg p { margin: 0; font-size: 1.05rem; line-height: 1.4; }
+.ow-you { background: #0f314e; color: #fff; justify-self: end; max-width: 85%; }
+.ow-app { background: #fff; border: 1px solid #d4dce9; justify-self: start; max-width: 95%; }
+.ow-ask { border-color: #b9d0ff; background: #eef5ff; }
+.ow-done { border-color: #a8d5b5; background: #eefaf1; }
+.ow-problem { border-color: #f2b8b5; background: #fff1f0; }
+
+/* The answers to a question the app asked, as taps. Typing "standard" one-handed
+   on a tiller is exactly the moment the page should ask for less. */
+.ow-options { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+.ow-options button {
+  font-size: 1rem; padding: 0.55rem 1rem; border-radius: 999px;
+  background: #fff; border: 1px solid #7ba3e0; color: #0f314e;
+}
+.ow-options button:disabled { opacity: 0.45; }
+
+/* Only on screen when there is something to answer, so the buttons never
+   become scenery to be pressed out of habit. */
+.onwater-answer { display: grid; grid-template-columns: 2fr 1fr; gap: 0.6rem; }
+/* `display: grid` on the class beats the browser's own [hidden] rule, so the
+   Yes button sat on screen with nothing to say yes to -- exactly the button
+   that must never be pressable out of habit. */
+.onwater-answer[hidden] { display: none; }
+.onwater-answer button { font-size: 1.25rem; padding: 0.9rem 1rem; border-radius: 10px; border: 0; }
+.ow-yes { background: #157347; color: #fff; }
+.ow-no { background: #e9ecef; color: #1f2937; }
+
+.onwater-say { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; }
+.onwater-say input { font-size: 1.1rem; padding: 0.8rem 0.75rem; }
+.onwater-say button { font-size: 1.1rem; padding: 0.8rem 1.2rem; }
+.onwater-quick { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.onwater-quick button {
+  font-size: 0.95rem; padding: 0.55rem 0.8rem; border-radius: 999px;
+  background: #fff; border: 1px solid #d4dce9; color: #1f2937;
+}
+@media (max-width: 560px) {
+  .onwater-thread { max-height: 46vh; }
+  .onwater-say input, .onwater-say button { font-size: 1.05rem; }
+}
+/* The signal plan under AP. A held signal is one the app will not make while
+   the flag flies -- shown rather than removed, because a race officer looking
+   for the course announcement needs to see that it is not coming. The two AP
+   rows are the signals that replace them. */
+.signal-plan-table tr.signal-held td { opacity: 0.5; text-decoration: line-through; }
+.signal-plan-table tr.signal-held td .muted { text-decoration: none; }
+.signal-plan-table tr.signal-postponement td {
+  background: #fffbeb;
+  border-top: 2px solid #b45309;
+  border-bottom: 2px solid #b45309;
+  font-weight: 600;
+}

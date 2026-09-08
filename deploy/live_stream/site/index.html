@@ -1,0 +1,109 @@
+<!doctype html>
+<!-- Public "watch live" page, served by Caddy on the relay at
+     https://pro.pwllhelisailingclub.org/live . Branding is burned into the video, so
+     the page is intentionally minimal and embeddable (see the Caddyfile headers).
+     hls.js is bundled locally (hls.min.js next to this file) — no CDN.
+
+     When embedded, the page posts its state to the parent window as
+     {source: "psc-live", state: "connecting" | "playing" | "error"}. The hut app's
+     camera panels use that to keep showing refreshing snapshots until the stream
+     is actually playing, then swap to this player (see static/live_camera.js).
+     Deploy this file to the relay's site root after updating it. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pwllheli Sailing Club — live</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; }
+    .wrap { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+    video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+    #msg { position: absolute; color: #fff; font-family: system-ui, sans-serif; font-size: 15px; opacity: .85; text-align: center; padding: 0 1rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <video id="v" controls autoplay muted playsinline></video>
+    <div id="msg">Connecting to the live camera…</div>
+  </div>
+  <script src="./hls.min.js"></script>
+  <script>
+    var url = "/hut/index.m3u8";
+    var v = document.getElementById("v");
+    var msg = document.getElementById("msg");
+    function post(state) {
+      if (window.parent === window) return;      // not embedded: nothing to tell
+      try { window.parent.postMessage({source: "psc-live", state: state}, "*"); } catch (e) {}
+    }
+    post("connecting");
+    v.addEventListener("playing", function () { msg.style.display = "none"; post("playing"); });
+    v.addEventListener("waiting", function () { msg.style.display = ""; msg.textContent = "Buffering…"; });
+    // Autoplay can be declined (or simply not re-armed after a retry), leaving a
+    // loaded-but-paused player at 0:00. Ask for playback whenever there is data,
+    // and keep an eye on it.
+    function tryPlay() {
+      var p = v.play();
+      if (p && p.catch) p.catch(function () {
+        msg.style.display = ""; msg.textContent = "Tap to start the live view";
+      });
+    }
+    v.addEventListener("canplay", tryPlay);
+    v.addEventListener("loadeddata", tryPlay);
+    v.addEventListener("click", function () { tryPlay(); });
+    msg.addEventListener("click", function () { tryPlay(); });
+    setInterval(function () { if (v.paused && v.readyState >= 2 && !v.error) tryPlay(); }, 3000);
+    // hls.js FIRST, native HLS only as the fallback. Chrome answers "maybe" to
+    // canPlayType("application/vnd.apple.mpegurl") on some builds and then fails
+    // to demux the playlist (DEMUXER_ERROR_COULD_NOT_PARSE), which showed up as a
+    // player sitting paused at 0:00 on an otherwise healthy stream. Only Safari
+    // and iOS, where hls.js reports it is unsupported, should take the native path.
+    if (window.Hls && Hls.isSupported()) {
+      // The stream is on-demand: the first viewer waits ~5-10s while the relay spins
+      // up, so the playlist 404s briefly. Be patient and auto-retry instead of failing.
+      var hls = new Hls({
+        liveSyncDurationCount: 3,
+        lowLatencyMode: false,
+        backBufferLength: 30,
+        manifestLoadingMaxRetry: 12,
+        manifestLoadingRetryDelay: 1500,
+        manifestLoadingMaxRetryTimeout: 30000,
+        levelLoadingMaxRetry: 12,
+        fragLoadingMaxRetry: 12
+      });
+      hls.loadSource(url);
+      hls.attachMedia(v);
+      hls.on(Hls.Events.ERROR, function (_, d) {
+        if (!d.fatal) return;
+        if (d.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          msg.style.display = ""; msg.textContent = "Connecting to the live camera…";
+          post("connecting");
+          setTimeout(function () { hls.startLoad(); }, 2000);   // stream still starting; keep trying
+        } else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          hls.recoverMediaError();
+        } else {
+          msg.style.display = ""; msg.textContent = "The live stream is not available right now.";
+          post("error");
+        }
+      });
+    } else if (v.canPlayType("application/vnd.apple.mpegurl")) {
+      v.src = url;                       // native HLS (Safari / iOS)
+      v.addEventListener("error", function () {
+        msg.style.display = ""; msg.textContent = "The live stream is not available right now.";
+        post("error");
+      });
+      // The stream is on demand, so the playlist can 404 for the first few
+      // seconds. Native HLS gives up quietly, so re-load until it takes.
+      var nativeTries = 0;
+      var nativeRetry = setInterval(function () {
+        if (!v.paused || v.readyState >= 2) { clearInterval(nativeRetry); return; }
+        if (++nativeTries > 40) { clearInterval(nativeRetry); return; }   // ~2 minutes
+        v.load();
+        tryPlay();
+      }, 3000);
+    } else {
+      msg.textContent = "This browser cannot play the live stream.";
+      post("error");
+    }
+  </script>
+</body>
+</html>

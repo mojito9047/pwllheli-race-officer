@@ -1,0 +1,888 @@
+/* Copyright © 2026 CapeNet Ltd. All Rights Reserved. */
+/*
+ * The race-document theme — the app's look since v0.275.
+ *
+ * The app was styled as a management console: Inter, 14px radius on everything,
+ * soft-shadowed cards, a blue primary button, pill badges and a gradient wash.
+ * That is the house style of every SaaS dashboard built in the last two years,
+ * and it says nothing about sailing. This layer replaces the visual language
+ * without touching a single template's structure.
+ *
+ * The idea is that this app is two things at once, and they should not look
+ * alike:
+ *
+ *   DOCUMENTS — entries, results, boats, marks, series, settings. These are the
+ *   descendants of paper: sailing instructions, entry lists, results sheets
+ *   pinned to the clubhouse board. They get a paper ground, hairline rules
+ *   instead of cards, a serif for prose and headings, a condensed grotesque for
+ *   labels, and monospaced tabular figures for every time and rating. Dense,
+ *   quiet, printed.
+ *
+ *   INSTRUMENTS — the countdown, the start sequence, the flag panel, the bar
+ *   display, the on-water page. These are read at a glance, from across a hut,
+ *   often in bright light. They get the chart plotter treatment: near-black
+ *   ground, oversized tabular numerals, thin rules, and colour reserved
+ *   strictly for state.
+ *
+ * The app already half did this — the countdown box has always been dark in a
+ * light page. This makes it deliberate.
+ *
+ * Loaded AFTER style.css and overriding it, so removing one <link> reverts the
+ * whole thing. Everything here is presentation: no layout mechanism from
+ * style.css is replaced, only its surface.
+ */
+
+:root {
+  /* Paper and ink. Warm rather than blue-grey: a results sheet, not a screen. */
+  --paper: #f7f4ec;
+  --paper-2: #fffdf7;
+  --paper-sunk: #efeade;
+  --ink: #1c1a15;
+  --ink-2: #4a463c;
+  --ink-faint: #7d776a;
+  --rule: #cfc7b4;
+  --rule-strong: #a89f89;
+
+  /* Signal-flag colours, which the club already flies. The old palette's
+     #1c5aa8 was a generic UI blue; these are the real thing. */
+  --flag-red: #c8102e;
+  --flag-green: #00843d;
+  --flag-blue: #003478;
+  --flag-yellow: #f5c400;
+
+  /* Instrument surfaces. */
+  --panel: #10120f;
+  --panel-2: #1a1d19;
+  --panel-rule: #333831;
+  --panel-ink: #e8e6dd;
+  --panel-amber: #ffb000;
+
+  /* No serif, deliberately. The first cut set body text in Newsreader, and at
+     reading size on a cream ground that lands as "Times New Roman in a Word
+     document" rather than as a design — the wrong association entirely for a
+     piece of race software. It was not even authentic to the subject: charts,
+     tide tables and sailing instructions are all set in condensed grotesques,
+     not book serifs.
+
+     Archivo and Archivo Narrow are one superfamily, so the running text and the
+     labels share a skeleton, and Plex Mono carries every figure. Three faces,
+     one technical voice, and none of them Inter. */
+  --text-face: 'Archivo', 'Helvetica Neue', Arial, system-ui, sans-serif;
+  --narrow: 'Archivo Narrow', 'Franklin Gothic', 'Arial Narrow', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
+
+  /* style.css builds on these; redefining them re-skins whole components. */
+  --bg: var(--paper);
+  --bg-soft: var(--paper-sunk);
+  --surface: var(--paper-2);
+  --card: var(--paper-2);
+  --text: var(--ink);
+  --muted: var(--ink-faint);
+  --line: var(--rule);
+  --line-strong: var(--rule-strong);
+  --blue: var(--flag-blue);
+  --blue-soft: #e7ebf3;
+  --port: var(--flag-red);
+  --starboard: var(--flag-green);
+  --radius: 0px;
+  --shadow-sm: none;
+  --shadow-md: none;
+
+  /* style.css paints its dark surfaces from these. Redefining them carries the
+     instrument ground to anything this file has not named on its own. */
+  --navy-900: #0b0d0a;
+  --navy-800: #10120f;
+  --navy-700: #1a1d19;
+  --gold: var(--panel-amber);
+  --gold-dark: #b87d00;
+  --nav-bg: var(--panel);
+}
+
+/* ---------------------------------------------------------------- ground -- */
+
+body {
+  /* The gradient wash was the tell: a soft radial glow behind everything is a
+     2024 landing-page gesture, not a document. */
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--text-face);
+  /* Archivo runs a little larger and tighter on the body than a serif does, so
+     it takes a notch down and a touch more leading to read as calmly. */
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Figures that must line up in a column: times, ratings, sail numbers, money.
+   The whole point of a results sheet is that the columns compare. */
+table, .mono, input[type="datetime-local"], input[type="number"], input[type="time"] {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* -------------------------------------------------------------- headings -- */
+
+h1, h2, h3, h4, h5 {
+  font-family: var(--text-face);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+h1 { font-size: 1.4rem; }
+h2 { font-size: 1.25rem; }
+
+/* Section headings read as the ruled headings of a printed race document: set
+   in the condensed face, spaced out, with the rule doing the work a card's
+   border and shadow used to do. */
+h3 {
+  font-family: var(--narrow);
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--ink);
+  padding-bottom: 6px;
+  border-bottom: 1.5px solid var(--ink);
+  margin-bottom: 12px;
+}
+h4 {
+  font-family: var(--narrow);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-2);
+}
+/* Dialogs are speech, not documents; leave their headings unruled. */
+.help-dialog h4, dialog h4 { border-bottom: none; text-transform: none;
+  font-family: var(--text-face); font-size: 1rem; letter-spacing: 0; }
+
+/* A .section-head is a flex row -- heading on the left, buttons on the right --
+   so its heading shrinks to its own text and a rule drawn under it stops in
+   mid-air a third of the way across. The rule belongs to the section rather
+   than to the words, so it goes on the row and runs under both. */
+.section-head {
+  border-bottom: 1.5px solid var(--ink);
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+  align-items: flex-end;
+}
+.section-head h3, .section-head > div > h3 {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+/* And the same for an h2, which was missed. `h2 { margin-top: 0 }` in style.css
+   left the browser's 0.83em BOTTOM margin in place -- 16.6px of it, inside a
+   flex row, pushing the row's rule that far down the card for no reason anybody
+   could see. It is only visible when two such heads sit side by side and one
+   asks why there is so much air above the line. */
+.section-head h2, .section-head > div > h2 { margin-bottom: 0; }
+
+/* Same trap, different container: a heading inside a <summary> shrinks to its
+   own words, so the rule under "Users" was 50px long across a 1118px settings
+   section and read as an underline rather than a division. The summary row is
+   the divider there. */
+summary h3, summary h4, details > summary > h3 {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+/* -------------------------------------------------------------- no radius -- */
+
+/*
+ * Square, everywhere, and stated once rather than component by component.
+ *
+ * Doing it per component silently missed a great deal: `.button.small` is two
+ * classes and beats a single-class `.button { border-radius: 0 }` on
+ * specificity, so every small button in the app -- on twenty-three pages --
+ * stayed rounded while the big ones went square. Tables, collapsible sections,
+ * status boxes, the mark picker and half a dozen others did the same. An audit
+ * pass over every page is what found them.
+ *
+ * !important is not decoration here: style.css sets radius from selectors of
+ * higher specificity than a theme layer can reasonably restate.
+ */
+body * { border-radius: 0 !important; }
+/* Except the chart's own furniture. A mark on a chart is a circle, and squaring
+   the pins would make the course plot read as a street map.
+
+   The pin itself only -- not its descendants. `.leaflet-marker-icon *` also
+   caught the boat-name labels riding on those markers and rounded them into
+   ellipses, which is the same over-reach this blanket rule was written to
+   avoid, just in the other direction. */
+.leaflet-marker-icon { border-radius: 50% !important; }
+
+/* ----------------------------------------------------------------- cards -- */
+
+/* A card was a white box with a shadow and a 14px radius. Here a section is
+   simply ruled off — the way a form or a notice is divided. */
+.card, .result-card, .subtle-fieldset, .weather-panel, .panel-strip,
+.gps-finish-panel, .messages .message {
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  box-shadow: none;
+}
+.card { padding: 16px 18px; }
+.subsection { border-top: 1px solid var(--rule); padding-top: 14px; margin-top: 18px; }
+
+/* The double rule under a page's own title: a printer's device, and the one
+   piece of ornament in the whole theme. */
+main > .card:first-child > h3:first-child,
+.page-head h2 {
+  border-bottom: 3px double var(--ink);
+  padding-bottom: 8px;
+}
+
+/* ----------------------------------------------------------------- rules -- */
+
+hr { border: none; border-top: 1px solid var(--rule); }
+
+/* The last gradient in the app: a 3px navy-to-gold stripe across the top of
+   every .hero card. A page audit cannot see it, because it lives on a
+   pseudo-element and walking the DOM never visits one. In a theme built on
+   hairlines a gradient reads as a leftover, so it becomes a plain rule -- the
+   heavy top edge a printed form has above its title block. */
+.hero::before {
+  background: var(--ink);
+  height: 2px;
+}
+
+/* ---------------------------------------------------------------- tables -- */
+
+/* The dark navy header band was the most console-like thing on the page. A
+   printed table rules its header instead of filling it. */
+table { border-collapse: collapse; font-size: 0.93rem; }
+thead th {
+  background: transparent !important;
+  color: var(--ink) !important;
+  font-family: var(--narrow);
+  font-weight: 700;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: left;
+  padding: 6px 10px;
+  border-top: 1.5px solid var(--ink);
+  border-bottom: 1.5px solid var(--ink);
+  border-radius: 0 !important;
+}
+tbody td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--rule);
+  background: transparent;
+}
+tbody tr:last-child td { border-bottom: 1.5px solid var(--ink); }
+tbody tr:hover td { background: #f0ece0; }
+
+/* Anything that is a measurement gets the monospace, so columns of times,
+   ratings and distances align down the page. */
+.race-log-table td, .signal-plan-table td:first-child,
+.start-grid-table td, .sim-usage td, .compact td.big,
+td .small.muted, .analysis-summary strong {
+  font-variant-numeric: tabular-nums;
+}
+.race-log-table td:first-child, .signal-plan-table td:first-child {
+  font-family: var(--mono);
+  font-size: 0.86rem;
+}
+
+/* The rank column of a results table: the one number a reader looks for. */
+td.big {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+/* ...but only the figure itself. `.big` is also the mark-CODE cell on the marks
+   page, and that cell carries a note under the code ("waypoint - bends a leg,
+   not rounded") in a 72px column. Monospaced, "waypoint" measures 58px against
+   52px of usable width, so it cannot fit and the browser breaks it as
+   "waypoin / t". Prose nested in the cell goes back to the reading face, which
+   fits. The column has always been narrow -- v0.274 wraps the same note over
+   six lines -- but it wrapped between words. */
+td.big .small, td.big .muted, td.big span {
+  font-family: var(--text-face);
+  font-weight: 400;
+}
+
+/* Controls inside a table are part of the ruled grid, not free-standing form
+   fields. They are set smaller and tighter than the ones on a form, because a
+   serif and a monospace are both wider than the sans this app used to use and
+   the entries table simply ran out of room: the status column collapsed from
+   "FINISHED" to "FIN". */
+table input, table select, table textarea {
+  font-size: 0.84rem;
+  padding: 3px 6px;
+}
+/* Wide enough for the longest status plus its arrow. "FINISHED" is eight
+   characters and 9ch left no room for the chevron, so it rendered "FINISHE" --
+   the same clipping as the ratings, one column to the right, and it came back
+   the moment the ratings were widened. Columns in a fixed-width table trade
+   space with each other, so this is worth re-checking after any change to the
+   others. */
+table select { min-width: 12ch; }
+table input[type="datetime-local"] { font-size: 0.8rem; }
+/* Rating boxes. An IRC TCC is five characters -- "1.084" -- and a YTC number
+   three, so these were pinned to 8ch to keep the entries table narrow. That was
+   too tight by 3px: `ch` is the advance of "0", the box is border-box, and once
+   12px of padding and 2px of border come out of it a five-character monospaced
+   value no longer fits and the last digit is clipped. A rating with its last
+   digit cut off is worse than a wide column -- it is the number the race is
+   scored on. Sized to the content with room to spare, and measured. */
+table input[name*="rating"], table input[name*="tcc"] {
+  width: 6em;
+  min-width: 6em;
+}
+/* A latitude or longitude is eighteen characters -- "-4.381666666666667" -- and
+   is the position a mark is laid on. Same failure as the ratings and found by
+   the same check once it existed: clipped here and not in the old theme, purely
+   because monospaced figures are wider.
+
+   Widening the column would push the marks table out; the figures go down a
+   size instead. A coordinate is reference data that gets copied or corrected,
+   not a number read at a glance from across the hut. */
+table input[name="lat"], table input[name="lon"] { font-size: 0.74rem; }
+/* The provenance line under a rating, and the boat's own subtitle, are asides. */
+table .small, table .small.muted { font-size: 0.76rem; line-height: 1.3; }
+
+/* --------------------------------------------------------------- buttons -- */
+
+/* Square, set in the condensed face, uppercase and spaced: the language of a
+   stamped form rather than a rounded call-to-action. */
+button, .button, input[type="submit"] {
+  font-family: var(--narrow);
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  border-radius: 0;
+  box-shadow: none;
+  border: 1.5px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper-2);
+  padding: 8px 16px;
+  transition: none;
+}
+button:hover, .button:hover, input[type="submit"]:hover {
+  background: var(--flag-blue);
+  border-color: var(--flag-blue);
+  color: #fff;
+  transform: none;
+  box-shadow: none;
+}
+button.secondary, .button.secondary {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+button.secondary:hover, .button.secondary:hover {
+  background: var(--paper-sunk);
+  color: var(--ink);
+  border-color: var(--ink);
+}
+button.danger, .button.danger {
+  background: var(--flag-red);
+  border-color: var(--flag-red);
+  color: #fff;
+}
+button.danger:hover, .button.danger:hover { background: #a30d25; border-color: #a30d25; }
+button.small, .button.small { padding: 5px 11px; font-size: 0.74rem; }
+button.link, .button.link {
+  border: none; background: none; color: var(--flag-blue);
+  text-transform: none; letter-spacing: 0; font-family: var(--text-face);
+  font-weight: 500; padding: 0;
+}
+
+/* The finish button is pressed under time pressure, so it stays the loudest
+   thing on its row. */
+.finish-button { background: var(--flag-green) !important; border-color: var(--flag-green) !important; }
+.finish-button:hover { background: #006b31 !important; border-color: #006b31 !important; }
+
+/* ----------------------------------------------------------------- forms -- */
+
+label { font-family: var(--narrow); font-weight: 600; font-size: 0.8rem;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); }
+/* Only the label's own words are set as a label. Anything nested inside it is
+   content -- a help line, a checkbox's wording, a value -- and reverts to
+   ordinary sentence text. Without this the finish-line description under its
+   select was rendered in shouting capitals. */
+label span, label small, label p, label a, label .small, label .muted {
+  font-family: var(--text-face);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.85rem;
+}
+label.inline-check, label.checkbox-inline {
+  font-family: var(--text-face);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+input, select, textarea {
+  font-family: var(--text-face);
+  font-size: 0.95rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 0;
+  background: var(--paper-2);
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
+}
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--flag-blue);
+  outline-offset: -2px;
+  border-color: var(--flag-blue);
+  box-shadow: none;
+}
+/* Values that are measurements, typed into a form, still line up. */
+input[type="datetime-local"], input[type="number"], input[type="time"],
+input[name*="rating"], input[name*="tcc"] { font-family: var(--mono); font-size: 0.9rem; }
+.readonly-input { background: var(--paper-sunk); }
+
+/* ------------------------------------------------------------------ tabs -- */
+
+/* Filing-cabinet tabs, ruled, sharing one baseline with the sheet below. */
+.tab-nav { border-bottom: 1.5px solid var(--ink); gap: 0; background: transparent; }
+.tab-button {
+  font-family: var(--narrow);
+  font-weight: 600;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  /* Tight: there are seven of these on a race sheet and they must stay on one
+     row. The condensed face buys the room that the capitals spend. */
+  letter-spacing: 0.02em;
+  padding: 7px 11px;
+  background: transparent;
+  color: var(--ink-faint);
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 0;
+  margin-bottom: -1.5px;
+  box-shadow: none;
+}
+.tab-button:hover { background: var(--paper-sunk); color: var(--ink); }
+.tab-button.active {
+  background: var(--paper-2);
+  color: var(--ink);
+  border-color: var(--ink);
+  border-bottom: 1.5px solid var(--paper-2);
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------- the tabs stay put -- */
+
+/*
+ * Opening a race writes "#tab-course" into the URL, so the browser jumps to the
+ * PANE -- and a pane starts below the tab row, which means the tabs are off the
+ * top of the screen before the officer has done anything, and changing page
+ * costs a scroll up first. Working down a long entries list did the same thing.
+ *
+ * The tab row is the navigation of the busiest screen in the app, so it stays
+ * on screen. Sticky under the topbar, which is itself sticky and 64px tall.
+ */
+/* .race-tabs carries overflow:hidden -- it is there to clip the tab strip to
+   the card's rounded corners, and position:sticky is inert inside ANY ancestor
+   whose overflow is not visible. The corners are square in this theme, so the
+   clipping has nothing left to do and the tabs can stick. */
+.race-tabs { overflow: visible; }
+.race-tabs .tab-nav, .race-page > .tab-nav {
+  position: sticky;
+  top: var(--topbar-height);
+  z-index: 20;
+  background: var(--paper-2);
+}
+@media (max-width: 1020px) {
+  /* At this width style.css drops the topbar out of sticky, so the tabs take
+     the top of the viewport instead of hanging 64px below nothing. */
+  .race-tabs .tab-nav, .race-page > .tab-nav { top: 0; }
+}
+/* Belt and braces for the hash jump itself: land the pane below the tab row
+   rather than behind it. */
+.tab-pane { scroll-margin-top: calc(var(--topbar-height) + 56px); }
+
+/* ----------------------------------------------------------------- pills -- */
+
+/* Rounded-full badges are a component-library tell. These are the boxed
+   annotations of a printed form. */
+.pill, .chip, .wind-chip {
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  color: var(--ink-2);
+  font-family: var(--narrow);
+  font-weight: 600;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+}
+.wind-chip {
+  font-family: var(--mono);
+  text-transform: none;
+  letter-spacing: 0;
+  background: var(--ink);
+  color: var(--paper-2);
+  border-color: var(--ink);
+}
+.warn-pill { border-color: var(--flag-red); color: var(--flag-red); }
+
+/* -------------------------------------------------------------- messages -- */
+
+.message {
+  border-radius: 0;
+  border-left: 4px solid var(--rule-strong);
+  background: var(--paper-2);
+  font-family: var(--text-face);
+}
+.message.success { border-left-color: var(--flag-green); }
+.message.warn, .message.warning { border-left-color: var(--flag-yellow); }
+.message.error, .message.danger { border-left-color: var(--flag-red); }
+
+/* --------------------------------------------------------------- sidebar -- */
+
+/* The navigation becomes the dark edge of a chart: ink, condensed, ruled. It
+   also ties the documentary pages to the instrument surfaces. */
+.sidebar {
+  background: var(--panel);
+  border-right: 1px solid var(--panel-rule);
+  box-shadow: none;
+}
+.side-nav a {
+  font-family: var(--narrow);
+  font-weight: 600;
+  font-size: 0.86rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #a8a79c;
+  border-radius: 0;
+  border-left: 3px solid transparent;
+}
+.side-nav a:hover { background: var(--panel-2); color: var(--panel-ink); }
+.side-nav a.active {
+  background: var(--panel-2);
+  color: #fff;
+  border-left-color: var(--panel-amber);
+}
+.brand-title { font-family: var(--text-face); font-weight: 600; letter-spacing: 0; }
+.brand-title small {
+  font-family: var(--narrow); text-transform: uppercase; letter-spacing: 0.09em;
+  font-size: 0.66rem;
+}
+.sidebar-footer { font-family: var(--narrow); font-size: 0.74rem; letter-spacing: 0.03em; }
+
+.topbar {
+  background: var(--paper-2);
+  border-bottom: 1.5px solid var(--ink);
+  box-shadow: none;
+}
+.topbar h1 {
+  font-family: var(--narrow);
+  font-weight: 700;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+}
+
+/* ----------------------------------------------------------- instruments -- */
+
+/*
+ * The countdown is read from across the hut, in daylight, by somebody holding a
+ * horn button. It gets the chart-plotter treatment: near black, a thin rule, an
+ * oversized monospaced clock, and amber for the state.
+ */
+.countdown {
+  background: var(--panel);
+  border: 1px solid var(--panel-rule);
+  border-radius: 0;
+  color: var(--panel-ink);
+  box-shadow: none;
+  /* Tighter than it looks like it wants to be. A monospaced digit is much wider
+     than the proportional one it replaces, and at 40px the clock pushed the
+     whole race header from 932px to 1022px -- which on a tablet is the
+     difference between fitting and scrolling sideways. */
+  padding: 12px 14px;
+}
+.countdown .label {
+  font-family: var(--narrow);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #8d8b80;
+}
+/* Tabular figures matter more here than anywhere: the digits must not shuffle
+   sideways as the clock counts down. */
+.countdown .time {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 33px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  color: var(--panel-ink);
+}
+.countdown .state {
+  font-family: var(--narrow);
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--panel-amber);
+}
+
+/* The flag board sits beside the clock and is read the same way. */
+.flag-status-panel {
+  border-radius: 0;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper-sunk);
+}
+/* The one in the race header is an instrument, not a form section: it stands
+   beside the countdown showing what is actually flying, so it takes the same
+   near-black ground rather than style.css's navy gradient. */
+.race-header-flags {
+  /* style.css sets this one with !important to unify it with the countdown, so
+     the override has to be just as loud. Not a style choice, an arms race. */
+  background: var(--panel) !important;
+  border: 1px solid var(--panel-rule) !important;
+  border-radius: 0;
+  box-shadow: none !important;
+}
+.no-flags-up {
+  color: #8d8b80;
+  font-family: var(--narrow);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.76rem;
+}
+.flag-stage-label {
+  font-family: var(--narrow);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+}
+
+/*
+ * The course board. These are signal-flag squares carrying white letters, so
+ * only the corners change -- an earlier version of this file set `color` on
+ * .mark.p to the port red and painted red letters on a red ground, which is a
+ * good reminder that .mark's colour is the TEXT and the flag colour is the
+ * BACKGROUND.
+ */
+.mark {
+  border-radius: 0;
+  box-shadow: none;
+  font-family: var(--mono);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* The rounded status chips beside the race header: boxed, ruled annotations. */
+.summary-grid span {
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  color: var(--ink-2);
+  font-family: var(--narrow);
+  font-weight: 600;
+  font-size: 0.74rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  padding: 3px 7px;
+}
+
+.race-header {
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* --------------------------------------------------------------- dialogs -- */
+
+dialog {
+  border-radius: 0;
+  border: 1.5px solid var(--ink);
+  background: var(--paper-2);
+  box-shadow: 6px 6px 0 rgba(28,26,21,0.14);
+}
+dialog::backdrop { background: rgba(28,26,21,0.42); }
+.help-link {
+  border-radius: 0;
+  border: 1px solid var(--rule-strong);
+  font-family: var(--narrow);
+  color: var(--ink-2);
+}
+.help-link:hover { background: var(--ink); color: var(--paper-2); border-color: var(--ink); }
+
+/* ----------------------------------------------------------------- misc -- */
+
+a { color: var(--flag-blue); }
+/* A bare URL is a single unbreakable word. The IRC and YTC source links printed
+   under the boat-lookup form are long enough to push a 390px phone sideways on
+   their own -- the last of the mobile overflows, and nothing to do with the
+   theme except that it was the only page still showing one. */
+/* break-word, not anywhere. Both break a long URL that will not fit, but
+   `anywhere` also breaks ORDINARY words mid-word wherever a box is tight, and
+   the marks list rendered "waypoin t" in its narrow code column. That column is
+   narrow in its own right and was before this theme existed; wrapping it
+   between words rather than through them is the part that is fixable here. */
+a, code, .small { overflow-wrap: break-word; }
+code, pre, .mono { font-family: var(--mono); }
+.muted, .small.muted { color: var(--ink-faint); }
+.small { font-size: 0.85rem; }
+
+/* Details/summary: a folded section of a document. */
+details > summary {
+  font-family: var(--narrow);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.82rem;
+  color: var(--ink-2);
+}
+
+/* The topbar is the username and Logout. It once also held a Classic view
+   switch, which on a 390px phone was enough to break "admin" across two lines
+   as "ad / min"; the switch is gone but the guard is worth keeping, because the
+   username is arbitrary and a long one would do the same. */
+.topbar-actions { flex-wrap: wrap; gap: 6px; }
+.topbar-actions > * { white-space: nowrap; }
+
+/* ==========================================================================
+   PUBLIC AND MOBILE
+   ==========================================================================
+   The competitor page on a phone is the most-read screen this app has, and it
+   is the one a member forms an opinion of the club's software from. It is also
+   where a theme is easiest to get wrong, because the results table stops being
+   a table below 760px and becomes one card per boat.
+*/
+
+.public-page > header {
+  background: var(--paper-2);
+  border-bottom: 1.5px solid var(--ink);
+  backdrop-filter: none;
+}
+/* The rounded blue pill in the public header was the last obviously-generic
+   control left on the page. */
+.public-page > header nav a {
+  color: var(--ink);
+  background: transparent;
+  border: 1.5px solid var(--ink);
+  border-radius: 0;
+  font-family: var(--narrow);
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 7px 14px;
+}
+.public-page > header nav a:hover { background: var(--ink); color: var(--paper-2); }
+
+@media (max-width: 760px) {
+  /* One card per boat. Square, ruled, and set like an entry on a results sheet
+     rather than a rounded list item. */
+  .public-page .stack-table tr {
+    border: 1px solid var(--rule-strong);
+    border-radius: 0;
+    background: var(--paper-2);
+  }
+  /* The label side is the printed caption; the value side is the measurement.
+     Keeping the value monospaced is what makes a column of finish times
+     readable when they are stacked in separate cards down a phone screen --
+     without it every row is a different width and nothing compares. */
+  .public-page .stack-table td {
+    font-family: var(--mono);
+    font-size: 0.86rem;
+    font-variant-numeric: tabular-nums;
+    border-bottom: 1px dotted var(--rule);
+  }
+  .public-page .stack-table td::before {
+    font-family: var(--narrow);
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+  }
+  /* The boat's name heads its own card, so it stays in the reading face. */
+  .public-page .stack-table td:first-child {
+    font-family: var(--text-face);
+    font-weight: 600;
+    font-size: 1.08rem;
+    border-bottom: 1.5px solid var(--ink);
+  }
+  .public-page .stack-table tr.next-start { outline: 2px solid var(--flag-yellow); }
+}
+
+/* The clubhouse television.
+
+   An earlier version of this block assumed the TV was a dark surface and set
+   its headings to the instrument ink. It is not: /bar is a full-screen chart
+   with LIGHT translucent panels floating over it, and the assumption painted
+   the race name in near-white on a white bar -- invisible from the other side
+   of the room, which is the only place it is ever read from. I had styled a
+   page I had not looked at.
+
+   The page already has a complete and deliberate scheme of its own, in
+   hard-coded colours rather than the variables this theme redefines. So the
+   theme takes only the typography here and leaves the palette alone. */
+.bar-page, .bar-page h1, .bar-page h2, .bar-page p, .bar-page td {
+  font-family: var(--text-face);
+}
+.bar-page .bar-clock-label, .bar-page .bar-wind-note,
+.bar-page thead th, .bar-page .bar-board-title {
+  font-family: var(--narrow);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+/* The clock and the board's figures, which are the point of the screen. */
+.bar-page .bar-clock-time, .bar-page .bar-board td, .bar-page .mark {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------- narrow screens --
+ * The app shell already reflows below 1020px: the sidebar becomes a scrolling
+ * strip across the top. What it does not do is let the race header reflow with
+ * it. Its three children -- the summary, the flag board and the countdown --
+ * each hold a minimum width, so on a phone the header stays about 1020px wide
+ * and drags the whole page into sideways scrolling.
+ *
+ * This is not caused by the theme: the classic styling overflows a 375px phone
+ * in exactly the same way, just 90px less of it. It is fixed here because it is
+ * three rules and because a race officer checking a sheet on a phone at the
+ * pontoon is a real thing that happens.
+ */
+@media (max-width: 1020px) {
+  .race-header { flex-direction: column; align-items: stretch; }
+  /* flex: 0 0 auto matters here. The summary block carries flex-grow: 1, which
+     is right in a row -- take the space the clock and the flags do not want --
+     but once the header is a column that grow works on the vertical axis and
+     it stretched to 520px for 220px of content, leaving a 300px hole above the
+     countdown. */
+  .race-header > * { min-width: 0; width: 100%; flex: 0 0 auto; }
+  .countdown, .race-header-flags {
+    min-width: 0; width: 100%; box-sizing: border-box;
+    /* .flag-status-panel carries max-width: 620px for the desktop layout, which
+       when stacked leaves the flag board visibly narrower than the clock under
+       it, as though one of them had come loose. */
+    max-width: none;
+  }
+  /* Seven tabs cannot share one row on a phone, so let them wrap rather than
+     run off the side. */
+  .tab-nav { flex-wrap: wrap; }
+  /* A wide table is better scrolled inside its own box than by the whole page.
+     Measured across every page at 390px: this and the grid fix above take the
+     boats list from 570px of sideways scroll to none, and the trackers, mark
+     picker, course builder and start console with it.
+
+     .stack-table is exempt because it already has a phone layout of its own --
+     it stops being a table below 760px and becomes one card per boat. */
+  table:not(.stack-table) { display: block; overflow-x: auto; max-width: 100%; }
+}

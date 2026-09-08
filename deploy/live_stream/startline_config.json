@@ -1,0 +1,59 @@
+{
+  "camera_name": "pwllheli-hut",
+  "_comment": "Per-camera ODM start-line detector config. Tuned 2026-07-16 against the app's public branded frames. All positions are FRACTIONS of frame width/height so they are resolution-independent. NOTE: the relay pulls the camera SUB-stream, which may have a different field of view/sharpness than the frames this was tuned on. If the line is off, grab one sub-stream frame, drop it in odm_frames/ and re-tune with run_detect.py, then copy the values here.",
+  "relay_overlay_enabled": true,
+
+  "color": {
+    "_comment": "PIL HSV channels are 0-255 (H: 0 red, ~21 orange, ~42 yellow).",
+    "hue_min": 8,
+    "hue_max": 46,
+    "sat_min": 70,
+    "val_min": 55
+  },
+
+  "roi": {
+    "_comment": "Sea band the buoy can appear in; excludes sky, beach, logos.",
+    "top": 0.42,
+    "bottom": 0.82,
+    "left": 0.03,
+    "right": 0.985
+  },
+
+  "pole": {
+    "_comment": "Foreground pole: line inner end (x,y) + a column to exclude.",
+    "x": 0.573,
+    "y": 0.97,
+    "halfwidth": 0.017
+  },
+
+  "swing_zone": {
+    "_comment": "Gaussian prior on where the anchored buoy appears. cy is tight (fixed distance); cx wider (swings). Race officer would set this once by marking the swing area.",
+    "expect_cx": 0.58,
+    "sigma_cx": 0.15,
+    "expect_cy": 0.565,
+    "sigma_cy": 0.06
+  },
+
+  "shape": {
+    "_comment": "Blob gates. Areas are px normalised to 1920x1080. Aspect is height/width; thin streaks (pole/glint) are rejected.",
+    "min_area_px": 90,
+    "max_area_px": 4000,
+    "ideal_area_lo": 150,
+    "ideal_area_hi": 2000,
+    "aspect_min": 0.6,
+    "aspect_max": 3.6
+  },
+
+  "conf_min": 0.30,
+
+  "_line_comment": "Overlay appearance. line_color is RGB; line_opacity 0-1 (the line is drawn solid then the whole layer's alpha is scaled, so it reads as painted on the water). Live relay uses this default (green); the future start-video overlay will pass red before the start and green after.",
+  "line_color": [0, 235, 0],
+  "line_opacity": 0.3,
+  "line_width": 0.010,
+
+  "smoother": {
+    "_comment": "For live use only (a sequence of frames). Ignored for independent stills.",
+    "ema_alpha": 0.5,
+    "max_consecutive_misses": 6
+  }
+}

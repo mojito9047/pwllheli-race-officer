@@ -1,0 +1,68 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE properties SYSTEM 'http://java.sun.com/dtd/properties.dtd'>
+<!--
+  Traccar position forwarding — push each fix to the hut app as it arrives.
+
+  WHY: the hut app used to poll Traccar every few seconds, so a fix could sit
+  for up to a poll interval before the app saw it. That does not change a
+  recorded finish *time* (crossings are interpolated between fix timestamps),
+  but it delays the things the delay is visible in: the automatic horn, and the
+  positions competitors are shown. It matters more the faster the trackers
+  report — at one fix a second near the line, a 5 s poll is the bottleneck.
+
+  This is NOT "forwarder-only" mode. Traccar keeps its normal database, so it
+  keeps the device registry (needed to send commands to a tracker, e.g. raising
+  its reporting rate near the line), the history the app back-fills from after
+  an outage, and its web UI. Forwarding works alongside all of that.
+
+  HOW TO APPLY on the relay:
+    1. In the hut app: Settings -> GPS tracking -> "Push ingest token". Generate a
+       long random string and save it.
+    2. Merge the entries below into /opt/traccar/conf/traccar.xml, replacing
+       PUT_THE_SAME_TOKEN_HERE with that token.
+    3. systemctl restart traccar
+    4. Watch the app's Settings -> GPS tracking status box. Its "Push:" line
+       reads "working - N fixes received, last just now" once fixes are
+       arriving. If it still says "configured, but no fix has arrived this way
+       yet", the token here does not match the one in Settings -- which fails
+       silently, because the app just carries on polling.
+    5. Once push is working you can raise the app's poll interval (Settings ->
+       GPS tracking -> Poll interval) to ~30 s. It stays as the safety net: it
+       still catches up after an outage and covers a forwarder that has stalled.
+
+  If the app is unreachable, Traccar retries and queues up to forward.retry.limit
+  positions; anything beyond that the app back-fills from Traccar's history on
+  its next poll.
+-->
+<properties>
+
+    <!-- JSON forwarder: POSTs {"position": {...}, "device": {...}} per fix. -->
+    <entry key='forward.enable'>true</entry>
+    <entry key='forward.type'>json</entry>
+    <entry key='forward.url'>https://pro.pwllhelisailingclub.org/api/track/ingest</entry>
+
+    <!-- Shared secret. Must match Settings -> GPS tracking -> Push ingest token.
+         The app rejects anything without it (401), and stays closed entirely
+         while no token is configured (503). -->
+    <entry key='forward.header'>X-RO-Track-Token: PUT_THE_SAME_TOKEN_HERE</entry>
+
+    <!-- Ride out a brief hut outage rather than dropping fixes on the floor. -->
+    <entry key='forward.retry.enable'>true</entry>
+    <entry key='forward.retry.delay'>1000</entry>
+    <entry key='forward.retry.count'>10</entry>
+    <entry key='forward.retry.limit'>100</entry>
+
+    <!--
+      OPTIONAL — automatic device enrolment.
+
+      With this on, a tracker that connects is created in Traccar automatically,
+      and it then shows up under "Trackers seen on the network" on the app's
+      Trackers page, where a race officer picks the boat and presses Add — no
+      15-digit IMEI to type. Note the trade-off: the Queclink port is open to the
+      internet, so anyone who connects to it can cause a device row to be
+      created. Nothing is tracked until a race officer assigns that device to a
+      boat, but the list will collect noise; delete strays in Traccar.
+    -->
+    <!-- <entry key='database.registerUnknown'>true</entry> -->
+
+</properties>

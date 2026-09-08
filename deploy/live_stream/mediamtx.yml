@@ -1,0 +1,41 @@
+# MediaMTX config for the on-demand hut live-stream relay.
+# Runs on the relay (Proxmox LXC). Only the keys that differ from the defaults are
+# shown; copy them into the mediamtx.yml that ships with the MediaMTX release.
+#
+# Data flow:
+#   viewer opens HLS  ->  MediaMTX starts runOnDemand ffmpeg  ->  ffmpeg pulls the
+#   hut camera sub-stream via the local cloudflared TCP bridge (port 18554)  ->
+#   publishes into MediaMTX  ->  MediaMTX serves HLS to every viewer.
+#   Last viewer leaves  ->  after runOnDemandCloseAfter, ffmpeg is killed  ->
+#   the cloudflared connection drops  ->  the hut stops uploading.
+
+# ---- HLS output (what browsers play) ----
+# Standard (mpegts) HLS, NOT low-latency: LL-HLS relies on chunked/blocking playlist
+# delivery that Cloudflare doesn't proxy reliably, so players stall behind the CDN.
+# mpegts .ts segments cache cleanly at the edge. Latency ~4-7s, mostly set by the
+# camera I-frame interval (set it to the frame rate — see README step 1).
+hls: yes
+hlsAddress: :8888
+hlsVariant: mpegts
+hlsSegmentDuration: 1s
+hlsSegmentCount: 7
+
+# ---- Internal RTSP server (ffmpeg publishes back into this) ----
+rtsp: yes
+rtspAddress: :8554          # MediaMTX's own port; the tunnel uses 18554 to avoid a clash
+
+paths:
+  hut:
+    # On-demand branded source: relay_branded_source.py pulls the camera, burns in the
+    # club/sponsor logos from the app's branding manifest, and publishes here. It falls
+    # back to a plain copy if branding is off or the manifest/logos can't be fetched.
+    # Set CAMERA_URL / MANIFEST_URL / CAMERA_FPS in the service environment (README step 5).
+    runOnDemand: python3 /opt/relay/relay_branded_source.py
+    runOnDemandRestart: yes
+    # The branded/overlay startup makes two RTSP connects over the tunnel (probe +
+    # ODM frame grab) plus manifest/logo fetches before it can publish, so give it
+    # generous headroom — too tight and MediaMTX kills it mid-startup ("timed out",
+    # then ffmpeg "Invalid data"/KeyboardInterrupt). 15s was marginal and an ffmpeg/
+    # cloudflared upgrade tipped it over.
+    runOnDemandStartTimeout: 30s
+    runOnDemandCloseAfter: 20s     # drop the hut stream 20s after the last viewer leaves

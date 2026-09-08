@@ -1,0 +1,56 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Import IRC rating - Pwllheli Race Officer{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>Import IRC rating</h2>
+  <p class="muted">Search the current IRC club listing, then import or update the selected boat in the local boat database. Use this for IRC. Use the YTC import page for the YTC Google Sheet; both update the same boat database.</p>
+  <form method="get" class="stacked">
+    <label>IRC CSV URL
+      <input name="url" value="{{ url or default_url }}">
+    </label>
+    <label>Boat name or sail number
+      <input name="q" value="{{ q }}" placeholder="e.g. MOJITO or GBR1234">
+    </label>
+    <button type="submit">Search IRC list</button>
+  </form>
+</section>
+
+{% if matches %}
+<section class="card">
+  <h3>Matches</h3>
+  <table>
+    <thead><tr><th>Boat</th><th>Sail no</th><th>Cert no</th><th>Issue date</th><th>Year</th><th>TCC</th><th>Action</th></tr></thead>
+    <tbody>
+    {% for r in matches %}
+      <tr>
+        <td><strong>{{ r.get('Boat Name') }}</strong></td>
+        <td>{{ r.get('Sail No') }}</td>
+        <td>{{ r.get('Cert No') }}</td>
+        <td>{{ r.get('Issue Date') }}</td>
+        <td>{{ r.get('Cert Year') }}</td>
+        <td>{{ r.get('TCC') }}</td>
+        <td>
+          <form method="post" class="inline">
+            <input type="hidden" name="action" value="import">
+            <input type="hidden" name="url" value="{{ url }}">
+            <input type="hidden" name="q" value="{{ q }}">
+            <input type="hidden" name="boat_name" value="{{ r.get('Boat Name') }}">
+            <input type="hidden" name="sail_no" value="{{ r.get('Sail No') }}">
+            <input type="hidden" name="cert_no" value="{{ r.get('Cert No') }}">
+            <input type="hidden" name="issue_date" value="{{ r.get('Issue Date') }}">
+            <input type="hidden" name="cert_year" value="{{ r.get('Cert Year') }}">
+            <input type="hidden" name="tcc" value="{{ r.get('TCC') }}">
+            <input type="hidden" name="non_spi_tcc" value="{{ r.get('Non Spi TCC') }}">
+            <button class="small" type="submit">Import/update</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% elif q %}
+<section class="card"><p>No matches found.</p></section>
+{% endif %}
+{% endblock %}

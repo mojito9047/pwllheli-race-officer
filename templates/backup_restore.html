@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Backup / restore · Pwllheli Race Officer{% endblock %}
+{% block page_heading %}Backup / restore{% endblock %}
+{% block content %}
+<section class="hero">
+  <h2>Data directory backup and restore</h2>
+  <p class="muted">Create a ZIP backup of selected parts of the <code>data/</code> folder, or restore selected sections from a previous Race Officer backup ZIP.</p>
+  <p class="notice"><strong>Before restoring:</strong> make sure no one is editing races or settings. Restoring replaces the selected current data sections.</p>
+  <p class="muted small">A backup downloaded from here is a copy in the same building. For a copy that survives the hut, turn on
+    <a href="{{ url_for('settings_page') }}#offsite-backup">off-site backup</a> &mdash; it pushes an encrypted version of this same ZIP to
+    Cloudflare R2 each night, and one of those can be restored here by entering its passphrase.</p>
+</section>
+
+<div class="card-grid backup-restore-grid">
+  <section class="card">
+    <h3>Create backup ZIP</h3>
+    <p class="muted">The default backup includes race data, settings, GPS tracks, hut power history, marks, courses, polars, sail charts and branding. Videos are not selected by default because they can make a very large file.</p>
+    <form method="post" action="{{ url_for('backup_download') }}" class="stacked-form">
+      {% for section in sections %}
+        <label class="checkbox-card {% if section.id == 'videos' %}warning{% endif %}">
+          <input type="checkbox" name="sections" value="{{ section.id }}" {% if section.default_backup %}checked{% endif %}>
+          <span>
+            <strong>{{ section.label }}</strong>
+            <small>{{ section.description }}</small>
+            {% if section.warning %}<em>{{ section.warning }}</em>{% endif %}
+          </span>
+        </label>
+      {% endfor %}
+      <div class="actions">
+        <button type="submit">Download backup ZIP</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card">
+    <h3>Restore from backup ZIP</h3>
+    {% if is_admin %}
+    <p class="muted">Choose a backup ZIP, then tick only the sections you want to restore from it. Sections not present in the ZIP are skipped.</p>
+    <form method="post" action="{{ url_for('backup_restore') }}" enctype="multipart/form-data" class="stacked-form">
+      <label>Backup ZIP file
+        <input type="file" name="backup_file" accept=".zip,application/zip,application/x-zip-compressed" required>
+      </label>
+      <label>Backup passphrase <small class="muted">— only for an encrypted off-site backup; leave blank for a ZIP downloaded from this page</small>
+        <input type="password" name="backup_passphrase" value="" autocomplete="off" autocapitalize="none" spellcheck="false">
+      </label>
+      {% for section in sections %}
+        <label class="checkbox-card {% if section.id in ['database', 'videos'] %}warning{% endif %}">
+          <input type="checkbox" name="sections" value="{{ section.id }}" {% if section.default_restore %}checked{% endif %}>
+          <span>
+            <strong>{{ section.label }}</strong>
+            <small>{{ section.description }}</small>
+            {% if section.warning %}<em>{{ section.warning }}</em>{% endif %}
+          </span>
+        </label>
+      {% endfor %}
+      <div class="notice danger-soft">
+        <strong>Restore warning:</strong> selected sections are replaced by the content from the ZIP. Video restore can be slow and large.
+      </div>
+      <div class="actions">
+        <button type="submit" class="danger">Restore selected sections</button>
+      </div>
+    </form>
+    {% else %}
+    <p class="muted">Restoring a backup overwrites current data, so it is limited to administrators.</p>
+    <p class="notice"><span class="pill readonly-pill">Administrator access required</span> Ask an administrator to restore a backup. You can still download a backup ZIP on the left.</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="card">
+  <h3>What each option contains</h3>
+  <table>
+    <thead><tr><th>Option</th><th>Files restored/backed up</th></tr></thead>
+    <tbody>
+      <tr><td>Database</td><td><code>data/race_officer.db</code> — races, entries, boats, settings, users, event logs, weather samples and video metadata.</td></tr>
+      <tr><td>GPS tracks</td><td><code>data/track_positions.db</code> — every recorded tracker fix: the race map history, replays and the evidence behind GPS finishes.</td></tr>
+      <tr><td>Hut power history</td><td><code>data/power_history.db</code> — battery, solar and load readings from the hut power monitor.</td></tr>
+      <tr><td>Marks, Courses, start/finish line</td><td><code>data/marks.json</code>, <code>data/courses.json</code>, <code>data/start_finish.json</code>.</td></tr>
+      <tr><td>Polars & Sail charts</td><td><code>data/polars/</code>, <code>data/sailcharts/</code>, <code>data/DefaultSailChart.txt</code>.</td></tr>
+      <tr><td>Branding Images</td><td><code>data/branding/</code>, including the branding manifest and uploaded club/sponsor logos.</td></tr>
+      <tr><td>Videos</td><td><code>data/video_clips/</code>. This can be large and is deliberately not selected by default for backups or restores.</td></tr>
+    </tbody>
+  </table>
+</section>
+{% endblock %}

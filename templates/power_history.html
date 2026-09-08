@@ -1,0 +1,32 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Hut power history - Pwllheli Race Officer{% endblock %}
+{% block page_heading %}Hut power history{% endblock %}
+{% block content %}
+<section class="hero">
+  <h2>Hut power history</h2>
+  <p>Battery, solar and charger readings from the Victron VE.Direct devices over time.</p>
+</section>
+
+<article class="card">
+  <div class="section-head">
+    <div>
+      <h3>Power over time</h3>
+      <p class="muted small" id="powerHistoryStatus">{{ power_status.message }}</p>
+    </div>
+    <label>Range
+      <select id="powerHistoryRange">
+        <option value="60">Last hour</option>
+        <option value="360" selected>Last 6 hours</option>
+        <option value="1440">Last 24 hours</option>
+        <option value="10080">Last 7 days</option>
+        <option value="43200">Last 30 days</option>
+      </select>
+    </label>
+  </div>
+  <canvas id="powerHistoryCanvas" width="960" height="540" style="width:100%;height:auto;" aria-label="Hut power history chart: battery, solar and battery current"></canvas>
+  <p class="small muted" id="powerHistoryEmpty" hidden>No samples in this range yet. Samples accumulate as the power monitor runs (enable the simulator in Settings to preview).</p>
+</article>
+
+<script src="{{ url_for('static', filename='power_history.js') }}?v={{ app_version }}"></script>
+{% endblock %}

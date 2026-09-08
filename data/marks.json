@@ -1,0 +1,276 @@
+{
+  "source": "CHPSC Racing Mark Positions for 2026",
+  "position_format": "hddd\u00b0 mm.mmm'",
+  "notes": "Positions transcribed from the uploaded 2026 Racing Mark Positions PDF. Long-course marks without coordinates in the pack are included as notes only.",
+  "marks": {
+    "O": {
+      "name": "Outer Distance Mark (Welsh Water)",
+      "lat": 52.8791166667,
+      "lon": -4.3993333333,
+      "lat_text": "52\u00b0 52.747'N",
+      "lon_text": "04\u00b0 23.960'W",
+      "buoy": "Large Yellow Barrel",
+      "top_mark": ""
+    },
+    "1": {
+      "name": "Partington Marine",
+      "lat": 52.8783333333,
+      "lon": -4.405,
+      "lat_text": "52\u00b0 52.700'N",
+      "lon_text": "04\u00b0 24.300'W",
+      "buoy": "Large Barrel",
+      "top_mark": "Yellow Spherical"
+    },
+    "2": {
+      "name": "Firmhelm Marine",
+      "lat": 52.8733333333,
+      "lon": -4.4263333333,
+      "lat_text": "52\u00b0 52.400'N",
+      "lon_text": "04\u00b0 25.580'W",
+      "buoy": "Large Barrel",
+      "top_mark": "Yellow Spherical"
+    },
+    "3": {
+      "name": "Mark 3",
+      "lat": 52.8625,
+      "lon": -4.4283333333,
+      "lat_text": "52\u00b0 51.750'N",
+      "lon_text": "04\u00b0 25.700'W",
+      "buoy": "Large Barrel",
+      "top_mark": "Yellow Spherical"
+    },
+    "4": {
+      "name": "Mark 4",
+      "lat": 52.8583333333,
+      "lon": -4.4041666667,
+      "lat_text": "52\u00b0 51.500'N",
+      "lon_text": "04\u00b0 24.250'W",
+      "buoy": "Large Barrel",
+      "top_mark": "Yellow Spherical"
+    },
+    "5": {
+      "name": "Mark 5",
+      "lat": 52.8625,
+      "lon": -4.3833333333,
+      "lat_text": "52\u00b0 51.750'N",
+      "lon_text": "04\u00b0 23.000'W",
+      "buoy": "Large Barrel",
+      "top_mark": "Yellow Spherical"
+    },
+    "6": {
+      "name": "Mark 6",
+      "lat": 52.8758333333,
+      "lon": -4.3858333333,
+      "lat_text": "52\u00b0 52.550'N",
+      "lon_text": "04\u00b0 23.150'W",
+      "buoy": "Large Barrel",
+      "top_mark": "Yellow Spherical"
+    },
+    "7": {
+      "name": "S&S Tyres",
+      "lat": 52.8806666667,
+      "lon": -4.3928333333,
+      "lat_text": "52\u00b0 52.840'N",
+      "lon_text": "04\u00b0 23.570'W",
+      "buoy": "Large Barrel",
+      "top_mark": "Yellow Spherical"
+    },
+    "8": {
+      "name": "Mark 8",
+      "lat": 52.8666666667,
+      "lon": -4.4116666667,
+      "lat_text": "52\u00b0 52.000'N",
+      "lon_text": "04\u00b0 24.700'W",
+      "buoy": "",
+      "top_mark": ""
+    },
+    "9": {
+      "name": "Mark 9",
+      "lat": 52.8666666667,
+      "lon": -4.3983333333,
+      "lat_text": "52\u00b0 52.000'N",
+      "lon_text": "04\u00b0 23.900'W",
+      "buoy": "Large Barrel",
+      "top_mark": "Yellow Spherical"
+    },
+    "10": {
+      "name": "Mark 10",
+      "lat": 52.8895833333,
+      "lon": -4.34855,
+      "lat_text": "52\u00b0 53.375'N",
+      "lon_text": "04\u00b0 20.913'W",
+      "buoy": "Large Barrel",
+      "top_mark": "Yellow Spherical"
+    },
+    "F": {
+      "name": "Pwllheli Fairway",
+      "lat": 52.88333333333333,
+      "lon": -4.381666666666667,
+      "lat_text": "52\u00b0 53.000'N",
+      "lon_text": "004\u00b0 22.900'W",
+      "buoy": "",
+      "top_mark": "Red & White striped",
+      "position_set_at": "2026-08-09T22:44:28",
+      "position_set_by": "admin",
+      "position_source": "ISORA SI 15 (si_seaward_position)",
+      "position_history": [
+        {
+          "lat": 52.8833333333,
+          "lon": -4.3833333333,
+          "set_at": null,
+          "set_by": null,
+          "source": null,
+          "accuracy_m": null
+        }
+      ]
+    },
+    "C": {
+      "name": "Causeway",
+      "lat": 52.6868333333,
+      "lon": -4.4221666667,
+      "lat_text": "52\u00b0 41.210'N",
+      "lon_text": "04\u00b0 25.330'W",
+      "buoy": "Westerly Cardinal Buoy",
+      "top_mark": ""
+    },
+    "E": {
+      "name": "Eurwyn",
+      "lat": 52.7833333333,
+      "lon": -4.3666666667,
+      "lat_text": "52\u00b0 47.000'N",
+      "lon_text": "04\u00b0 22.000'W",
+      "buoy": "Yellow Buoy",
+      "top_mark": "X"
+    },
+    "T": {
+      "name": "Tom Buoy",
+      "lat": 52.8366666667,
+      "lon": -4.3678333333,
+      "lat_text": "52\u00b0 50.200'N",
+      "lon_text": "04\u00b0 22.070'W",
+      "buoy": "Yellow Can",
+      "top_mark": ""
+    },
+    "M": {
+      "name": "Madog Fairway TBC",
+      "lat": 52.8828333333,
+      "lon": -4.1866666667,
+      "lat_text": "52\u00b0 52.970'N",
+      "lon_text": "04\u00b0 11.200'W",
+      "buoy": "",
+      "top_mark": "Red & White striped"
+    },
+    "Y": {
+      "name": "Gwylan Islands",
+      "lat": null,
+      "lon": null,
+      "lat_text": "",
+      "lon_text": "",
+      "buoy": "",
+      "top_mark": "Compound mark: when Y is to port, round Ya then Yb to port; when Y is to starboard, round Yb then Ya to starboard. Yachts must not pass between the two islands.",
+      "compound": true,
+      "components": [
+        "YA",
+        "YB"
+      ],
+      "rounding_order": {
+        "port": [
+          "YA",
+          "YB"
+        ],
+        "starboard": [
+          "YB",
+          "YA"
+        ]
+      }
+    },
+    "A": {
+      "name": "Carreg Y Trai / St Tudwal's Island East / St Tudwal's Island West",
+      "lat": null,
+      "lon": null,
+      "lat_text": "",
+      "lon_text": "",
+      "buoy": "",
+      "top_mark": "Compound mark: when A is to port, round Aa then Ab to port; when A is to starboard, round Ab then Aa to starboard. Beware rocks between the bell buoy and St Tudwal's Island East.",
+      "compound": true,
+      "components": [
+        "AA",
+        "AB"
+      ],
+      "rounding_order": {
+        "port": [
+          "AA",
+          "AB"
+        ],
+        "starboard": [
+          "AB",
+          "AA"
+        ]
+      }
+    },
+    "YA": {
+      "name": "Gwylan Islands corner Ya",
+      "display": "Ya",
+      "lat": 52.789985,
+      "lon": -4.693318333333333,
+      "lat_text": "52\u00b0 47.399'N",
+      "lon_text": "04\u00b0 41.599'W",
+      "buoy": "",
+      "top_mark": "Component of compound mark Y",
+      "component_of": "Y"
+    },
+    "YB": {
+      "name": "Gwylan Islands corner Yb",
+      "display": "Yb",
+      "lat": 52.78449666666667,
+      "lon": -4.700443333333333,
+      "lat_text": "52\u00b0 47.070'N",
+      "lon_text": "04\u00b0 42.027'W",
+      "buoy": "",
+      "top_mark": "Component of compound mark Y",
+      "component_of": "Y"
+    },
+    "AA": {
+      "name": "Carreg Y Trai / St Tudwal's Island corner Aa",
+      "display": "Aa",
+      "lat": 52.795118333333335,
+      "lon": -4.47205,
+      "lat_text": "52\u00b0 47.707'N",
+      "lon_text": "04\u00b0 28.323'W",
+      "buoy": "",
+      "top_mark": "Component of compound mark A",
+      "component_of": "A"
+    },
+    "AB": {
+      "name": "Carreg Y Trai / St Tudwal's Island corner Ab",
+      "display": "Ab",
+      "lat": 52.80231166666667,
+      "lon": -4.444648333333333,
+      "lat_text": "52\u00b0 48.139'N",
+      "lon_text": "04\u00b0 26.679'W",
+      "buoy": "",
+      "top_mark": "Component of compound mark A",
+      "component_of": "A"
+    },
+    "TC": {
+      "name": "Turning Cilan",
+      "lat": 52.77645,
+      "lon": -4.528532,
+      "lat_text": "52\u00b0 46.587'N",
+      "lon_text": "004\u00b0 31.712'W",
+      "buoy": "",
+      "top_mark": "",
+      "waypoint": true
+    },
+    "TP": {
+      "name": "Turning Porth Ceiriad",
+      "lat": 52.789298,
+      "lon": -4.49066,
+      "lat_text": "52\u00b0 47.358'N",
+      "lon_text": "004\u00b0 29.440'W",
+      "buoy": "",
+      "top_mark": "",
+      "waypoint": true
+    }
+  }
+}

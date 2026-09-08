@@ -1,0 +1,153 @@
+<!doctype html>
+<!-- Copyright © 2026 CapeNet Ltd. All Rights Reserved. -->
+{#
+  Deliberately not the admin shell.
+
+  This page is used one-handed, on a phone, on a boat, over the same contended
+  4G everything else in the hut is fighting for. The race-office sidebar is
+  1100px of navigation nobody can reach from the water, and at a phone width it
+  simply pushed the page sideways. So this is its own document: the thread, the
+  box, and the two buttons that matter.
+#}
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Virtual Race Officer · Pwllheli</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
+  {% include 'partials/theme_links.html' %}
+  <script>window.RO_CSRF_TOKEN = {{ csrf_token()|tojson }};</script>
+</head>
+<body class="onwater-body">
+  <div class="onwater">
+    <div class="onwater-head">
+      {# The two things somebody on the water looks at without asking for them:
+         how long until the gun, and what course the fleet is on. Kept to two
+         short lines and a rolled-up chart, because every line here is a line of
+         conversation pushed off a phone screen -- the race sheet's own header
+         is taller than this whole page has to spare. The page's own name is a
+         third of a line rather than a heading for the same reason. #}
+      <p class="ow-mast">Virtual Race Officer · <a href="{{ url_for('index') }}">Race office</a></p>
+      <div class="ow-now">
+        <div class="ow-now-race">
+          <span class="ow-now-name" id="owRace">{{ header.race_name }}</span>
+          <span class="ow-now-state" id="owState">{{ header.state }}</span>
+        </div>
+        <div class="ow-now-clock" id="owCountdown"
+             data-start="{{ header.first_gun }}"
+             data-race-finished="{{ 1 if header.finished else 0 }}"
+             data-postponed="{{ header.postponed_flag or '' }}"
+             data-postponement-ends-at="{{ header.postponement_ends_at or '' }}">--:--</div>
+      </div>
+      <div class="ow-now-course">
+        <span id="owCourse">{{ header.course_text }}</span>
+        <span class="ow-now-wind" id="owWind">{{ header.wind_text }}</span>
+      </div>
+      {# The course board, the same marks and hands the race sheet and the
+         clubhouse display show and the thing a race officer reads out over the
+         VHF -- smaller here, because this is a phone. #}
+      <div class="ow-board" id="owBoard">
+        {% for m in header.course_board %}<span class="mark {{ m.rounding }}">{{ m.mark }}{{ m.rounding }}</span>{% endfor %}
+      </div>
+      {% if current_race %}
+      {# Closed, and drawn only when it is opened: this is a phone on 4G, and a
+         chart nobody asked for is bandwidth taken from the commands. It draws
+         itself from the marks in the page -- no tiles, no Leaflet, no network.
+         Rendered whenever there is a race, even with no course chosen yet:
+         built only when there was one, a course set from this page had no chart
+         element to draw into and none appeared until the page was reloaded. #}
+      <details class="ow-chart" id="owChart">
+        <summary>Chart</summary>
+        <div class="course-map"
+             data-all-marks='{{ marks_data|tojson }}'
+             data-course-marks='{{ header.course_marks|tojson }}'
+             data-wind-direction="{{ header.wind_direction }}"
+             data-start-finish-mark="{{ course_chart.start_finish_mark }}"
+             data-bridge-lat="{{ course_chart.bridge_window_lat }}"
+             data-bridge-lon="{{ course_chart.bridge_window_lon }}"
+             data-line-seaward-lat="{{ course_chart.line_seaward_lat }}"
+             data-line-seaward-lon="{{ course_chart.line_seaward_lon }}"
+             data-line-shore-lat="{{ course_chart.line_shore_lat }}"
+             data-line-shore-lon="{{ course_chart.line_shore_lon }}"
+             data-line-seaward-label="{{ course_chart.line_seaward_label }}"
+             data-line-shore-label="{{ course_chart.line_shore_label }}"
+             data-shortened="{{ 1 if course_shortened else 0 }}"></div>
+      </details>
+      {% endif %}
+      {# With no interpreter this page cannot do its one job, and saying so once
+         is better than appearing to work and understanding almost nothing. #}
+      {% if assistant_status.grammar_only %}
+      <p class="ow-interpreter ow-unavailable">
+        <strong>Not available.</strong> No interpreter is configured, so nothing
+        typed here can be read. An administrator sets one up in
+        <strong>Settings → Virtual Race Officer</strong>. Until then the racing
+        is run from the <a href="{{ url_for('index') }}">race sheet</a>.
+      </p>
+      {% elif assistant_status.error %}
+      <p class="ow-interpreter">
+        The interpreter's last request failed, so commands may not be read until
+        it answers again. ({{ assistant_status.error }})
+      </p>
+      {% endif %}
+    </div>
+
+    <div class="onwater-thread" id="thread" aria-live="polite">
+      <div class="ow-msg ow-app">
+        {# The reassurance that used to sit in the header. It belongs in the
+           thread: it is about what happens when you type, and it costs the top
+           of the page nothing here. #}
+        {% if assistant_status.grammar_only %}
+        <p>Nothing can be read here until an interpreter is configured.</p>
+        {% else %}
+        <p>Ready — nothing happens until you say yes. Try <em>“create a race at 11am”</em>,
+           <em>“add all the boats”</em>, <em>“status”</em> or <em>“shorten at mark 4”</em>.</p>
+        {% endif %}
+      </div>
+      {# What was said before this page was loaded. A refresh on a boat is a
+         dropped signal or a locked phone, not a decision to start again. #}
+      {% for turn in thread %}
+      <div class="ow-msg ow-you"><p>{{ turn.you }}</p></div>
+      {% if turn.app %}<div class="ow-msg ow-app {{ turn.kind }}"><p>{{ turn.app }}</p></div>{% endif %}
+      {% endfor %}
+    </div>
+
+    <div class="onwater-answer" id="answer" hidden>
+      <button type="button" class="ow-yes" id="btnYes">Yes</button>
+      <button type="button" class="ow-no" id="btnNo">No</button>
+    </div>
+
+    {# No box at all with no interpreter: a disabled one still invites typing,
+       and the answer would be the same refusal every time. #}
+    {% if not assistant_status.grammar_only %}
+    <form class="onwater-say" id="sayForm" autocomplete="off">
+      <input id="sayText" name="text" placeholder="Say what to do…"
+             autocapitalize="sentences" enterkeyhint="send" required>
+      <button type="submit" id="btnSay">Send</button>
+    </form>
+
+    <div class="onwater-quick">
+      <button type="button" data-say="status">Status</button>
+      <button type="button" data-say="add all the boats">Add all boats</button>
+      <button type="button" data-say="shorten at mark ">Shorten…</button>
+    </div>
+    {% endif %}
+  </div>
+
+  {# The postponement wording, and the rule for whether AP is still up. #}
+  <script src="{{ url_for('static', filename='signal_flags.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='countdown.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='course_map.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='onwater.js') }}?v={{ app_version }}"></script>
+  <script>
+    {# With no interpreter there is no box to wire up. #}
+    {% if not assistant_status.grammar_only %}
+    window.OnWater.start({
+      commandUrl: {{ url_for('assistant_command')|tojson }},
+      confirmUrl: {{ url_for('assistant_command_confirm')|tojson }},
+      pendingToken: {{ pending_token|tojson }}
+    });
+    {% endif %}
+  </script>
+</body>
+</html>

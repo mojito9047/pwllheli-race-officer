@@ -1,0 +1,36 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Add series - Pwllheli Race Officer{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="section-head">
+    <div>
+      <h2>Add series
+        <button type="button" class="help-link" data-help="seriesNewHelp" aria-label="What a series is for">?</button>
+      </h2>
+    </div>
+    <div class="actions">
+      <a class="button secondary" href="{{ url_for('series_page') }}">Back to series</a>
+    </div>
+  </div>
+
+  <dialog id="seriesNewHelp" class="help-dialog">
+    <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+    <h4>What a series does</h4>
+    <p>A series groups races together and carries a score across the season, dropping each
+      competitor's worst results according to its discard profile.</p>
+    <p>The rating-band classes and the default start plan belong to the series, and every race
+      added to it inherits them &mdash; which is why a race is joined to a series rather than
+      carrying its own copy of the setup.</p>
+    <p>Everything here can be changed later under <strong>Edit series details</strong>. Changing
+      the discard profile or the rating bands re-scores every race in the series at once, so it is
+      a bigger change after a season has started than before one.</p>
+  </dialog>
+
+  {# The same form the series page itself uses, so a series can be set up in one
+     pass rather than created blank and then immediately edited. #}
+  {% with form_action=url_for('series_new'), submit_label='Create series' %}
+    {% include "partials/series_form.html" %}
+  {% endwith %}
+</section>
+{% endblock %}

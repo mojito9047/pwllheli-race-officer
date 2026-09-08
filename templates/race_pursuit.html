@@ -1,0 +1,435 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}{{ race.name }} (Pursuit) - Pwllheli Race Officer{% endblock %}
+{% block content %}
+<section class="race-header race-summary">
+  <div class="race-summary-main">
+    <h2>{{ race.name }} <span class="pill">Pursuit race</span></h2>
+    <p><strong>Rating:</strong> {{ rating_type }} · <strong>Fixed period:</strong> {% if duration_min %}{{ duration_min|int }} min{% else %}not set{% endif %} · <strong>First start:</strong> {{ dt_full_display(first_start_time) if first_start_time else 'not set' }} · <strong>Finish signal:</strong> {{ dt_full_display(finish_time) if finish_time else 'not set' }}</p>
+    <div class="summary-grid small">
+      <span><strong>{{ entries|length }}</strong> entries</span>
+      <span><strong>{{ finished_count }}</strong> finished</span>
+      <span><strong>{{ racing_count }}</strong> racing</span>
+    </div>
+    {% if not timing_ready %}
+    <p class="notice">Set the first warning-signal time and fixed period on the <strong>Course &amp; start</strong> tab to compute each boat's start time. Offsets from the first boat are shown until then.</p>
+    {% endif %}
+    {% if missing_rating %}
+    <p class="notice danger-soft"><strong>No {{ rating_type }} rating:</strong> {{ missing_rating|join(', ') }}. These boats get no start time — add a rating in the boat database, or remove the boat.</p>
+    {% endif %}
+  </div>
+  <div class="flag-status-panel race-header-flags" data-start="{{ first_start_time }}" data-race-finished="{{ 1 if race_finished else 0 }}" data-course-shortened="{{ 1 if course_shortened else 0 }}" data-postponed="{{ postponed_flag or '' }}" data-postponement-ends-at="{{ postponement_ends_at or '' }}">
+    <div class="flag-row" aria-label="Current race signals"></div>
+  </div>
+  <div class="countdown" data-start="{{ first_start_time }}" data-race-finished="{{ 1 if race_finished else 0 }}" data-postponed="{{ postponed_flag or '' }}" data-postponement-ends-at="{{ postponement_ends_at or '' }}">
+    <span class="label">Start sequence</span>
+    <span class="time" id="raceCountdownTime">--:--</span>
+    <span class="state" id="raceCountdownState">Waiting</span>
+  </div>
+</section>
+
+<nav class="tab-nav" aria-label="Pursuit race tabs">
+  <button type="button" class="tab-button active" data-tab="tab-course">1. Course &amp; start</button>
+  <button type="button" class="tab-button" data-tab="tab-entries">2. Add entries</button>
+  <button type="button" class="tab-button" data-tab="tab-start">3. Start console</button>
+  <button type="button" class="tab-button" data-tab="tab-positions">4. Finish &amp; positions</button>
+  <button type="button" class="tab-button" data-tab="tab-results">5. Results</button>
+  <button type="button" class="tab-button" data-tab="tab-remove">6. Remove race</button>
+</nav>
+
+{# ---------------------------------------------------------------- Course & start #}
+<div id="tab-course" class="tab-pane active">
+  <section class="card">
+    <div class="section-head">
+      <div>
+        <h3>Course
+          <button type="button" class="help-link" data-help="pursuitCourseHelp" aria-label="How to choose a course">?</button>
+        </h3>
+        <div class="head-actions">
+          <a class="button" href="{{ url_for('recommend', race_id=race.id, use_live_wind=1, polar_file=selected_polar) }}">Recommend course</a>
+          <a class="button" href="{{ url_for('manual_course_builder', race_id=race.id, polar_file=selected_polar) }}">Build manual course</a>
+        </div>
+      </div>
+    </div>
+    <dialog id="pursuitCourseHelp" class="help-dialog">
+      <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+      <h4>Choosing a course</h4>
+      <p>Exactly as for a standard race: pick a fixed numbered course below, use
+        <strong>Recommend course</strong> for a suggestion from the live hut wind and the selected
+        polar, or <strong>Build manual course</strong> to make one up from individual marks.</p>
+    </dialog>
+    <p><strong>{% if is_custom_course %}Made up course{% else %}Course {{ course.course_no }}{% endif %}</strong>{% if course.wind_label %} — {{ course.wind_label }}{% endif %}{% if course.length_nm and course.length_nm != '—' %} — {{ course.length_nm }} nm{% endif %}{% if course.sequence_text %}<br><span class="small">Sequence: {{ course.sequence_text }}</span>{% endif %}</p>
+    {% if is_custom_course %}
+    <form method="post" action="{{ url_for('clear_manual_course', race_id=race.id) }}" class="form-row small-top">
+      <button class="small secondary" type="submit">Clear made up course and return to fixed course {{ race.course_no }}</button>
+    </form>
+    {% endif %}
+  </section>
+  <section class="card">
+    <h3>Start &amp; settings</h3>
+    <form method="post" action="{{ url_for('update_race', race_id=race.id) }}" class="stacked">
+      <label>Race name <input name="name" value="{{ race.name }}"></label>
+      <div class="two-col">
+        <label>First warning-signal time
+          <input type="datetime-local" name="start_time" value="{{ dt_for_minute_input(first_warning_time) }}">
+        </label>
+        <label>Fixed period (minutes)
+          <input type="number" name="pursuit_duration_min" min="1" max="600" step="1" value="{{ duration_min|int if duration_min else '' }}">
+        </label>
+      </div>
+      <div class="two-col">
+        <label>Rating system for start times
+          <select name="pursuit_rating">
+            <option value="IRC_TCC" {% if rating_type == 'IRC' %}selected{% endif %}>IRC (TCC)</option>
+            <option value="YTC" {% if rating_type == 'YTC' %}selected{% endif %}>YTC</option>
+          </select>
+        </label>
+        {% if is_custom_course %}
+        <label>Fixed course
+          <input type="hidden" name="course_no" value="{{ race.course_no }}">
+          <input value="Made up course active — clear it to pick a fixed course" disabled>
+        </label>
+        {% else %}
+        <label>Fixed course
+          <select name="course_no" required>
+            {% for c in courses %}
+              <option value="{{ c.course_no }}" {% if c.course_no == race.course_no %}selected{% endif %}>{{ c.course_no }} — {{ c.wind_label }} — {{ c.length_nm }} nm — {{ c.sequence_text }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        {% endif %}
+      </div>
+      <label>Series
+        <select name="series_id">
+          <option value="">No series / standalone race</option>
+          {% for s in series_list %}
+            <option value="{{ s.id }}" {% if current_series and current_series.id == s.id %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Notes <textarea name="notes" rows="2">{{ race.notes or '' }}</textarea></label>
+      <button type="submit">Save &amp; recompute start times</button>
+    </form>
+    <p class="muted small">The slowest-rated boat starts first at the first start (five minutes after the first warning signal). Start times recompute automatically whenever you save this tab or add/remove boats.</p>
+  </section>
+</div>
+
+{# ---------------------------------------------------------------- Add entries #}
+<div id="tab-entries" class="tab-pane">
+  <section class="card">
+    <h3>Entries &amp; start times</h3>
+    {% if start_rows %}
+    <table class="entry-list">
+      <thead><tr><th>#</th><th>Boat</th><th>Sail no.</th><th>{{ rating_type }}</th><th>Start time</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {% for row in start_rows %}
+        {% set e = row.entry %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ e.boat_name }}</td>
+          <td>{{ e.sail_no or '—' }}</td>
+          <td>{% if rating_type == 'IRC' %}{{ '%.3f'|format(e.manual_irc_rating) if e.manual_irc_rating is not none else '—' }}{% else %}{{ '%.0f'|format(e.manual_ytc_rating) if e.manual_ytc_rating is not none else '—' }}{% endif %}</td>
+          <td>{% if row.start_iso %}{{ dt_full_display(row.start_iso) }}{% elif row.no_rating %}<span class="muted">no {{ rating_type }} rating</span>{% elif row.offset_text %}<span class="muted" title="Offset from the first boat to start">{{ row.offset_text }}</span>{% else %}<span class="muted">set start time</span>{% endif %}</td>
+          <td>{{ entry_display_status(e, race) }}</td>
+          <td><form method="post" action="{{ url_for('delete_entry', race_id=race.id, entry_id=e.id) }}" class="inline" onsubmit="return confirm('Remove {{ e.boat_name }}?')"><button class="small danger" type="submit">Remove</button></form></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No entries yet.</p>
+    {% endif %}
+  </section>
+  <section class="card">
+    <h3>Add from boat database</h3>
+    <form method="post" action="{{ url_for('add_boat_entry', race_id=race.id) }}" class="form-row">
+      <label>Boat
+        <select name="boat_id" required>
+          <option value="">Select boat...</option>
+          {% for b in boats %}
+            <option value="{{ b.id }}">{{ b.boat_name }}{% if b.sail_no %} — {{ b.sail_no }}{% endif %}{% if b.irc_rating %} — IRC {{ '%.3f'|format(b.irc_rating) }}{% endif %}{% if b.ytc_rating %} — YTC {{ '%.0f'|format(b.ytc_rating) }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit">Add selected boat</button>
+    </form>
+    <form method="post" action="{{ url_for('add_all_active_entries', race_id=race.id) }}" class="inline small-top">
+      <button type="submit" class="secondary">Add all {{ all_active_count }} active boats</button>
+    </form>
+  </section>
+</div>
+
+{# ---------------------------------------------------------------- Start console #}
+<div id="tab-start" class="tab-pane">
+  <section class="card">
+    <div class="section-head">
+      <h3>Manual controls</h3>
+      <form method="post" action="{{ url_for('race_horn', race_id=race.id) }}" class="inline"><button type="submit" class="secondary">Fire horn now</button></form>
+    </div>
+    <p class="muted small">Horns and announcements fire automatically: the RRS-26 warning sequence before the first start (class 1 flags), one start signal at each boat's start time, then a single finish signal at the end of the period.</p>
+  </section>
+
+  <section class="card">
+    <h3>Start ladder</h3>
+    {% if start_rows %}
+    <table class="entry-list" id="pursuitLadder">
+      <thead><tr><th>#</th><th>Boat</th><th>Sail no.</th><th>Start time</th><th>In</th></tr></thead>
+      <tbody>
+        {% for row in start_rows %}
+        <tr {% if row.start_iso %}data-start="{{ row.start_iso }}"{% endif %}>
+          <td>{{ loop.index }}</td>
+          <td>{{ row.entry.boat_name }}</td>
+          <td>{{ row.entry.sail_no or '—' }}</td>
+          <td>{% if row.start_iso %}{{ dt_full_display(row.start_iso) }}{% elif row.no_rating %}<span class="muted">no {{ rating_type }} rating</span>{% elif row.offset_text %}<span class="muted">{{ row.offset_text }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td class="pursuit-countdown">—</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="muted">No entries yet.</p>{% endif %}
+  </section>
+
+  <section class="card">
+    <h3>Scheduled signal plan</h3>
+    {% if signal_plan_rows %}
+    <table class="signal-plan-table">
+      <thead><tr><th>Signal time</th><th>Start / signal</th><th>Displayed flags</th><th>Action</th><th>Horn</th></tr></thead>
+      <tbody>
+        {% for row in signal_plan_rows %}
+        <tr data-signal-time="{{ row.signal_time }}"{% if row.suppressed %} class="signal-held"{% elif row.postponement %} class="signal-postponement"{% endif %}>
+          <td>{{ dt_display(row.signal_time) or '—' }}</td>
+          <td>{{ row.start_names }}{% if row.classes_text %}<br><span class="small muted">{{ row.classes_text }}</span>{% endif %}</td>
+          <td>{{ row.displayed_flags }}</td>
+          <td>{{ row.action }}{% if row.suppressed %}<br><span class="small muted">{{ row.suppressed_note }}</span>{% endif %}</td>
+          <td>{{ row.horn }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="notice">Set the first warning-signal time and fixed period on the <strong>Course &amp; start</strong> tab to generate the signal plan.</p>{% endif %}
+  </section>
+
+  <section class="card">
+    <h3>Horn and race log</h3>
+    <table class="compact race-log-table">
+      <thead><tr><th>Time</th><th>Type</th><th>Label</th><th>Source</th></tr></thead>
+      <tbody id="pursuitLog">
+        {% for ev in events %}
+        <tr data-event-id="{{ ev.id }}"><td>{{ dt_full_display(ev.event_time) }}</td><td>{{ ev.event_type }}</td><td>{{ ev.label }}</td><td>{{ ev.source }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if not events %}<p class="muted">No horn or race events logged yet.</p>{% endif %}
+  </section>
+</div>
+
+{# ---------------------------------------------------------------- Finish & positions #}
+<div id="tab-positions" class="tab-pane">
+  <section class="card">
+    <h3>Finish &amp; positions</h3>
+    <p class="muted">At the finish signal, record each boat's finishing position by its order on the water. Leave the position blank and set a status for boats that did not finish.</p>
+    {% if entries %}
+    <form method="post" action="{{ url_for('save_pursuit_positions', race_id=race.id) }}">
+      <table class="entry-list">
+        <thead><tr><th>Boat</th><th>Sail no.</th><th>Start time</th><th>Position</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for row in start_rows %}
+          {% set e = row.entry %}
+          <tr>
+            <td>{{ e.boat_name }}</td>
+            <td>{{ e.sail_no or '—' }}</td>
+            <td>{% if row.start_iso %}{{ dt_full_display(row.start_iso) }}{% else %}—{% endif %}</td>
+            <td><input type="number" name="position_{{ e.id }}" min="1" max="{{ entries|length }}" step="1" value="{{ e.pursuit_position or '' }}" style="width:5rem"></td>
+            <td>
+              <select name="status_{{ e.id }}">
+                {% for s in status_choices %}
+                  <option value="{{ s }}" {% if e.status == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <button type="submit" class="small-top">Save finishing positions</button>
+    </form>
+    {% else %}
+    <p class="muted">Add boats first.</p>
+    {% endif %}
+  </section>
+</div>
+
+{# ---------------------------------------------------------------- Results #}
+<div id="tab-results" class="tab-pane">
+  <section class="card">
+    <h3>Results (finishing order)</h3>
+    {% if ranked_entries %}
+    <table class="entry-list">
+      <thead><tr><th>Position</th><th>Boat</th><th>Sail no.</th><th>Status</th><th>Start video</th></tr></thead>
+      <tbody>
+        {% for e in ranked_entries %}
+        <tr>
+          <td>{{ e.pursuit_position }}</td>
+          <td>{{ e.boat_name }}</td>
+          <td>{{ e.sail_no or '—' }}</td>
+          <td>{{ entry_display_status(e, race) }}</td>
+          <td>
+            {% set clip = start_video_by_entry.get(e.id) if start_video_by_entry else none %}
+            {% if clip and clip.status == 'ready' %}
+              <a href="{{ url_for('video_clip_file', clip_id=clip.id) }}" target="_blank">View</a>
+            {% elif clip %}
+              <span class="muted small">{{ video_clip_link_text(clip) }}</span>
+            {% else %}
+              <span class="muted small">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No finishing positions recorded yet. Use the <strong>Finish &amp; positions</strong> tab.</p>
+    {% endif %}
+  </section>
+</div>
+
+{# ---------------------------------------------------------------- Remove race #}
+<div id="tab-remove" class="tab-pane">
+  <section class="card">
+    <h3>Remove race</h3>
+    <p class="muted">Deletes this race and its {{ race_delete_summary.entries }} entr{{ 'y' if race_delete_summary.entries == 1 else 'ies' }}, {{ race_delete_summary.events }} log event(s) and {{ race_delete_summary.video_clips }} video clip record(s).</p>
+    <form method="post" action="{{ url_for('delete_race', race_id=race.id) }}" onsubmit="return confirm('Delete this pursuit race and all its data?')">
+      <label class="checkbox-row"><input type="checkbox" name="confirm_delete" value="1"> Yes, delete this race</label>
+      <button type="submit" class="danger small-top">Delete race</button>
+    </form>
+  </section>
+</div>
+
+<script>
+(function () {
+  const buttons = Array.from(document.querySelectorAll('.tab-button'));
+  const panes = Array.from(document.querySelectorAll('.tab-pane'));
+  function show(id) {
+    panes.forEach(p => p.classList.toggle('active', p.id === id));
+    buttons.forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+  }
+  buttons.forEach(b => b.addEventListener('click', () => { show(b.dataset.tab); history.replaceState(null, '', '#' + b.dataset.tab); }));
+  show((location.hash || '#tab-course').slice(1));
+
+  // Live countdown to each start time in the start ladder.
+  function tick() {
+    const now = Date.now();
+    document.querySelectorAll('#pursuitLadder tr[data-start]').forEach(tr => {
+      const t = new Date(tr.dataset.start).getTime();
+      const cell = tr.querySelector('.pursuit-countdown');
+      const diff = Math.round((t - now) / 1000);
+      tr.classList.remove('next-start');
+      if (diff <= 0) { cell.textContent = 'started'; }
+      else { cell.textContent = roCountdownBody(diff); }
+    });
+    const upcoming = Array.from(document.querySelectorAll('#pursuitLadder tr[data-start]'))
+      .filter(tr => new Date(tr.dataset.start).getTime() > now)
+      .sort((a, b) => new Date(a.dataset.start) - new Date(b.dataset.start))[0];
+    if (upcoming) upcoming.classList.add('next-start');
+  }
+  tick(); setInterval(tick, 1000);
+})();
+</script>
+
+<script src="{{ url_for('static', filename='signal_flags.js') }}?v={{ app_version }}"></script>
+<script>
+(function () {
+  const signalSchedule = {{ signal_panel_schedule|tojson }};
+  // Shared with the competitor page, the standard race sheet and the clubhouse display
+  // (static/signal_flags.js). This page's own copy had drifted: it had no Code flag S
+  // at all, so a shortened pursuit race showed S to competitors and nothing to the race
+  // officer looking at it.
+  const flagSrcs = {
+    numeralBase: "{{ url_for('static', filename='img/class_flags/numeral_0.png') }}".replace('numeral_0.png', 'numeral_'),
+    prep: "{{ url_for('static', filename='img/class_flags/p.png') }}",
+    codeS: "{{ url_for('static', filename='img/class_flags/s.png') }}"
+  };
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function renderPanel(panel, now) {
+    const row = panel.querySelector('.flag-row'); const label = panel.querySelector('.raceFlagStage');
+    if (!row) return;
+    const finished = panel.dataset.raceFinished === '1';
+    const shortened = panel.dataset.courseShortened === '1' && !finished;
+    const postponed = finished ? '' : SignalFlags.postponedNow(
+      panel.dataset.postponed, panel.dataset.postponementEndsAt, now);
+    let flags = [];
+    if (postponed) {
+      // AP replaces the sequence rather than joining it: while it is up no warning,
+      // preparatory or starting signal is made, so no class flag and no P is flying.
+      flags = SignalFlags.postponementFlags(postponed);
+    } else if (!finished) {
+      if (signalSchedule.length) flags = SignalFlags.liveFlags(signalSchedule, now);
+      if (shortened) flags.push({kind: 'code-s', label: 'Code flag S (shortened course)'});
+    }
+    panel.classList.toggle('postponed', !!postponed);
+    row.innerHTML = SignalFlags.markup(flags, flagSrcs);
+    panel.classList.toggle('no-flags-up', flags.length === 0);
+    if (label) {
+      label.textContent = SignalFlags.summary(flags, {
+        raceFinished: finished, shortened: shortened, postponed: postponed,
+        hasSchedule: signalSchedule.length > 0});
+    }
+  }
+  function updateSignalPlan(now) {
+    document.querySelectorAll('.signal-plan-table tr[data-signal-time]').forEach(row => {
+      const t = row.dataset.signalTime ? new Date(row.dataset.signalTime) : null;
+      if (t && !Number.isNaN(t.getTime())) row.classList.toggle('signal-complete', now > t);
+    });
+  }
+  const timers = [...document.querySelectorAll('.countdown')].map(box => ({box, timeEl: box.querySelector('.time'), stateEl: box.querySelector('.state')}));
+  function render() {
+    const now = new Date();
+    document.querySelectorAll('.flag-status-panel').forEach(p => renderPanel(p, now));
+    updateSignalPlan(now);
+    timers.forEach(t => {
+      if (t.box.dataset.raceFinished === '1') { if (t.timeEl) t.timeEl.textContent = '--:--'; if (t.stateEl) t.stateEl.textContent = 'Race finished'; return; }
+      // See race.html: counting to a gun that AP has stopped is the fault, on screen.
+      const boxPostponed = SignalFlags.postponedNow(
+        t.box.dataset.postponed, t.box.dataset.postponementEndsAt, now);
+      if (boxPostponed) { if (t.timeEl) t.timeEl.textContent = '--:--'; if (t.stateEl) t.stateEl.textContent = SignalFlags.postponedLabel(boxPostponed); return; }
+      const start = new Date(t.box.dataset.start || '');
+      if (Number.isNaN(start.getTime())) { if (t.timeEl) t.timeEl.textContent = '--:--'; if (t.stateEl) t.stateEl.textContent = 'First warning not set'; return; }
+      const diff = Math.round((start - now) / 1000); const abs = Math.abs(diff);
+      if (t.timeEl) t.timeEl.textContent = (diff >= 0 ? '-' : '+') + roCountdownBody(abs);
+      if (t.stateEl) t.stateEl.textContent = SignalFlags.phaseFor(diff);
+    });
+  }
+  render(); setInterval(render, 1000);
+})();
+</script>
+
+<script>
+(function () {
+  const tbody = document.getElementById('pursuitLog');
+  if (!tbody) return;
+  const raceId = {{ race.id }};
+  let latest = Math.max(0, ...[...tbody.querySelectorAll('tr[data-event-id]')].map(r => Number(r.dataset.eventId) || 0));
+  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  async function poll() {
+    try {
+      const res = await fetch(`/api/race/${raceId}/events?after_id=${latest}&limit=50`, {headers: {'Accept': 'application/json'}});
+      if (!res.ok) return;
+      const data = await res.json();
+      (data.events || []).forEach(ev => {
+        const id = Number(ev.id || 0);
+        if (id && id <= latest) return;
+        if (id) latest = Math.max(latest, id);
+        const tr = document.createElement('tr');
+        if (id) tr.dataset.eventId = String(id);
+        tr.innerHTML = `<td>${esc(ev.event_time_display || ev.event_time || '')}</td><td>${esc(ev.event_type)}</td><td>${esc(ev.label)}</td><td>${esc(ev.source)}</td>`;
+        tbody.prepend(tr);
+        const empty = tbody.parentElement.parentElement.querySelector('.muted');
+        if (empty) empty.remove();
+        while (tbody.children.length > 40) tbody.removeChild(tbody.lastElementChild);
+      });
+    } catch (e) { /* ignore transient poll errors */ }
+  }
+  poll(); setInterval(poll, 3000);
+})();
+</script>
+{% endblock %}

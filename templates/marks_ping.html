@@ -1,0 +1,78 @@
+<!doctype html>
+<!-- Copyright © 2026 CapeNet Ltd. All Rights Reserved. -->
+{# Taken out in the RIB. Used one-handed, on a phone, in a small boat, often in
+   the weather that moved the mark in the first place — so: big targets, one job
+   on screen at a time, and nothing that can be pressed by accident. The fix has
+   to be confirmed after the accuracy has been seen, and the button says how far
+   the mark is about to move.
+
+   A page of its own rather than one inside the race-office layout: that layout
+   is a fixed-width sidebar built for a desk, and on a phone it put the whole
+   page 819px wide in a 390px window with the button running off the edge. #}
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Set a mark position - Pwllheli Race Officer</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
+  {% include 'partials/theme_links.html' %}
+</head>
+<body class="ping-body">
+<header class="ping-top">
+  {% if show_back %}<a href="{{ url_for('marks_page') }}" class="ping-back">&larr; Marks</a>
+  {% else %}<a href="{{ url_for('logout') }}" class="ping-back">Sign out</a>{% endif %}
+  <span class="ping-who">{{ session.get('username', '') }}</span>
+</header>
+
+<main class="ping-page" data-ping data-csrf="{{ csrf_token() }}">
+  <h1>Set a mark position</h1>
+  <p class="ping-intro">Take the boat to the mark, wait for the fix to settle, then set it.
+    The change is recorded against your name.</p>
+
+  <p class="ping-warning" hidden>
+    <strong>This phone will not give a position.</strong>
+    <span class="ping-warning-detail"></span>
+  </p>
+
+  <div class="ping-fix">
+    <span class="ping-fix-label">Your position</span>
+    <span class="ping-fix-value">waiting for GPS…</span>
+    <span class="ping-fix-accuracy"></span>
+    <span class="ping-status"></span>
+  </div>
+
+  {# Several mobile browsers only put up the location prompt in response to a
+     tap, so there has to be something to tap. Hidden once a fix arrives. #}
+  <button type="button" class="ping-start button secondary">Use my position</button>
+
+  <label class="ping-pick">Mark
+    <select class="ping-mark">
+      <option value="">Choose a mark…</option>
+      {% for code, m in marks.items() %}
+      <option value="{{ code }}" data-lat="{{ m.lat }}" data-lon="{{ m.lon }}">{{ m.display or code }} — {{ m.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <div class="ping-current" hidden>
+    <p><span class="ping-current-label">Recorded now</span>
+       <span class="ping-current-value"></span></p>
+    <p class="ping-distance"></p>
+  </div>
+
+  <button type="button" class="ping-set button" disabled>Set mark to my position</button>
+  <p class="ping-result" role="status"></p>
+
+  <p class="ping-diag small muted"></p>
+
+  <p class="ping-note">
+    A phone is accurate to a few metres on open water, well inside the 50&nbsp;m the app
+    allows for rounding a mark. A fix it calls worse than 25&nbsp;m is refused &mdash; wait a
+    moment and it usually improves. Moving a mark changes every course that uses it,
+    including races already sailed.
+  </p>
+</main>
+<script src="{{ url_for('static', filename='marks_ping.js') }}?v={{ app_version }}"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+[Unit]
+Description=cloudflared tunnel (publishes the public live stream)
+After=network-online.target caddy.service
+Wants=network-online.target
+
+[Service]
+EnvironmentFile=/etc/relay/relay.env
+ExecStart=/usr/bin/cloudflared tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,302 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Dashboard - Pwllheli Race Officer{% endblock %}
+{% block head_extra %}
+  {# Leaflet's own stylesheet, for the marks-and-trackers map below. Without it
+     the map panes are position:static, so the tiles flow down the page as a
+     broken mosaic and every marker lands thousands of pixels below the map. #}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+{% endblock %}
+{% block content %}
+<section class="hero">
+  <h2>Race dashboard</h2>
+  <p>System status for the race-office PC and the currently active race.</p>
+</section>
+
+<section class="dashboard-race-wind-layout">
+  <article class="card dashboard-system dashboard-race-summary-card">
+    <div class="section-head">
+      <div>
+        <h2>Current race</h2>
+      </div>
+    </div>
+    {% if current_race_status.race %}
+      <div class="summary-grid dashboard-summary-grid">
+        <span><strong>{{ current_race_status.race.name }}</strong></span>
+        <span>Status: <strong>{{ current_race_status.status }}</strong></span>
+        <span>Entries: <strong>{{ current_race_status.entry_count }}</strong></span>
+        <span>Finished: <strong>{{ current_race_status.finished_count }}</strong></span>
+        <span>Racing: <strong>{{ current_race_status.racing_count }}</strong></span>
+        <span>First start: <strong>{{ dt_full_display(current_race_status.first_start_time) or 'Not set' }}</strong></span>
+      </div>
+      <div class="countdown inline-countdown small-top" data-start="{{ current_race_status.first_start_time }}" data-race-finished="{{ 1 if current_race_status.race_finished else 0 }}" data-postponed="{{ current_race_status.postponed_flag or '' }}" data-postponement-ends-at="{{ current_race_status.postponement_ends_at or '' }}">
+        <span class="label">Countdown</span>
+        <span class="time" id="dashboardCountdownTime">--:--</span>
+        <span class="state" id="dashboardCountdownState">Waiting</span>
+      </div>
+      {# The marks the fleet is actually sailing. Empty until somebody has
+         chosen a course, which is why the server sends board_marks rather than
+         a course number: a new race always has a number and that is not the
+         same as a decision. #}
+      {% if current_race_status.board_marks %}
+      <p class="sequence dashboard-course-board">
+        {% for m in current_race_status.board_marks %}<span class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</span>{% endfor %}
+        {% if current_race_status.course_shortened %}<span class="mark shortened">&rarr; Finish</span>{% endif %}
+      </p>
+      {% endif %}
+      <div class="dashboard-current-actions">
+        <a class="button" href="{{ current_race_status.admin_url }}">Open current race sheet</a>
+      </div>
+    {% else %}
+      <p>{{ current_race_status.message }}</p>
+    {% endif %}
+  </article>
+
+  <article class="card dashboard-wind-card">
+    {# The same head as the Current race card beside it: a .section-head with an
+       h2, so both are set in the reading face at the same size and both rules
+       are drawn by the row rather than by the words. An h3 here put "WIND" in
+       the condensed uppercase the theme gives section headings, with a rule
+       that stopped at the end of the word and sat higher up the card than its
+       neighbour. The status line moves below the rule, where it belongs and
+       where it cannot make one head taller than the other. #}
+    <div class="section-head">
+      <div>
+        <h2>Wind</h2>
+      </div>
+      <a class="button small secondary" href="{{ url_for('settings_page') }}#weather">Weather settings</a>
+    </div>
+    <p class="muted small dashboard-wind-status" id="dashboardWindStatus">{{ weather_status.message }}</p>
+    {# No text row under the gauge. It drew the direction and the speed twice --
+       once on the dial, in the size they are meant to be read at, and again as
+       chips below it -- and named a source the status line above already tells
+       you. The gauge's twd/tws/source targets go with it; wind_gauge.js writes
+       to each only if it is there. #}
+    {% with gauge_id='dashboardWindGauge', gauge_status_target='dashboardWindStatus' %}
+      {% include 'partials/wind_gauge.html' %}
+    {% endwith %}
+  </article>
+</section>
+
+{# Where things are right now: the marks, and whoever is actually out. No course
+   and no race — a race has its own chart. This is the "is anything on the water"
+   glance the dashboard was missing. #}
+<section class="card" id="dashboard-map">
+  <h3>Marks and trackers</h3>
+  <p class="muted small">Every mark, and any tracker that has reported in the last hour. The map
+    zooms to fit whatever is showing.</p>
+  <div class="course-map-wrap dashboard-map-wrap">
+    <div class="course-map" id="dashboardMap"
+         data-trackers-url="{{ url_for('api_dashboard_trackers') }}"
+         data-tracking-enabled="{{ 1 if gps_tracking_enabled else 0 }}"
+         data-all-marks='{{ marks_data|tojson }}'
+         data-course-marks='[]'
+         data-base-tile-url="{{ course_chart.course_chart_tile_url }}"
+         data-overlay-tile-url="{{ course_chart.course_chart_overlay_url }}"
+         data-start-finish-mark="{{ course_chart.start_finish_mark }}"
+         data-bridge-lat="{{ course_chart.bridge_window_lat }}"
+         data-bridge-lon="{{ course_chart.bridge_window_lon }}"></div>
+    <p class="small muted course-map-message"></p>
+  </div>
+  <p class="small muted" id="dashboardMapStatus">
+    {% if not gps_tracking_enabled %}GPS tracking is off, so only the marks are shown.{% endif %}
+  </p>
+</section>
+
+<section class="card-grid">
+  <article class="card">
+    <h3>Horn</h3>
+    <p>{{ horn_status.message }}</p>
+    <a class="button small secondary" href="{{ url_for('settings_page') }}#hardware">Horn settings</a>
+  </article>
+
+  {# The recorder is the club's evidence for a protest, and this card said so in
+     the same grey as everything else: it read "Video recorder is not running"
+     all one Saturday morning and nobody's eye caught it, so a race went
+     unrecorded. It now looks wrong when it is wrong, the way the off-site
+     backup card does. #}
+  <article class="card">
+    <h3>Video{% if video_status.enabled and not video_status.ok %} <span class="pill warn-pill">check</span>{% endif %}</h3>
+    <p{% if video_status.ok or not video_status.enabled %} class="small muted"{% endif %}>{{ video_status.message }}</p>
+    <p class="small muted">Segments: {{ video_status.segment_count or 0 }}{% if video_status.live_frame_age_seconds is not none %} · live frame {{ video_status.live_frame_age_seconds }}s old{% endif %}{% if video_status.restarts %} · restarted {{ video_status.restarts }}&times; since the app started{% endif %}</p>
+    <div class="actions">
+      <a class="button small secondary" href="{{ url_for('settings_page') }}#video">Video settings</a>
+      <a class="button small secondary" href="{{ url_for('video_live_frame') }}" target="_blank" rel="noopener">View live frame</a>
+    </div>
+  </article>
+
+  <article class="card" id="powerCard">
+    <h3>Hut power{% if power_status.sim %} <span class="small muted">(simulated)</span>{% endif %}</h3>
+    <p class="small muted" id="powerMessage">{{ power_status.message }}</p>
+    <div class="summary-grid dashboard-summary-grid">
+      <span>Battery: <strong id="powerSoc">{% if power_status.battery and power_status.battery.soc is not none %}{{ '%.0f%%'|format(power_status.battery.soc) }}{% else %}—{% endif %}</strong></span>
+      <span>Voltage: <strong id="powerVolts">{% if power_status.battery and power_status.battery.v is not none %}{{ '%.2f V'|format(power_status.battery.v) }}{% else %}—{% endif %}</strong></span>
+      <span>Battery flow: <strong id="powerAmps">{% if power_status.battery and power_status.battery.i is not none %}{{ '%+.1f A'|format(power_status.battery.i) }}{% else %}—{% endif %}</strong></span>
+      <span>Solar: <strong id="powerSolar">{% if power_status.solar and power_status.solar.pv_w is not none %}{{ '%.0f W'|format(power_status.solar.pv_w) }}{% if power_status.solar.state %} ({{ power_status.solar.state }}){% endif %}{% else %}—{% endif %}</strong></span>
+      <span>Consumption: <strong id="powerLoad">{% if power_status.load and power_status.load.w is not none %}{{ '%.0f W'|format(power_status.load.w) }}{% else %}—{% endif %}</strong></span>
+      <span>Charger: <strong id="powerCharger">{{ power_status.charger.state if power_status.charger and power_status.charger.state else '—' }}</strong></span>
+    </div>
+    <div class="actions">
+      <a class="button small secondary" href="{{ url_for('settings_page') }}#power">Power settings</a>
+      <a class="button small secondary" href="{{ url_for('power_history_page') }}">Power history</a>
+    </div>
+  </article>
+</section>
+
+<section class="card-grid">
+  {# A backup job that quietly stopped is worse than none, because the club
+     believes it has one. So the age of the last success is on the dashboard,
+     where somebody sees it, rather than only inside Settings. #}
+  {# Only shown when there is something to say. A tracker that has never reported a
+     battery is silent here rather than warning about an unknown, and a flat spare in
+     the drawer is not a race-day problem — only trackers assigned to a boat count.
+     The Trackers page has the full picture; this is the reminder to look. #}
+  {% if low_batteries %}
+  <article class="card" id="trackerBatteryCard">
+    <h3>Tracker batteries <span class="pill warn-pill">{{ low_batteries|length }} low</span></h3>
+    <ul class="battery-warning-list small">
+      {% for t in low_batteries %}
+      <li>
+        <span class="rag-dot rag-{{ t.battery_rag }}"></span>
+        <strong>{{ '%.0f'|format(t.battery) }}%</strong>
+        {{ t.boat_name or t.label }}<span class="muted"> · {{ t.label }}</span>
+        {% if t.critical %}<span class="muted"> — may not last a race</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    <a class="button small secondary" href="{{ url_for('trackers_page') }}">Trackers</a>
+  </article>
+  {% endif %}
+
+  {# A SIM the network has stopped will not fix itself, and from every other
+     panel on this page it is indistinguishable from a flat battery. Same rule as
+     the batteries above: only trackers assigned to a boat. #}
+  {% if sim_warnings %}
+  <article class="card" id="simWarningCard">
+    <h3>Tracker SIMs <span class="pill warn-pill">{{ sim_warnings|length }} blocked</span></h3>
+    <ul class="battery-warning-list small">
+      {% for s in sim_warnings %}
+      <li>
+        <span class="rag-dot rag-red"></span>
+        <strong>{{ s.state_text }}</strong>
+        {{ s.boat_name or s.label }}<span class="muted"> · {{ s.label }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="small muted">These trackers cannot report until the SIM is resumed at Hologram.</p>
+    <a class="button small secondary" href="{{ url_for('trackers_page') }}">Trackers</a>
+  </article>
+  {% endif %}
+
+  {# Running the account dry stops every tracker at once, and unlike a flat
+     battery there is nothing on the water to see it coming. #}
+  {% if balance_warning %}
+  <article class="card" id="simBalanceCard">
+    <h3>Hologram balance
+      <span class="pill warn-pill">{{ 'top up now' if balance_warning.level == 'urgent' else 'top up soon' }}</span>
+    </h3>
+    <p>
+      {% if balance_warning.balance is not none %}${{ '%.2f'|format(balance_warning.balance) }} left — {% endif %}
+      about {{ balance_warning.days_left }} day{{ 's' if balance_warning.days_left != 1 else '' }},
+      running out on {{ date_display(balance_warning.empty_on) }}. Every tracker stops when it does.
+    </p>
+    {% if balance_warning.auto_topoff %}
+    <p class="small muted">Auto top-up is set, so this may settle itself — worth checking the card on file.</p>
+    {% endif %}
+    <a class="button small secondary" href="{{ url_for('trackers_page') }}">Trackers</a>
+  </article>
+  {% endif %}
+
+  {# Not "the battery is low" — by then there are days left, not weeks. This is
+     the bank no longer getting back to full, which is how a solar hut fails:
+     quietly, and only in the trend. #}
+  {% if recharge_warning %}
+  <article class="card" id="rechargeWarningCard">
+    <h3>Hut battery
+      <span class="pill warn-pill">{{ 'not recharging' if recharge_warning.level == 'urgent' else 'watch' }}</span>
+    </h3>
+    <p>
+      Last reached full <strong>{{ recharge_warning.days }} day{{ 's' if recharge_warning.days != 1 else '' }}</strong> ago{% if recharge_warning.last_full %}
+      ({{ date_display(recharge_warning.last_full) }}){% endif %} &mdash;
+      now {{ '%.0f'|format(recharge_warning.soc) }}%, today's best {{ '%.0f'|format(recharge_warning.peak_today) }}%.
+    </p>
+    <p class="small muted">The panels are flat, so a midwinter day may not replace a
+      night's load. Charge from the mains before it runs down.</p>
+    <a class="button small secondary" href="{{ url_for('power_history_page') }}">Hut power</a>
+  </article>
+  {% endif %}
+
+  <article class="card" id="offsiteBackupCard">
+    <h3>Off-site backup{% if not offsite_status.ok %} <span class="pill warn-pill">check</span>{% endif %}</h3>
+    <p{% if offsite_status.ok %} class="small muted"{% endif %}>{{ offsite_status.message }}</p>
+    {% if offsite_status.enabled and offsite_status.last_success_at %}
+    <p class="small muted">{{ dt_full_display(offsite_status.last_success_at) }}{% if offsite_status.size_bytes %} · {{ '%.1f'|format(offsite_status.size_bytes / 1048576) }} MB{% endif %} · nightly at {{ offsite_status.schedule }}</p>
+    {% endif %}
+    <a class="button small secondary" href="{{ url_for('settings_page') }}#offsite-backup">Off-site backup settings</a>
+  </article>
+
+  <article class="card">
+    <h3>Start line</h3>
+    <p>{{ start_finish.start_line.description }}</p>
+  </article>
+  <article class="card">
+    <h3>Finish line</h3>
+    <p>{{ start_finish.finish_line.description }}</p>
+  </article>
+  <article class="card">
+    <h3>Radio / limits</h3>
+    <p>VHF {{ start_finish.vhf_channel }}. Normal time limit {{ start_finish.normal_time_limit_hours }} hours. DNF window {{ start_finish.dnf_after_first_finisher_minutes }} minutes after first finisher.</p>
+  </article>
+</section>
+
+{# The postponement wording, and the rule for whether AP is still up. #}
+<script src="{{ url_for('static', filename='signal_flags.js') }}?v={{ app_version }}"></script>
+<script>
+(function () {
+  const box = document.querySelector('.inline-countdown');
+  if (!box) return;
+  const timeEl = document.getElementById('dashboardCountdownTime');
+  const stateEl = document.getElementById('dashboardCountdownState');
+  const startIso = box.dataset.start;
+  const finished = box.dataset.raceFinished === '1';
+  function pad(n) { return String(Math.floor(Math.abs(n))).padStart(2, '0'); }
+  function tick() {
+    if (!startIso) {
+      timeEl.textContent = '--:--';
+      stateEl.textContent = 'No start set';
+      return;
+    }
+    if (finished) {
+      timeEl.textContent = 'Finished';
+      stateEl.textContent = 'Race finished';
+      return;
+    }
+    // Under AP the race keeps its scheduled time, so this counted down to a gun
+    // that was not coming. Asked every tick rather than once, because the flag
+    // comes down at a minute the race officer chose and this page is not
+    // reloaded when it does.
+    const postponed = window.SignalFlags
+      ? SignalFlags.postponedNow(box.dataset.postponed, box.dataset.postponementEndsAt)
+      : '';
+    if (postponed) {
+      timeEl.textContent = '--:--';
+      stateEl.textContent = SignalFlags.postponedLabel(postponed);
+      return;
+    }
+    const start = new Date(startIso);
+    const diff = Math.round((start.getTime() - Date.now()) / 1000);
+    const sign = diff < 0 ? '+' : '-';
+    const abs = Math.abs(diff);
+    timeEl.textContent = `T${sign}${roCountdownBody(abs)}`;
+    stateEl.textContent = diff >= 0 ? 'Before first start' : 'After first start';
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
+</script>
+<script src="{{ url_for('static', filename='wind_gauge.js') }}?v={{ app_version }}"></script>
+<script src="{{ url_for('static', filename='dashboard_power.js') }}?v={{ app_version }}"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="{{ url_for('static', filename='course_map.js') }}?v={{ app_version }}"></script>
+<script src="{{ url_for('static', filename='dashboard_map.js') }}?v={{ app_version }}"></script>
+{% endblock %}

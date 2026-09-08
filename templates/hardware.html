@@ -1,0 +1,144 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Hardware - Pwllheli Race Officer{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>Hardware setup</h2>
+  <p>Configure the horn output and optional manual-horn switch input here. With no serial port configured, the system runs in simulation mode and still logs test events.</p>
+
+  <form method="post" action="{{ url_for('hardware_save') }}" class="stacked">
+    <h3>Horn output</h3>
+    <div class="three-col">
+      <label>Serial port
+        <input type="text" name="serial_port" value="{{ config.serial_port }}" placeholder="COM3 or /dev/ttyUSB0">
+      </label>
+      <label>Output line
+        <select name="horn_line">
+          <option value="DTR" {% if config.horn_line == 'DTR' %}selected{% endif %}>DTR</option>
+          <option value="RTS" {% if config.horn_line == 'RTS' %}selected{% endif %}>RTS (legacy/non-ProLog only)</option>
+        </select>
+      </label>
+      <label>Default blast duration ms
+        <input type="number" name="horn_duration_ms" min="50" max="5000" value="{{ config.horn_duration_ms }}">
+      </label>
+    </div>
+    <label class="checkbox-inline">
+      <input type="checkbox" name="horn_active" value="1" {% if config.horn_active %}checked{% endif %}>
+      Assert output line during horn blast
+    </label>
+
+    <h3>Manual horn switch input</h3>
+    <p class="muted">This uses the ProLog-style relay feedback: DTR fires the horn relay; RTS is held asserted as the feedback common; DCD means idle; CTS means horn/manual button active.</p>
+    <label class="checkbox-inline">
+      <input type="checkbox" name="horn_input_enabled" value="1" {% if config.horn_input_enabled %}checked{% endif %}>
+      Enable ProLog-style manual horn input sensing
+    </label>
+    <input type="hidden" name="horn_input_line" value="CTS">
+    <input type="hidden" name="horn_input_active" value="1">
+    <div class="three-col">
+      <label>Horn output
+        <input type="text" value="DTR pin 4" readonly>
+      </label>
+      <label>Feedback contact
+        <input type="text" value="RTS common → DCD idle / CTS active" readonly>
+      </label>
+      <label>Poll interval ms
+        <input type="number" name="horn_input_poll_ms" min="100" max="5000" value="{{ config.horn_input_poll_ms }}">
+      </label>
+    </div>
+
+    <div class="form-row">
+      <button type="submit">Save hardware settings</button>
+      <span class="muted">Settings are stored in the app database, not environment variables.</span>
+    </div>
+  </form>
+</section>
+
+<section class="card controls-grid">
+  <div>
+    <h3>Test horn output</h3>
+    <table class="compact">
+      <tbody>
+        <tr><th>Serial port</th><td>{{ config.serial_port or 'Simulation mode' }}</td></tr>
+        <tr><th>Output line</th><td>{{ config.horn_line }}</td></tr>
+        <tr><th>Active state</th><td>{{ 'Assert line during blast' if config.horn_active else 'Deassert line during blast' }}</td></tr>
+        <tr><th>Default blast</th><td>{{ config.horn_duration_ms }} ms</td></tr>
+      </tbody>
+    </table>
+    <form method="post" action="{{ url_for('hardware_test_horn') }}" class="form-row">
+      <label>Blast duration ms <input type="number" name="duration_ms" min="50" max="5000" value="{{ config.horn_duration_ms }}"></label>
+      <button type="submit">Test horn</button>
+    </form>
+  </div>
+  <div>
+    <h3>Manual horn input status</h3>
+    <table class="compact">
+      <tbody>
+        <tr><th>Enabled</th><td>{{ 'Yes' if config.horn_input_enabled else 'No' }}</td></tr>
+        <tr><th>Feedback wiring</th><td>RTS common; DCD idle; CTS active</td></tr>
+        <tr><th>Pressed state</th><td>CTS asserted, DCD not idle</td></tr>
+        <tr><th>Current status</th><td id="inputStatus">{{ input_status.message }}</td></tr>
+      </tbody>
+    </table>
+    <p class="muted">This page polls the input and logs a global event on each detected press. The start console logs the same event against the active race.</p>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Hardware notes</h3>
+  <p>Use an opto-isolated relay or proper interface between the serial adapter and the horn circuit. Do not connect a horn directly to a PC serial pin.</p>
+  <p>For the ProLog-style horn interface, DTR drives the horn relay. RTS is held asserted as the feedback-contact common; the contact returns RTS to DCD when idle and CTS when the horn/manual button is active. Test that the status changes from DCD idle to CTS active before racing.</p>
+</section>
+
+<section class="card">
+  <h3>Recent hardware events</h3>
+  {% if events %}
+  <table>
+    <thead><tr><th>Time</th><th>Race</th><th>Type</th><th>Label</th><th>Source</th></tr></thead>
+    <tbody id="hardwareLog">
+    {% for ev in events %}
+      <tr><td>{{ dt_full_display(ev.event_time) }}</td><td>{{ ev.race_id or '' }}</td><td>{{ ev.event_type }}</td><td>{{ ev.label }}</td><td>{{ ev.source }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No hardware events logged yet.</p>
+  <table style="display:none"><tbody id="hardwareLog"></tbody></table>
+  {% endif %}
+</section>
+
+<script>
+(function () {
+  const enabled = {{ 'true' if config.horn_input_enabled else 'false' }};
+  const pollMs = {{ config.horn_input_poll_ms }};
+  const inputStatus = document.getElementById('inputStatus');
+  const logBody = document.getElementById('hardwareLog');
+  function addLog(label, type, source) {
+    if (!logBody) return;
+    const row = document.createElement('tr');
+    row.innerHTML = `<td>${new Date().toLocaleTimeString()}</td><td></td><td>${type}</td><td>${label}</td><td>${source}</td>`;
+    logBody.prepend(row);
+  }
+  async function pollInput() {
+    if (!enabled) return;
+    try {
+      const url = `{{ url_for('api_hardware_input_status') }}?log=1`;
+      const res = await fetch(url, {headers: {'Accept': 'application/json'}});
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        throw new Error(res.status === 401 ? 'sign in again or reload this page' : `status ${res.status || 'unknown'} from input status`);
+      }
+      const data = await res.json();
+      inputStatus.textContent = data.message || (data.active ? 'Pressed' : 'Released');
+      if (data.logged) addLog('Manual horn switch detected', 'manual-horn-input', 'serial-input');
+    } catch (e) {
+      inputStatus.textContent = 'Input status error: ' + e;
+    }
+  }
+  if (enabled) {
+    pollInput();
+    setInterval(pollInput, Math.max(100, pollMs));
+  }
+})();
+</script>
+{% endblock %}

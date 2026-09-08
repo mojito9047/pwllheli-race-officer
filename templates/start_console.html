@@ -1,0 +1,259 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Start Console - Race {{ race.id }}{% endblock %}
+{% block content %}
+<section class="race-header">
+  <div>
+    <h2>Start console — {{ race.name }}</h2>
+    <p><strong>First warning:</strong> {{ dt_full_display(first_warning_time) or 'Not set' }} · <strong>First start:</strong> {{ dt_full_display(first_start_time) or 'Not set' }} · <strong>Class:</strong> {{ race.class_name }} · <strong>Course:</strong> {{ race.course_no }}</p>
+    <p class="sequence">
+      {% for m in (course.board_marks or course.marks) %}<span class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</span>{% endfor %}
+    </p>
+  </div>
+  <div class="countdown large-countdown" data-start="{{ first_start_time }}"
+       data-postponed="{{ postponed_flag or '' }}"
+       data-postponement-ends-at="{{ postponement_ends_at or '' }}">
+    <span class="label">Time to start</span>
+    <span class="time" id="countdownTime">--:--</span>
+    <span class="state" id="countdownState">Waiting</span>
+  </div>
+</section>
+
+<section class="card controls-grid">
+  <div>
+    <h3>Central automation</h3>
+    <p class="muted">Automatic horn signals and VHF/audio announcements are generated centrally by the race-office PC. Configure them in Settings → Horn settings & Test.</p>
+    <p class="muted horn-config-line"><span><strong>Horn output:</strong> {{ config.serial_port or 'simulation mode' }} {{ config.horn_line }}</span><span><strong>Manual horn input:</strong> {% if config.horn_input_enabled %}{{ config.horn_input_line }}{% else %}disabled{% endif %}</span></p>
+    {% if config.horn_input_enabled %}<p id="manualHornInputStatus" class="muted">Manual horn input: waiting for first read…</p>{% endif %}
+  </div>
+  <div>
+    <h3>Manual controls</h3>
+    <button type="button" id="manualHorn">Fire horn now</button>
+    <button type="button" id="individualRecall" class="secondary">Individual recall</button>
+    <button type="button" id="generalRecall" class="secondary">General Recall</button>
+    <button type="button" id="abandon" class="danger">Abandon</button>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Scheduled signal plan</h3>
+  <table class="signal-plan-table">
+    <thead><tr><th>Signal time</th><th>Start / time</th><th>Displayed flags</th><th>Action</th><th>Horn</th></tr></thead>
+    <tbody>
+      {% for row in signal_plan_rows %}
+      <tr data-signal-time="{{ row.signal_time }}"{% if row.suppressed %} class="signal-held"{% elif row.postponement %} class="signal-postponement"{% endif %}>
+        <td>{{ dt_display(row.signal_time) or '—' }}</td>
+        <td>{{ row.start_names }}{% if row.classes_text %}<br><span class="small muted">{{ row.classes_text }}</span>{% endif %}</td>
+        <td>{{ row.displayed_flags }}</td>
+        <td>{{ row.action }}{% if row.suppressed %}<br><span class="small muted">{{ row.suppressed_note }}</span>{% endif %}</td>
+        <td>{{ row.horn }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h3>Recent race log</h3>
+  <table id="liveLog" class="compact race-log-table">
+    <thead><tr><th>Time</th><th>Type</th><th>Label</th><th>Source</th></tr></thead>
+    <tbody>
+      {% for ev in events %}
+      <tr data-event-id="{{ ev.id }}"><td>{{ dt_full_display(ev.event_time) }}</td><td>{{ ev.event_type }}</td><td>{{ ev.label }}</td><td>{{ ev.source }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{# The postponement wording, and the rule for whether AP is still up. #}
+<script src="{{ url_for('static', filename='signal_flags.js') }}?v={{ app_version }}"></script>
+<script>
+(function () {
+  const start = new Date(document.querySelector('.countdown').dataset.start);
+  const raceId = {{ race.id }};
+  const timeEl = document.getElementById('countdownTime');
+  const stateEl = document.getElementById('countdownState');
+  // Start signals and VHF/audio are generated centrally on the hut PC.
+  function hornArmed() { return false; }
+  function voiceArmed() { return false; }
+  const fired = new Set();
+  const spoken = new Set();
+  const defaultBlastMs = {{ config.horn_duration_ms }};
+  const courseAnnouncement = {{ course_announcement|tojson }};
+  const hornEvents = [
+    {t: 300, label: 'Warning signal / class flag'},
+    {t: 240, label: 'Preparatory signal'},
+    {t: 60, label: 'One minute signal'},
+    {t: 0, label: 'Start signal'}
+  ];
+  const voiceEvents = [540, 420, 315, 300, 255, 240, 180, 75, 60, 30, 20, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
+  const hornInputEnabled = {{ 'true' if config.horn_input_enabled else 'false' }};
+  const hornInputPollMs = {{ config.horn_input_poll_ms }};
+  let latestRaceLogEventId = {{ events[0].id if events else 0 }};
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function speak(text, rate=1.25, interrupt=false) {
+    if (!voiceArmed() || !('speechSynthesis' in window)) return;
+    if (interrupt) window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = rate;
+    window.speechSynthesis.speak(utterance);
+  }
+  async function logEvent(label, event_type='note', source='browser') {
+    try {
+      const res = await fetch(`/race/${raceId}/event`, {
+        method: 'POST', headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: JSON.stringify({label, event_type, source})
+      });
+      const data = await res.json();
+      prependLog(data.event_time_display || new Date(), event_type, label, source, data.event_id);
+    } catch (e) {
+      console.error(e);
+      prependLog(new Date(), 'error', 'Log failed: ' + e, source, null);
+    }
+  }
+  async function fireHorn(label, source='browser') {
+    try {
+      const res = await fetch(`/race/${raceId}/horn`, {
+        method: 'POST', headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: JSON.stringify({label, source})
+      });
+      const data = await res.json();
+      prependLog(data.event_time_display || new Date(), 'horn', label + ' — ' + data.result.message, source, data.event_id);
+    } catch (e) {
+      prependLog(new Date(), 'error', 'Horn failed: ' + e, source, null);
+    }
+  }
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function displayTime(value) {
+    return value instanceof Date ? value.toLocaleTimeString() : escapeHtml(value || '');
+  }
+  function prependLog(dt, type, label, source, eventId=null) {
+    const tbody = document.querySelector('#liveLog tbody');
+    if (!tbody) return;
+    const numericEventId = Number(eventId || 0);
+    if (numericEventId && numericEventId <= latestRaceLogEventId) return;
+    if (numericEventId) latestRaceLogEventId = Math.max(latestRaceLogEventId, numericEventId);
+    const row = document.createElement('tr');
+    if (numericEventId) row.dataset.eventId = String(numericEventId);
+    row.innerHTML = `<td>${displayTime(dt)}</td><td>${escapeHtml(type)}</td><td>${escapeHtml(label)}</td><td>${escapeHtml(source)}</td>`;
+    tbody.prepend(row);
+    while (tbody.children.length > 30) tbody.removeChild(tbody.lastElementChild);
+  }
+  async function pollRaceLog() {
+    try {
+      const res = await fetch(`/api/race/${raceId}/events?after_id=${latestRaceLogEventId}&limit=50`, {headers: {'Accept': 'application/json'}});
+      if (!res.ok) return;
+      const data = await res.json();
+      (data.events || []).forEach(ev => {
+        prependLog(ev.event_time_display || ev.event_time || new Date(), ev.event_type, ev.label, ev.source, ev.id);
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  async function firePattern(label, repeats, gap=900) {
+    for (let i = 0; i < repeats; i++) {
+      await fireHorn(label + (repeats > 1 ? ` ${i + 1}/${repeats}` : ''), 'manual');
+      if (i < repeats - 1) await new Promise(resolve => setTimeout(resolve, defaultBlastMs + gap));
+    }
+  }
+  async function pollManualHornInput() {
+    if (!hornInputEnabled) return;
+    const statusEl = document.getElementById('manualHornInputStatus');
+    try {
+      const url = `{{ url_for('api_hardware_input_status') }}?race_id=${raceId}&log=1`;
+      const res = await fetch(url, {headers: {'Accept': 'application/json'}});
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        throw new Error(res.status === 401 ? 'sign in again or reload this page' : `status ${res.status || 'unknown'} from input status`);
+      }
+      const data = await res.json();
+      if (statusEl) statusEl.textContent = data.message || (data.active ? 'Manual horn input: pressed' : 'Manual horn input: released');
+      if (data.logged) {
+        prependLog(new Date(), 'manual-horn-input', 'Manual horn switch detected', 'serial-input', data.event_id);
+      }
+    } catch (e) {
+      if (statusEl) statusEl.textContent = 'Manual horn input unavailable: ' + e.message;
+    }
+  }
+  function voiceFor(seconds) {
+    if (seconds === 540 || seconds === 420 || seconds === 180) return courseAnnouncement;
+    if (seconds === 315) return 'Stand by 15 seconds to warning signal.';
+    if (seconds === 255) return 'Stand by 15 seconds to preparatory signal.';
+    if (seconds === 75) return 'Stand by 15 seconds to one minute signal.';
+    if (seconds === 300) return 'Five minutes. Warning signal.';
+    if (seconds === 240) return 'Four minutes. Preparatory signal.';
+    if (seconds === 60) return 'One minute.';
+    if (seconds === 30) return 'Thirty seconds.';
+    if (seconds === 20) return 'Twenty seconds.';
+    if (seconds > 0 && seconds <= 10) return String(seconds);
+    if (seconds === 0) return 'Start.';
+    return '';
+  }
+  function updateSignalPlan(diff) {
+    document.querySelectorAll('[data-signal-sec], [data-signal-time]').forEach(row => {
+      const sec = Number(row.dataset.signalSec);
+      row.classList.toggle('signal-complete', !Number.isNaN(sec) && diff < sec);
+    });
+  }
+  function render() {
+    const now = new Date();
+    // Under AP the race keeps its scheduled time, so this counted down to a gun
+    // that was not coming -- on the page whose whole job is the countdown. Asked
+    // every tick, because the flag comes down at a minute the race officer chose
+    // and this page is not reloaded when it does.
+    const box = document.querySelector('.countdown');
+    const postponed = window.SignalFlags
+      ? SignalFlags.postponedNow(box.dataset.postponed, box.dataset.postponementEndsAt, now)
+      : '';
+    if (postponed) {
+      timeEl.textContent = '--:--';
+      stateEl.textContent = SignalFlags.postponedLabel(postponed);
+      return;
+    }
+    const diff = Math.round((start - now) / 1000);
+    const abs = Math.abs(diff);
+    timeEl.textContent = (diff >= 0 ? '-' : '+') + pad(Math.floor(abs / 60)) + ':' + pad(abs % 60);
+    let state = 'Waiting for sequence';
+    if (diff <= 300 && diff > 240) state = 'Warning signal period';
+    else if (diff <= 240 && diff > 60) state = 'Preparatory period';
+    else if (diff <= 60 && diff > 0) state = 'One minute';
+    else if (diff === 0) state = 'START';
+    else if (diff < 0) state = 'Race started';
+    stateEl.textContent = state;
+    updateSignalPlan(diff);
+
+    for (const ev of hornEvents) {
+      if (diff === ev.t && hornArmed() && !fired.has(ev.t)) {
+        fired.add(ev.t);
+        fireHorn(ev.label, 'auto-sequence');
+      }
+    }
+    for (const seconds of voiceEvents) {
+      if (diff === seconds && !spoken.has(seconds)) {
+        spoken.add(seconds);
+        const text = voiceFor(seconds);
+        if (text) speak(text, seconds <= 10 ? 1.85 : 1.25, seconds <= 10);
+      }
+    }
+  }
+
+  document.getElementById('manualHorn').addEventListener('click', () => fireHorn('Manual horn', 'manual'));
+  document.getElementById('individualRecall').addEventListener('click', () => { fireHorn('Individual recall', 'manual'); logEvent('Individual recall / Flag X', 'recall', 'manual'); });
+  document.getElementById('generalRecall').addEventListener('click', () => { firePattern('General recall', 2); logEvent('General recall / First Substitute', 'recall', 'manual'); });
+  document.getElementById('abandon').addEventListener('click', () => { firePattern('Abandon', 3); logEvent('Abandonment', 'abandon', 'manual'); });
+
+  render();
+  setInterval(render, 1000);
+  pollRaceLog();
+  setInterval(pollRaceLog, 1500);
+  if (hornInputEnabled) {
+    pollManualHornInput();
+    setInterval(pollManualHornInput, Math.max(100, hornInputPollMs));
+  }
+})();
+</script>
+{% endblock %}

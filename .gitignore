@@ -1,0 +1,42 @@
+.venv/
+.claude/
+runtime/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.zip
+.DS_Store
+Thumbs.db
+data/race_officer.db
+# Any name with .db in it is a database. Plain "*.db" missed
+# race_officer.db.before-v0248-finish-fix, and 75 MB of the club's racing
+# was committed in August because of it.
+*.db
+*.db.*
+# SQLite's transient sidecars. They appear and vanish while the app is
+# running, which is enough to make `git add -A` fail mid-commit.
+*.db-journal
+*.db-wal
+*.db-shm
+# Saved race video evidence/public clips: large runtime data, backed up via the
+# admin Backup page, not source. (Also excluded from release ZIPs.)
+data/video_clips/
+
+# ODM start-line tuning workbench (large test frames; detector lives in core/ and deploy/)
+odm_frames/
+
+# Tracker vendor material. The protocol and command manuals ARE tracked from v0.269:
+# docs/TRACKERS.md cites them throughout -- parameter numbers, sub-command codes, the
+# one-minute floor on Queclink reporting -- and a reference whose sources live only on
+# somebody's laptop is one that goes stale unchecked. About 20 MB, comparable to
+# docs/hardware which is tracked for the same reason, and build_release_zip.py excludes
+# the folder by path so the hut's download does not grow.
+#
+# The vendor *software* stays out: 74 MB of configurator installers, firmware and a COM
+# driver. They date quickly, they are re-downloadable from the vendor, and they are not
+# documentation. That bulk is what went in by accident in v0.246 and was taken back out
+# of history.
+docs/Trackers/**/*.zip
+docs/Trackers/**/*.exe
+docs/Trackers/**/*.msi

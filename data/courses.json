@@ -1,0 +1,3797 @@
+{
+  "source": "CHPSC Fixed Courses 2026",
+  "notes": "Course 13 is blank in the uploaded fixed course sheet and is intentionally omitted. Mark O is normalised as letter O, not zero.",
+  "courses": [
+    {
+      "course_no": 1,
+      "wind_label": "N",
+      "wind_bearing_deg": 0,
+      "wind_range_deg": {
+        "from": 349,
+        "to": 11
+      },
+      "sequence_text": "1p 8p 4p Os 9p 7p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "Os",
+          "mark": "O",
+          "rounding": "starboard"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 4.6
+    },
+    {
+      "course_no": 2,
+      "wind_label": "N",
+      "wind_bearing_deg": 0,
+      "wind_range_deg": {
+        "from": 349,
+        "to": 11
+      },
+      "sequence_text": "1p 8p 4p Os 9p 7p 1p 8p 4p Os",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "Os",
+          "mark": "O",
+          "rounding": "starboard"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "Os",
+          "mark": "O",
+          "rounding": "starboard"
+        }
+      ],
+      "length_nm": 7.4
+    },
+    {
+      "course_no": 3,
+      "wind_label": "N",
+      "wind_bearing_deg": 0,
+      "wind_range_deg": {
+        "from": 349,
+        "to": 11
+      },
+      "sequence_text": "1p 4p 1p 4p 5p 6p 5p 6p Op 8p 4p 7p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 10.3
+    },
+    {
+      "course_no": 4,
+      "wind_label": "NNE",
+      "wind_bearing_deg": 22.5,
+      "wind_range_deg": {
+        "from": 12,
+        "to": 33
+      },
+      "sequence_text": "7p Fp Op 4p 7p Op",
+      "marks": [
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 4.2
+    },
+    {
+      "course_no": 5,
+      "wind_label": "NNE",
+      "wind_bearing_deg": 22.5,
+      "wind_range_deg": {
+        "from": 12,
+        "to": 33
+      },
+      "sequence_text": "7p Fp 7p 4p 7p Op 9p 7p Op",
+      "marks": [
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 5.9
+    },
+    {
+      "course_no": 6,
+      "wind_label": "NNE",
+      "wind_bearing_deg": 22.5,
+      "wind_range_deg": {
+        "from": 12,
+        "to": 33
+      },
+      "sequence_text": "7p Fp 7p 4p 7p 4p 7p 9p 7p Op",
+      "marks": [
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 8.6
+    },
+    {
+      "course_no": 7,
+      "wind_label": "NNE",
+      "wind_bearing_deg": 22.5,
+      "wind_range_deg": {
+        "from": 12,
+        "to": 33
+      },
+      "sequence_text": "7p Fp 7p 4p 7p Op 8p 4p 7p Op",
+      "marks": [
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 7.2
+    },
+    {
+      "course_no": 8,
+      "wind_label": "NE",
+      "wind_bearing_deg": 45,
+      "wind_range_deg": {
+        "from": 34,
+        "to": 56
+      },
+      "sequence_text": "7p Fp Op 8p Fp Op",
+      "marks": [
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 4.2
+    },
+    {
+      "course_no": 9,
+      "wind_label": "NE",
+      "wind_bearing_deg": 45,
+      "wind_range_deg": {
+        "from": 34,
+        "to": 56
+      },
+      "sequence_text": "7s 8p Fp Op 1p 8p Fp Op",
+      "marks": [
+        {
+          "token": "7s",
+          "mark": "7",
+          "rounding": "starboard"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 6.4
+    },
+    {
+      "course_no": 10,
+      "wind_label": "NE",
+      "wind_bearing_deg": 45,
+      "wind_range_deg": {
+        "from": 34,
+        "to": 56
+      },
+      "sequence_text": "7p Fp Op 1p 3p Fp Op",
+      "marks": [
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 5.4
+    },
+    {
+      "course_no": 11,
+      "wind_label": "NE",
+      "wind_bearing_deg": 45,
+      "wind_range_deg": {
+        "from": 34,
+        "to": 56
+      },
+      "sequence_text": "7p Fp Op 1p 3p 7p Op 2p 3p Os",
+      "marks": [
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "Os",
+          "mark": "O",
+          "rounding": "starboard"
+        }
+      ],
+      "length_nm": 7.8
+    },
+    {
+      "course_no": 12,
+      "wind_label": "NE",
+      "wind_bearing_deg": 45,
+      "wind_range_deg": {
+        "from": 34,
+        "to": 56
+      },
+      "sequence_text": "7p Fp Op 1p 3p 1p 3p Fp Op",
+      "marks": [
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 8.0
+    },
+    {
+      "course_no": 14,
+      "wind_label": "NE",
+      "wind_bearing_deg": 45,
+      "wind_range_deg": {
+        "from": 34,
+        "to": 56
+      },
+      "sequence_text": "Fp Op 1p 3p 1p 2p 3p Fp Op 1p 3p Os",
+      "marks": [
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "Os",
+          "mark": "O",
+          "rounding": "starboard"
+        }
+      ],
+      "length_nm": 11.1
+    },
+    {
+      "course_no": 15,
+      "wind_label": "ENE",
+      "wind_bearing_deg": 67,
+      "wind_range_deg": {
+        "from": 57,
+        "to": 78
+      },
+      "sequence_text": "Fp Op 1p Os",
+      "marks": [
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "Os",
+          "mark": "O",
+          "rounding": "starboard"
+        }
+      ],
+      "length_nm": 1.7
+    },
+    {
+      "course_no": 16,
+      "wind_label": "ENE",
+      "wind_bearing_deg": 67,
+      "wind_range_deg": {
+        "from": 57,
+        "to": 78
+      },
+      "sequence_text": "Fp 2p Os Fp 1p Os",
+      "marks": [
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "Os",
+          "mark": "O",
+          "rounding": "starboard"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "Os",
+          "mark": "O",
+          "rounding": "starboard"
+        }
+      ],
+      "length_nm": 5.0
+    },
+    {
+      "course_no": 17,
+      "wind_label": "ENE",
+      "wind_bearing_deg": 67,
+      "wind_range_deg": {
+        "from": 57,
+        "to": 78
+      },
+      "sequence_text": "Fp 2p Os Fp 2p Os",
+      "marks": [
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "Os",
+          "mark": "O",
+          "rounding": "starboard"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "Os",
+          "mark": "O",
+          "rounding": "starboard"
+        }
+      ],
+      "length_nm": 6.9
+    },
+    {
+      "course_no": 18,
+      "wind_label": "ENE",
+      "wind_bearing_deg": 67,
+      "wind_range_deg": {
+        "from": 57,
+        "to": 78
+      },
+      "sequence_text": "Fp 2p Os Fp 2p Os Fp Op",
+      "marks": [
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "Os",
+          "mark": "O",
+          "rounding": "starboard"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "Os",
+          "mark": "O",
+          "rounding": "starboard"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 7.9
+    },
+    {
+      "course_no": 19,
+      "wind_label": "ENE",
+      "wind_bearing_deg": 67,
+      "wind_range_deg": {
+        "from": 57,
+        "to": 78
+      },
+      "sequence_text": "Fp Op 3p 6p 3p 6p Op",
+      "marks": [
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 8.5
+    },
+    {
+      "course_no": 20,
+      "wind_label": "ENE",
+      "wind_bearing_deg": 67,
+      "wind_range_deg": {
+        "from": 57,
+        "to": 78
+      },
+      "sequence_text": "Fp Op 3p 6p 3p 6p Op 8p 6p Op",
+      "marks": [
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 11.0
+    },
+    {
+      "course_no": 21,
+      "wind_label": "E",
+      "wind_bearing_deg": 90,
+      "wind_range_deg": {
+        "from": 79,
+        "to": 101
+      },
+      "sequence_text": "Fp Op 1p 2p 6p Op",
+      "marks": [
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 4.3
+    },
+    {
+      "course_no": 22,
+      "wind_label": "E",
+      "wind_bearing_deg": 90,
+      "wind_range_deg": {
+        "from": 79,
+        "to": 101
+      },
+      "sequence_text": "Fp 1p 2p 6p 2p 6p 7p Op",
+      "marks": [
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 7.4
+    },
+    {
+      "course_no": 23,
+      "wind_label": "E",
+      "wind_bearing_deg": 90,
+      "wind_range_deg": {
+        "from": 79,
+        "to": 101
+      },
+      "sequence_text": "Fp 2p 6p 2p 6p Op 1p 2p 6p Op",
+      "marks": [
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 10.3
+    },
+    {
+      "course_no": 24,
+      "wind_label": "E",
+      "wind_bearing_deg": 90,
+      "wind_range_deg": {
+        "from": 79,
+        "to": 101
+      },
+      "sequence_text": "Fp 1p 3p 5p 3p 5p 2s 6p Op",
+      "marks": [
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "2s",
+          "mark": "2",
+          "rounding": "starboard"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 11.3
+    },
+    {
+      "course_no": 25,
+      "wind_label": "ESE",
+      "wind_bearing_deg": 112,
+      "wind_range_deg": {
+        "from": 102,
+        "to": 123
+      },
+      "sequence_text": "7s 6s Op 2p 5p 6p Op",
+      "marks": [
+        {
+          "token": "7s",
+          "mark": "7",
+          "rounding": "starboard"
+        },
+        {
+          "token": "6s",
+          "mark": "6",
+          "rounding": "starboard"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 5.2
+    },
+    {
+      "course_no": 26,
+      "wind_label": "ESE",
+      "wind_bearing_deg": 112,
+      "wind_range_deg": {
+        "from": 102,
+        "to": 123
+      },
+      "sequence_text": "7s 6s 2p 5p 1s Os",
+      "marks": [
+        {
+          "token": "7s",
+          "mark": "7",
+          "rounding": "starboard"
+        },
+        {
+          "token": "6s",
+          "mark": "6",
+          "rounding": "starboard"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "1s",
+          "mark": "1",
+          "rounding": "starboard"
+        },
+        {
+          "token": "Os",
+          "mark": "O",
+          "rounding": "starboard"
+        }
+      ],
+      "length_nm": 5.3
+    },
+    {
+      "course_no": 27,
+      "wind_label": "ESE",
+      "wind_bearing_deg": 112,
+      "wind_range_deg": {
+        "from": 102,
+        "to": 123
+      },
+      "sequence_text": "7s 6s 2p 8p 5p 8p 5p 1s Os",
+      "marks": [
+        {
+          "token": "7s",
+          "mark": "7",
+          "rounding": "starboard"
+        },
+        {
+          "token": "6s",
+          "mark": "6",
+          "rounding": "starboard"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "1s",
+          "mark": "1",
+          "rounding": "starboard"
+        },
+        {
+          "token": "Os",
+          "mark": "O",
+          "rounding": "starboard"
+        }
+      ],
+      "length_nm": 7.4
+    },
+    {
+      "course_no": 28,
+      "wind_label": "ESE",
+      "wind_bearing_deg": 112,
+      "wind_range_deg": {
+        "from": 102,
+        "to": 123
+      },
+      "sequence_text": "7s 6s 1p 2p 5p 9p 5p 6p Op 1p 6p Op",
+      "marks": [
+        {
+          "token": "7s",
+          "mark": "7",
+          "rounding": "starboard"
+        },
+        {
+          "token": "6s",
+          "mark": "6",
+          "rounding": "starboard"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 7.9
+    },
+    {
+      "course_no": 29,
+      "wind_label": "SE",
+      "wind_bearing_deg": 135,
+      "wind_range_deg": {
+        "from": 124,
+        "to": 146
+      },
+      "sequence_text": "7s 6s Op 1p 5p 6p Op",
+      "marks": [
+        {
+          "token": "7s",
+          "mark": "7",
+          "rounding": "starboard"
+        },
+        {
+          "token": "6s",
+          "mark": "6",
+          "rounding": "starboard"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 4.0
+    },
+    {
+      "course_no": 30,
+      "wind_label": "SE",
+      "wind_bearing_deg": 135,
+      "wind_range_deg": {
+        "from": 124,
+        "to": 146
+      },
+      "sequence_text": "7s 6s 1p 5p 1p 5p 6p Op",
+      "marks": [
+        {
+          "token": "7s",
+          "mark": "7",
+          "rounding": "starboard"
+        },
+        {
+          "token": "6s",
+          "mark": "6",
+          "rounding": "starboard"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 6.4
+    },
+    {
+      "course_no": 31,
+      "wind_label": "SE",
+      "wind_bearing_deg": 135,
+      "wind_range_deg": {
+        "from": 124,
+        "to": 146
+      },
+      "sequence_text": "7s 6s 1p 5p 6p Op 1p 5p 6p Op",
+      "marks": [
+        {
+          "token": "7s",
+          "mark": "7",
+          "rounding": "starboard"
+        },
+        {
+          "token": "6s",
+          "mark": "6",
+          "rounding": "starboard"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 6.7
+    },
+    {
+      "course_no": 32,
+      "wind_label": "SE",
+      "wind_bearing_deg": 135,
+      "wind_range_deg": {
+        "from": 124,
+        "to": 146
+      },
+      "sequence_text": "7s 5s 2p 4p 2p 4p 8s Os",
+      "marks": [
+        {
+          "token": "7s",
+          "mark": "7",
+          "rounding": "starboard"
+        },
+        {
+          "token": "5s",
+          "mark": "5",
+          "rounding": "starboard"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "8s",
+          "mark": "8",
+          "rounding": "starboard"
+        },
+        {
+          "token": "Os",
+          "mark": "O",
+          "rounding": "starboard"
+        }
+      ],
+      "length_nm": 8.2
+    },
+    {
+      "course_no": 33,
+      "wind_label": "SSE",
+      "wind_bearing_deg": 157,
+      "wind_range_deg": {
+        "from": 147,
+        "to": 168
+      },
+      "sequence_text": "1p 5p 6p Op 5p 7p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 5.3
+    },
+    {
+      "course_no": 34,
+      "wind_label": "SSE",
+      "wind_bearing_deg": 157,
+      "wind_range_deg": {
+        "from": 147,
+        "to": 168
+      },
+      "sequence_text": "7s 5p 6p Op 5p Op 5p 6p Op",
+      "marks": [
+        {
+          "token": "7s",
+          "mark": "7",
+          "rounding": "starboard"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 7.5
+    },
+    {
+      "course_no": 35,
+      "wind_label": "SSE",
+      "wind_bearing_deg": 157,
+      "wind_range_deg": {
+        "from": 147,
+        "to": 168
+      },
+      "sequence_text": "7s 5s 2p 4p 9p 1p 9p 6p Op",
+      "marks": [
+        {
+          "token": "7s",
+          "mark": "7",
+          "rounding": "starboard"
+        },
+        {
+          "token": "5s",
+          "mark": "5",
+          "rounding": "starboard"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 7.6
+    },
+    {
+      "course_no": 36,
+      "wind_label": "SSE",
+      "wind_bearing_deg": 157,
+      "wind_range_deg": {
+        "from": 147,
+        "to": 168
+      },
+      "sequence_text": "1p 9p 5p 7p 5p 6p Op 5p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 7.5
+    },
+    {
+      "course_no": 37,
+      "wind_label": "S",
+      "wind_bearing_deg": 180,
+      "wind_range_deg": {
+        "from": 169,
+        "to": 191
+      },
+      "sequence_text": "1p 4p 6p Op 9p 7p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 4.7
+    },
+    {
+      "course_no": 38,
+      "wind_label": "S",
+      "wind_bearing_deg": 180,
+      "wind_range_deg": {
+        "from": 169,
+        "to": 191
+      },
+      "sequence_text": "1p 4p 1p 4p 6p Op 9p 7p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 7.1
+    },
+    {
+      "course_no": 39,
+      "wind_label": "S",
+      "wind_bearing_deg": 180,
+      "wind_range_deg": {
+        "from": 169,
+        "to": 191
+      },
+      "sequence_text": "1p 4p 1p 4p 5p 6p Op 4p 6p Op 9p 7p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 10.8
+    },
+    {
+      "course_no": 40,
+      "wind_label": "S",
+      "wind_bearing_deg": 180,
+      "wind_range_deg": {
+        "from": 169,
+        "to": 191
+      },
+      "sequence_text": "1p 9p 7p Op 9p 6p Fs 5s 6p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Fs",
+          "mark": "F",
+          "rounding": "starboard"
+        },
+        {
+          "token": "5s",
+          "mark": "5",
+          "rounding": "starboard"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 6.6
+    },
+    {
+      "course_no": 41,
+      "wind_label": "SSW",
+      "wind_bearing_deg": 202,
+      "wind_range_deg": {
+        "from": 192,
+        "to": 213
+      },
+      "sequence_text": "1p 8p 7p Op 4p 9p 7p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 5.2
+    },
+    {
+      "course_no": 42,
+      "wind_label": "SSW",
+      "wind_bearing_deg": 202,
+      "wind_range_deg": {
+        "from": 192,
+        "to": 213
+      },
+      "sequence_text": "1p 8p 7p Op 4p 7p 4p 6p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 8.1
+    },
+    {
+      "course_no": 43,
+      "wind_label": "SSW",
+      "wind_bearing_deg": 202,
+      "wind_range_deg": {
+        "from": 192,
+        "to": 213
+      },
+      "sequence_text": "1p 8p 1p 8p 7p Op 4p 7p 4p 6p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 9.6
+    },
+    {
+      "course_no": 44,
+      "wind_label": "SSW",
+      "wind_bearing_deg": 202,
+      "wind_range_deg": {
+        "from": 192,
+        "to": 213
+      },
+      "sequence_text": "1p 8p 1p 8p 4p 6p Op 4p 7p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 7.7
+    },
+    {
+      "course_no": 45,
+      "wind_label": "SSW",
+      "wind_bearing_deg": 202,
+      "wind_range_deg": {
+        "from": 192,
+        "to": 213
+      },
+      "sequence_text": "1p 8p 4p 7p 4p 6p Op 4p 7p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 9.0
+    },
+    {
+      "course_no": 46,
+      "wind_label": "SW",
+      "wind_bearing_deg": 225,
+      "wind_range_deg": {
+        "from": 214,
+        "to": 236
+      },
+      "sequence_text": "1p 3p 7p Op 3p 9p 7p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 7.1
+    },
+    {
+      "course_no": 47,
+      "wind_label": "SW",
+      "wind_bearing_deg": 225,
+      "wind_range_deg": {
+        "from": 214,
+        "to": 236
+      },
+      "sequence_text": "1p 3p Fp Op 3p 9p 6p Fp Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 8.5
+    },
+    {
+      "course_no": 48,
+      "wind_label": "SW",
+      "wind_bearing_deg": 225,
+      "wind_range_deg": {
+        "from": 214,
+        "to": 236
+      },
+      "sequence_text": "1p 3p 7p Op 8p 7p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 5.6
+    },
+    {
+      "course_no": 49,
+      "wind_label": "SW",
+      "wind_bearing_deg": 225,
+      "wind_range_deg": {
+        "from": 214,
+        "to": 236
+      },
+      "sequence_text": "1p 3p 7p Op 8p 6p Fp Op 3p 9p 7p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 10.1
+    },
+    {
+      "course_no": 50,
+      "wind_label": "WSW",
+      "wind_bearing_deg": 247,
+      "wind_range_deg": {
+        "from": 237,
+        "to": 258
+      },
+      "sequence_text": "2p Os 7p Op 2p 9p Fp Op",
+      "marks": [
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "Os",
+          "mark": "O",
+          "rounding": "starboard"
+        },
+        {
+          "token": "7p",
+          "mark": "7",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 6.5
+    },
+    {
+      "course_no": 51,
+      "wind_label": "WSW",
+      "wind_bearing_deg": 247,
+      "wind_range_deg": {
+        "from": 237,
+        "to": 258
+      },
+      "sequence_text": "2p Fp Op 2p 9p Fp Op 2p Fp Op",
+      "marks": [
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 10.6
+    },
+    {
+      "course_no": 52,
+      "wind_label": "WSW",
+      "wind_bearing_deg": 247,
+      "wind_range_deg": {
+        "from": 237,
+        "to": 258
+      },
+      "sequence_text": "2p 9p 6p Fp Op 3p 6p Fp Op",
+      "marks": [
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "3p",
+          "mark": "3",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Fp",
+          "mark": "F",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 8.2
+    },
+    {
+      "course_no": 53,
+      "wind_label": "W",
+      "wind_bearing_deg": 270,
+      "wind_range_deg": {
+        "from": 259,
+        "to": 281
+      },
+      "sequence_text": "2p 6p Op 2p 6p Op",
+      "marks": [
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 6.1
+    },
+    {
+      "course_no": 54,
+      "wind_label": "W",
+      "wind_bearing_deg": 270,
+      "wind_range_deg": {
+        "from": 259,
+        "to": 281
+      },
+      "sequence_text": "2p 6p 2p 8p 6p Op 2p 8p 9p 6p Op",
+      "marks": [
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 9.7
+    },
+    {
+      "course_no": 55,
+      "wind_label": "W",
+      "wind_bearing_deg": 270,
+      "wind_range_deg": {
+        "from": 259,
+        "to": 281
+      },
+      "sequence_text": "2p 6p 2p 8p 9p 6p Op 2p 6p Op",
+      "marks": [
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 9.4
+    },
+    {
+      "course_no": 56,
+      "wind_label": "WNW",
+      "wind_bearing_deg": 292,
+      "wind_range_deg": {
+        "from": 282,
+        "to": 303
+      },
+      "sequence_text": "1p 6p Op 1p 6p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 2.9
+    },
+    {
+      "course_no": 57,
+      "wind_label": "WNW",
+      "wind_bearing_deg": 292,
+      "wind_range_deg": {
+        "from": 282,
+        "to": 303
+      },
+      "sequence_text": "2p 8p 5p 8p 5p Op",
+      "marks": [
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 6.0
+    },
+    {
+      "course_no": 58,
+      "wind_label": "WNW",
+      "wind_bearing_deg": 292,
+      "wind_range_deg": {
+        "from": 282,
+        "to": 303
+      },
+      "sequence_text": "2p 5p Op 2p 9p 2p 8p 6p Op",
+      "marks": [
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 9.4
+    },
+    {
+      "course_no": 59,
+      "wind_label": "WNW",
+      "wind_bearing_deg": 292,
+      "wind_range_deg": {
+        "from": 282,
+        "to": 303
+      },
+      "sequence_text": "1p 9p 5p 2p 8p 6p Op 1p 6p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 7.0
+    },
+    {
+      "course_no": 60,
+      "wind_label": "WNW",
+      "wind_bearing_deg": 292,
+      "wind_range_deg": {
+        "from": 282,
+        "to": 303
+      },
+      "sequence_text": "2p 8p 5p 2p 8p 6p Op 1p 6p Op",
+      "marks": [
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "6p",
+          "mark": "6",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 8.2
+    },
+    {
+      "course_no": 61,
+      "wind_label": "NW",
+      "wind_bearing_deg": 315,
+      "wind_range_deg": {
+        "from": 304,
+        "to": 326
+      },
+      "sequence_text": "1p 5p Op 1p 8p 5p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 5.8
+    },
+    {
+      "course_no": 62,
+      "wind_label": "NW",
+      "wind_bearing_deg": 315,
+      "wind_range_deg": {
+        "from": 304,
+        "to": 326
+      },
+      "sequence_text": "1p 5p 1p 5p Op 9p 5p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 7.6
+    },
+    {
+      "course_no": 63,
+      "wind_label": "NW",
+      "wind_bearing_deg": 315,
+      "wind_range_deg": {
+        "from": 304,
+        "to": 326
+      },
+      "sequence_text": "1p 9p 5p 2p 9p 2p 4p 5p Op 9p 5p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "2p",
+          "mark": "2",
+          "rounding": "port"
+        },
+        {
+          "token": "4p",
+          "mark": "4",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 11.1
+    },
+    {
+      "course_no": 64,
+      "wind_label": "NW",
+      "wind_bearing_deg": 315,
+      "wind_range_deg": {
+        "from": 304,
+        "to": 326
+      },
+      "sequence_text": "1p 9p 5p 1p 9p 5p Op 8p 5p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 8.4
+    },
+    {
+      "course_no": 65,
+      "wind_label": "NNW",
+      "wind_bearing_deg": 337,
+      "wind_range_deg": {
+        "from": 327,
+        "to": 348
+      },
+      "sequence_text": "1p 9p 5p Op 9p 5p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 5.2
+    },
+    {
+      "course_no": 66,
+      "wind_label": "NNW",
+      "wind_bearing_deg": 337,
+      "wind_range_deg": {
+        "from": 327,
+        "to": 348
+      },
+      "sequence_text": "1p 9p 5p Op 8p 5p Op 5p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 8.1
+    },
+    {
+      "course_no": 67,
+      "wind_label": "NNW",
+      "wind_bearing_deg": 337,
+      "wind_range_deg": {
+        "from": 327,
+        "to": 348
+      },
+      "sequence_text": "1p 9p 1p 9p 5p Op 8p 5p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 7.3
+    },
+    {
+      "course_no": 68,
+      "wind_label": "NNW",
+      "wind_bearing_deg": 337,
+      "wind_range_deg": {
+        "from": 327,
+        "to": 348
+      },
+      "sequence_text": "1p 9p 1p 9p 5p Op 9p 5p Op 8p 5p Op",
+      "marks": [
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "1p",
+          "mark": "1",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "9p",
+          "mark": "9",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        },
+        {
+          "token": "8p",
+          "mark": "8",
+          "rounding": "port"
+        },
+        {
+          "token": "5p",
+          "mark": "5",
+          "rounding": "port"
+        },
+        {
+          "token": "Op",
+          "mark": "O",
+          "rounding": "port"
+        }
+      ],
+      "length_nm": 9.8
+    }
+  ]
+}

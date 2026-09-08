@@ -1,0 +1,60 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Import YTC rating - Pwllheli Race Officer{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>Import YTC rating</h2>
+  <p class="muted">Search the YTC Google Sheet, then import or update the selected boat in the local boat database. Existing IRC fields are preserved.</p>
+  <form method="get" class="stacked">
+    <label>YTC Google Sheet / CSV URL
+      <input name="url" value="{{ url or default_url }}">
+    </label>
+    <p class="muted small">CSV export used by the app: {{ csv_url }}</p>
+    <label>Boat name or sail number
+      <input name="q" value="{{ q }}" placeholder="e.g. MOJITO or GBR1234">
+    </label>
+    <button type="submit">Search YTC sheet</button>
+  </form>
+</section>
+
+{% if matches %}
+<section class="card">
+  <h3>Matches</h3>
+  <table>
+    <thead><tr><th>Boat</th><th>Sail no</th><th>YTC rating / TCF</th><th>Owner</th><th>Design</th><th>Club</th><th>Updated</th><th>Action</th></tr></thead>
+    <tbody>
+    {% for r in matches %}
+      <tr>
+        <td><strong>{{ r.boat_name }}</strong></td>
+        <td>{{ r.sail_no }}</td>
+        <td>{{ r.rating }}</td>
+        <td>{{ r.owner }}</td>
+        <td>{{ r.design }}</td>
+        <td>{{ r.club }}</td>
+        <td>{{ r.issue_date }}</td>
+        <td>
+          <form method="post" class="inline">
+            <input type="hidden" name="action" value="import">
+            <input type="hidden" name="url" value="{{ url }}">
+            <input type="hidden" name="q" value="{{ q }}">
+            <input type="hidden" name="boat_name" value="{{ r.boat_name }}">
+            <input type="hidden" name="sail_no" value="{{ r.sail_no }}">
+            <input type="hidden" name="rating" value="{{ r.rating }}">
+            <input type="hidden" name="owner" value="{{ r.owner }}">
+            <input type="hidden" name="design" value="{{ r.design }}">
+            <input type="hidden" name="club" value="{{ r.club }}">
+            <input type="hidden" name="issue_date" value="{{ r.issue_date }}">
+            <button class="small" type="submit">Import/update</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% elif q %}
+<section class="card">
+  <p>No matches found. If the sheet column headings are unusual, export it as CSV once and check the headings include boat/name, sail number and YTC/TCF/rating.</p>
+</section>
+{% endif %}
+{% endblock %}

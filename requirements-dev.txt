@@ -1,0 +1,6 @@
+-r requirements.txt
+pytest
+# Read back the built PDF guides, so tests/test_pdf_prose.py can check what they
+# actually say against what the code actually does. Without it that check would
+# skip, and a skipped check protects nothing.
+pypdf

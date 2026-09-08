@@ -1,0 +1,163 @@
+{# The series form, shared by Add series and Edit series details.
+
+   It is one form in two places rather than two forms, because it is not a
+   small one -- discards, six rating bands across two rating rules, and a
+   six-start plan whose class checkboxes are relabelled live from the band
+   names above them. Two copies would have drifted the first time a band was
+   added.
+
+   The caller supplies `form_action` and `submit_label`; everything else is
+   the context both routes already build. #}
+    <form method="post" action="{{ form_action }}" class="stacked wide-form small-top" data-series-setup-form>
+      <input type="hidden" name="class_config_mode" value="grid">
+      <input type="hidden" name="start_plan_mode" value="grid">
+      <label>Series name <input name="name" value="{{ series.name }}" required></label>
+      <label>Description <textarea name="description" rows="3">{{ series.description or '' }}</textarea></label>
+
+      <div class="subsection">
+        <h3>Series discards</h3>
+        <label>Discard profile
+          <input name="discard_profile" value="{{ discard_profile }}" placeholder="0,0,1,1,1,1,2,2,2">
+        </label>
+        <p class="small muted">Enter one comma-separated value for the number of discards after 1, 2, 3 races completed, and so on. If more races are completed than values in the list, the last value is reused.</p>
+        <p class="small muted">Current profile: {{ discard_profile_help }}</p>
+        <label>Minimum races to constitute series
+          <input type="number" min="1" step="1" name="min_races_to_constitute" value="{{ min_races_to_constitute }}">
+        </label>
+        <p class="small muted">The series results are marked as constituted once this many races have been scored in the relevant IRC/YTC class table.</p>
+      </div>
+
+      <div class="subsection">
+        <h3>Rating-band classes</h3>
+        <p class="small muted">Tick the classes you want to use. The series is limited to three IRC classes and three YTC classes.</p>
+        {% for rating_type, rows in [('IRC', class_grid['IRC']), ('YTC', class_grid['YTC'])] %}
+        <h4>{{ rating_type }} classes</h4>
+        <table class="compact class-grid-table">
+          <thead>
+            <tr><th>Use</th><th>Class name</th><th>Class flag</th><th>Lower rating</th><th>Inclusive</th><th>Upper rating</th><th>Inclusive</th></tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr>
+              <td><input class="compact-check class-enable" type="checkbox" name="class_{{ rating_type }}_{{ row.index }}_enabled" value="1" data-class-slot="{{ row.slot }}" {% if row.enabled %}checked{% endif %}></td>
+              <td><input name="class_{{ rating_type }}_{{ row.index }}_name" value="{{ row.name }}" data-class-name-slot="{{ row.slot }}"></td>
+              <td>
+                <select name="class_{{ rating_type }}_{{ row.index }}_flag" data-numeral-flag-select>
+                  {% for flag in numeral_flag_options %}
+                    <option value="{{ flag }}" {% if row.flag == flag %}selected{% endif %}>{{ flag }}</option>
+                  {% endfor %}
+                </select>
+                <img class="class-flag-preview" data-numeral-flag-preview alt="Selected class flag preview">
+              </td>
+              <td><input type="number" step="0.001" name="class_{{ rating_type }}_{{ row.index }}_min" value="{{ row.min }}" placeholder="No lower limit"></td>
+              <td><input class="compact-check" type="checkbox" name="class_{{ rating_type }}_{{ row.index }}_min_inclusive" value="1" {% if row.min_inclusive %}checked{% endif %}></td>
+              <td><input type="number" step="0.001" name="class_{{ rating_type }}_{{ row.index }}_max" value="{{ row.max }}" placeholder="No upper limit"></td>
+              <td><input class="compact-check" type="checkbox" name="class_{{ rating_type }}_{{ row.index }}_max_inclusive" value="1" {% if row.max_inclusive %}checked{% endif %}></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% endfor %}
+        <p class="small muted">Leave a lower or upper rating blank for an open-ended band, for example IRC0 with lower rating 1.100 and no upper limit.</p>
+      </div>
+
+      <div class="subsection">
+        <h3>Default start plan</h3>
+        <p class="small muted">Tick up to six starts and select which classes start in each. Offsets are minutes from the first actual start, which is five minutes after the first warning signal.</p>
+        <table class="compact start-grid-table">
+          <thead><tr><th>Use</th><th>Start name</th><th>Offset min</th><th>Classes on this start</th></tr></thead>
+          <tbody>
+            {% for row in start_plan_grid.rows %}
+            <tr>
+              <td><input class="compact-check" type="checkbox" name="start_{{ row.index }}_enabled" value="1" {% if row.enabled %}checked{% endif %}></td>
+              <td><input name="start_{{ row.index }}_name" value="{{ row.name }}"></td>
+              <td><input type="number" step="0.5" name="start_{{ row.index }}_offset_min" value="{{ row.offset_min }}"></td>
+              <td>
+                {# All six band slots are rendered whether or not their band is
+                   ticked, and the script below hides the ones that are not. Only
+                   rendering the enabled ones meant this editor was frozen at the
+                   bands the page loaded with: on Add series, where nothing is
+                   ticked yet, it said "no classes configured" no matter how many
+                   you filled in above, and the only way to set a start plan was
+                   to create the series and come back to it. #}
+                <div class="class-checkbox-grid">
+                {% for slot in start_plan_grid.class_slots %}
+                  <label class="inline-check" data-start-class-slot="{{ slot.slot }}"{% if not slot.enabled %} hidden{% endif %}>
+                    <input type="checkbox" name="start_{{ row.index }}_class_{{ slot.slot }}" value="1" {% if slot.slot in row.selected_slots %}checked{% endif %}{% if not slot.enabled %} disabled{% endif %}>
+                    <span data-class-label-slot="{{ slot.slot }}">{{ slot.name }}</span>
+                  </label>
+                {% endfor %}
+                  <span class="muted small" data-no-classes-note{% if start_plan_grid.class_slots|selectattr('enabled')|list %} hidden{% endif %}>No rating bands ticked yet; this start will be for all classes.</span>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <button type="submit">{{ submit_label }}</button>
+    </form>
+    <script>
+      (function () {
+        const form = document.querySelector('[data-series-setup-form]');
+        const numeralFlagBase = "{{ url_for('static', filename='img/class_flags/numeral_0.png') }}".replace('numeral_0.png', 'numeral_');
+        if (!form) return;
+        function numeralFromFlag(value) {
+          const match = String(value || '').match(/(\d)/);
+          return match ? match[1] : '0';
+        }
+        function refreshClassFlagPreviews() {
+          form.querySelectorAll('[data-numeral-flag-select]').forEach(function (select) {
+            const preview = select.parentElement ? select.parentElement.querySelector('[data-numeral-flag-preview]') : null;
+            if (!preview) return;
+            const numeral = numeralFromFlag(select.value);
+            preview.src = numeralFlagBase + numeral + '.png';
+            preview.alt = 'Numeral ' + numeral + ' class flag';
+            preview.title = 'Numeral ' + numeral;
+          });
+        }
+        function refreshClassLabels() {
+          form.querySelectorAll('[data-class-name-slot]').forEach(function (input) {
+            const slot = input.getAttribute('data-class-name-slot');
+            const label = (input.value || slot).trim();
+            form.querySelectorAll('[data-class-label-slot="' + slot + '"]').forEach(function (span) { span.textContent = label; });
+          });
+          let anyEnabled = false;
+          form.querySelectorAll('[data-class-slot]').forEach(function (input) {
+            const slot = input.getAttribute('data-class-slot');
+            const enabled = input.checked;
+            if (enabled) anyEnabled = true;
+            form.querySelectorAll('[data-start-class-slot="' + slot + '"]').forEach(function (label) {
+              // Hidden rather than greyed: six disabled boxes for bands that do
+              // not exist is not a state worth showing anybody.
+              label.hidden = !enabled;
+              const cb = label.querySelector('input[type="checkbox"]');
+              // A disabled checkbox is not submitted, which is what keeps a band
+              // the officer unticked out of the saved plan.
+              if (cb) cb.disabled = !enabled;
+            });
+          });
+          form.querySelectorAll('[data-no-classes-note]').forEach(function (note) {
+            note.hidden = anyEnabled;
+          });
+          refreshClassFlagPreviews();
+        }
+        // Ticking a band puts it on every start; unticking takes it off. Without
+        // this a band added on the Add series page would be offered by the start
+        // plan and left unticked on every row, and the save would refuse the
+        // start for having no classes -- which is the fault this replaces, only
+        // quieter. Bound to the band boxes alone, so a per-row change afterwards
+        // is the officer's and stays.
+        form.querySelectorAll('[data-class-slot]').forEach(function (input) {
+          input.addEventListener('change', function () {
+            const slot = input.getAttribute('data-class-slot');
+            form.querySelectorAll('[data-start-class-slot="' + slot + '"] input[type="checkbox"]')
+                .forEach(function (cb) { cb.checked = input.checked; });
+          });
+        });
+        form.addEventListener('input', refreshClassLabels);
+        form.addEventListener('change', refreshClassLabels);
+        refreshClassLabels();
+      })();
+    </script>

@@ -1,0 +1,214 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Build manual course - Pwllheli Race Officer{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="section-head">
+    <div>
+      <h2>Build manual course for {{ race.name }}</h2>
+      <p class="muted">Select marks and their rounding direction to build a race-specific course. Save it to replace the fixed course on this race only.</p>
+    </div>
+    <a class="button small secondary" href="{{ url_for('race_detail', race_id=race.id, polar_file=selected_polar) }}#tab-course">Back to race</a>
+  </div>
+  <form method="post" action="{{ url_for('manual_course_builder', race_id=race.id) }}" id="manualCourseForm">
+    <input type="hidden" name="course_marks_json" id="courseMarksJson">
+    <div class="weather-controls">
+      <label>Polar for leg analysis
+        <select id="builderPolar" name="polar_file">
+          {% for p in polar_files %}
+            <option value="{{ p }}" {% if p == selected_polar %}selected{% endif %}>{{ p.rsplit('.', 1)[0] }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <span class="wind-chip" id="builderLatestTwd">TWD {{ '%.0f°T'|format(latest_wind.twd) if latest_wind and latest_wind.twd is not none else '—' }}</span>
+      <span class="wind-chip" id="builderLatestTws">TWS {{ '%.1f kt'|format(latest_wind.tws) if latest_wind and latest_wind.tws is not none else '—' }}</span>
+      <span class="muted small" id="builderStatus">{{ weather_status.message }}</span>
+    </div>
+
+    <div class="course-builder-grid">
+      <div class="subtle-fieldset">
+        <legend>Marks</legend>
+        <p class="small muted">Click a port or starboard button to add the mark to the course.</p>
+        <div class="mark-picker">
+          {% for mark in mark_names %}
+            {% set md = marks_data[mark] %}
+            <div class="mark-choice">
+              {# The display label, not the JSON key: the corners are keyed YA/YB but
+                 the sailing instructions — and the course board — call them Ya/Yb. #}
+              <div><strong>{{ md.display or mark }}</strong><br><span class="small muted">{{ md.name }}</span>
+                {% if md.compound %}<br><span class="small muted">Compound mark: expands on chart/analysis</span>{% endif %}
+                {% if md.component_of %}<br><span class="small muted">One corner of {{ md.component_of }} — pick {{ md.component_of }} for both</span>{% endif %}
+                {% if md.waypoint %}<br><span class="small muted">Waypoint: bends the leg here. Not rounded, not on the course board.</span>{% endif %}
+              </div>
+              {% if md.waypoint %}
+              {# Nothing to choose: a boat passes a turning point, it does not leave
+                 it on a hand, so offering Port/Starboard would be offering an
+                 instruction nobody could follow. #}
+              <button type="button" class="small" data-mark="{{ mark }}" data-rounding="via">Add</button>
+              {% else %}
+              <button type="button" class="small port-add" data-mark="{{ mark }}" data-rounding="port">Port</button>
+              <button type="button" class="small starboard-add" data-mark="{{ mark }}" data-rounding="starboard">Starboard</button>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="subtle-fieldset">
+        <legend>Course sequence</legend>
+        <div id="manualSequence" class="sequence large"></div>
+        <div class="actions small-top">
+          <button type="button" class="secondary" id="undoMark">Undo last mark</button>
+          <button type="button" class="secondary" id="clearMarks">Clear</button>
+          <button type="submit">Save manual course to race</button>
+        </div>
+        <p class="small muted">The app uses ODM O as the start/finish reference for approximate leg geometry, matching the race page leg analysis.</p>
+      </div>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Manual course chart</h3>
+  <p class="small muted">The chart updates as marks are added or removed. Red legs lead to port roundings; green legs lead to starboard roundings. A grey leg leads to a <strong>waypoint</strong>: a turning point that bends the course round a headland, which boats do not round and which does not appear on the course board.</p>
+  <div class="course-map-wrap">
+    <div id="builderCourseMap" class="course-map" data-base-tile-url="{{ course_chart.course_chart_tile_url }}" data-overlay-tile-url="{{ course_chart.course_chart_overlay_url }}" data-all-marks='{{ marks_data|tojson }}' data-course-marks='{{ initial_marks|tojson }}' data-wind-direction="{{ latest_wind.twd if latest_wind and latest_wind.twd is not none else '' }}" data-start-finish-mark="{{ course_chart.start_finish_mark }}" data-bridge-lat="{{ course_chart.bridge_window_lat }}" data-bridge-lon="{{ course_chart.bridge_window_lon }}"></div>
+    <p class="small muted course-map-message"></p>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Manual course leg analysis</h3>
+  <div class="analysis-summary small muted">
+    Predicted time: <strong id="builderPredictedTime">{{ course_analysis.predicted_display }}</strong> ·
+    First leg: <strong id="builderFirstLeg">{{ course_analysis.first_leg_display }}</strong> ·
+    Shape: <strong id="builderShape">{{ course_analysis.upwind_legs }} upwind · {{ course_analysis.reach_legs }} reach · {{ course_analysis.downwind_legs }} downwind</strong> ·
+    Sail changes: <strong id="builderSailChanges">{{ course_analysis.sail_changes }}</strong>
+  </div>
+  <table id="builderLegAnalysisTable">
+    <thead><tr><th>Leg</th><th>Distance</th><th>Bearing</th><th>TWA</th><th>Side</th><th>Sail</th><th>Target</th><th>Time</th><th>Point</th></tr></thead>
+    <tbody>
+      {% for leg in legs %}
+      <tr>
+        <td>{{ leg.from }} → {{ leg.to }}</td>
+        <td>{{ '%.2f'|format(leg.distance_nm) if leg.distance_nm is not none else '—' }} nm</td>
+        <td>{{ '%.0f'|format(leg.bearing_deg) if leg.bearing_deg is not none else '—' }}°T</td>
+        <td>{{ '%.0f'|format(leg.twa) if leg.twa is not none else '—' }}°</td>
+        <td>{{ leg.side }}</td>
+        <td><strong>{{ leg.sail }}</strong></td>
+        <td>{{ format_target(leg.target) }}</td>
+        <td>{{ format_minutes(leg.leg_minutes) }}</td>
+        <td>{{ leg.point_of_sail }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+(function() {
+  const initial = {{ initial_marks|tojson }};
+  let marks = initial.map(m => ({mark: String(m.mark || '').toUpperCase(), rounding: String(m.rounding || 'port')})).filter(m => m.mark);
+  // 'via' has to survive a round trip through the saved course, or reopening the
+  // builder would turn every waypoint into a port rounding.
+  const seqEl = document.getElementById('manualSequence');
+  const hidden = document.getElementById('courseMarksJson');
+  const table = document.getElementById('builderLegAnalysisTable');
+  const polar = document.getElementById('builderPolar');
+  const statusEl = document.getElementById('builderStatus');
+  const predictedEl = document.getElementById('builderPredictedTime');
+  const firstEl = document.getElementById('builderFirstLeg');
+  const shapeEl = document.getElementById('builderShape');
+  const sailChangesEl = document.getElementById('builderSailChanges');
+  function fmtNum(v, digits) { return (typeof v === 'number' && isFinite(v)) ? v.toFixed(digits) : '—'; }
+  function syncHidden() { hidden.value = JSON.stringify(marks); }
+  function updateCourseMap() {
+    const mapEl = document.getElementById('builderCourseMap');
+    if (mapEl && window.RaceCourseMap) window.RaceCourseMap.render(mapEl, marks);
+  }
+  function renderSequence() {
+    syncHidden();
+    updateCourseMap();
+    seqEl.innerHTML = '';
+    if (!marks.length) {
+      seqEl.innerHTML = '<span class="muted small">No marks selected yet.</span>';
+      return;
+    }
+    marks.forEach((m, idx) => {
+      const span = document.createElement('span');
+      const via = m.rounding === 'via';
+      // A waypoint chip carries no p/s suffix, because there is no rounding to
+      // suffix, and reads as "via" so the sequence says what it is.
+      span.className = 'mark ' + (via ? 'via' : (m.rounding.startsWith('s') ? 's' : 'p'));
+      span.textContent = via ? ('via ' + m.mark) : (m.mark + (m.rounding.startsWith('s') ? 's' : 'p'));
+      span.title = via ? 'Waypoint — bends the leg here. Click to remove.'
+                       : 'Click to remove this mark';
+      span.addEventListener('click', () => { marks.splice(idx, 1); renderSequence(); refresh(); });
+      seqEl.appendChild(span);
+    });
+  }
+  function renderRows(data) {
+    const tbody = table.querySelector('tbody');
+    tbody.innerHTML = '';
+    (data.legs || []).forEach(leg => {
+      const tr = document.createElement('tr');
+      const cells = [
+        `${leg.from || ''} → ${leg.to || ''}`,
+        `${fmtNum(leg.distance_nm, 2)} nm`,
+        `${fmtNum(leg.bearing_deg, 0)}°T`,
+        `${fmtNum(leg.twa, 0)}°`,
+        leg.side || '—',
+        `<strong>${leg.sail || '—'}</strong>`,
+        leg.target_display || '—',
+        leg.leg_time_display || '—',
+        leg.point_of_sail || '—'
+      ];
+      cells.forEach(html => { const td = document.createElement('td'); td.innerHTML = html; tr.appendChild(td); });
+      tbody.appendChild(tr);
+    });
+  }
+  function updateSummary(data) {
+    predictedEl.textContent = data.predicted_display || '—';
+    firstEl.textContent = data.first_leg_display || '—';
+    shapeEl.textContent = `${data.upwind_legs || 0} upwind · ${data.reach_legs || 0} reach · ${data.downwind_legs || 0} downwind`;
+    sailChangesEl.textContent = String(data.sail_changes ?? '—');
+  }
+  async function refresh() {
+    if (!marks.length) {
+      table.querySelector('tbody').innerHTML = '';
+      updateSummary({});
+      if (statusEl) statusEl.textContent = 'Add marks to analyse the course.';
+      return;
+    }
+    try {
+      const response = await fetch('{{ url_for('api_custom_leg_analysis') }}', {
+        method: 'POST', cache: 'no-store',
+        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        body: JSON.stringify({marks, use_live: true, polar_file: polar.value})
+      });
+      const data = await response.json();
+      if (!data.ok) throw new Error(data.message || 'Analysis failed');
+      renderRows(data); updateSummary(data);
+      if (data.wind && data.wind.latest && typeof data.wind.latest.twd === 'number' && window.RaceCourseMap) {
+        window.RaceCourseMap.setWind(document.getElementById('builderCourseMap'), data.wind.latest.twd);
+      }
+      if (statusEl) statusEl.textContent = data.wind && data.wind.latest ? 'Updated from latest start-hut wind.' : 'No live wind sample yet; showing geometry only.';
+    } catch (e) {
+      if (statusEl) statusEl.textContent = 'Could not analyse manual course: ' + e;
+    }
+  }
+  document.querySelectorAll('[data-mark][data-rounding]').forEach(btn => {
+    btn.addEventListener('click', () => { marks.push({mark: btn.dataset.mark, rounding: btn.dataset.rounding}); renderSequence(); refresh(); });
+  });
+  document.getElementById('undoMark').addEventListener('click', () => { marks.pop(); renderSequence(); refresh(); });
+  document.getElementById('clearMarks').addEventListener('click', () => { marks = []; renderSequence(); refresh(); });
+  polar.addEventListener('change', refresh);
+  renderSequence(); refresh();
+  setInterval(refresh, 5000);
+})();
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="{{ url_for('static', filename='course_map.js') }}"></script>
+{% endblock %}

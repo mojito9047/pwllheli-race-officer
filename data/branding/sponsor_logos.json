@@ -1,0 +1,30 @@
+{
+  "club_logo": "club_logo.png",
+  "sponsors": [
+    {
+      "filename": "sponsor_89dfe558bbf0.png",
+      "id": "89dfe558bbf0",
+      "label": "S&S"
+    },
+    {
+      "filename": "sponsor_6a1006cbc2fa.png",
+      "id": "6a1006cbc2fa",
+      "label": "Firmhelm"
+    },
+    {
+      "filename": "sponsor_83cabdcaa753.png",
+      "id": "83cabdcaa753",
+      "label": "Partington"
+    },
+    {
+      "filename": "sponsor_9c07742dbeba.png",
+      "id": "9c07742dbeba",
+      "label": "Free1"
+    },
+    {
+      "filename": "sponsor_d45bd4c7dde8.png",
+      "id": "d45bd4c7dde8",
+      "label": "Plas Heli"
+    }
+  ]
+}

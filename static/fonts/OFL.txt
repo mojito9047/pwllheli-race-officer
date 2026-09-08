@@ -1,0 +1,17 @@
+Bundled typefaces
+=================
+
+The .woff2 files in this folder are redistributed under the SIL Open Font
+Licence, Version 1.1, which permits bundling and redistribution with or without
+modification, provided the fonts are not sold on their own and this notice
+travels with them.
+
+  Newsreader       Production Type            https://fonts.google.com/specimen/Newsreader
+  Archivo Narrow   Omnibus-Type               https://fonts.google.com/specimen/Archivo+Narrow
+  IBM Plex Mono    IBM / Bold Monday          https://fonts.google.com/specimen/IBM+Plex+Mono
+
+Full licence text: https://openfontlicense.org/open-font-license-official-text/
+
+They are served from the app rather than a CDN so that a race sheet renders
+identically on the hut PC, on the bar television and on a competitor's phone,
+with no external request in the path.

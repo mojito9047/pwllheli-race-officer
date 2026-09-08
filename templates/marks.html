@@ -1,0 +1,110 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Marks - Pwllheli Race Officer{% endblock %}
+{% block content %}
+<section>
+  <div class="section-head">
+    <h2>Racing marks
+      <button type="button" class="help-link" data-help="marksHelp" aria-label="Why marks need re-measuring after a storm">?</button>
+    </h2>
+    {% if can_set_marks %}<a class="button small" href="{{ url_for('marks_ping_page') }}">Set a position from the water</a>{% endif %}
+  </div>
+  <dialog id="marksHelp" class="help-dialog">
+    <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+    <h4>After heavy weather, re-measure</h4>
+    <p>A laid mark drags in a storm, and the app then goes looking for boats rounding a buoy that is
+      no longer there. A mark <strong>50&nbsp;m adrift is enough to stop it seeing the rounding at
+      all</strong>, which holds up every GPS finish behind it.</p>
+    <p>So after a blow, take a phone out to the ones that have moved and use
+      <strong>Set a position from the water</strong>.</p>
+  </dialog>
+  <div class="table-scroll">
+  <table class="marks-table">
+    <thead><tr><th class="col-code">Mark</th><th class="col-name">Name</th><th class="col-pos">Position</th><th class="col-round">Rounding</th><th class="col-buoy">Buoy</th><th class="col-top">Top mark / note</th>{% if can_manage_marks %}<th class="col-actions"></th>{% endif %}</tr></thead>
+    <tbody>
+    {% for code, m in marks.items() %}
+      <tr>
+        <td class="big">{{ m.display or code }}{% if m.component_of %}<br><span class="small muted">part of {{ m.component_of }}</span>{% endif %}{% if m.waypoint %}<br><span class="small muted">waypoint &mdash; bends a leg, not rounded</span>{% endif %}</td>
+        <td>{{ m.name }}</td>
+        <td>{{ m.lat_text }} {{ m.lon_text }}
+          {% if m.position_set_at %}<br><span class="small muted">set {{ dt_full_display(m.position_set_at) }}
+            by {{ m.position_set_by }}{% if m.position_source == 'phone' %} from the water{% endif %}{% if m.position_accuracy_m %} (&plusmn;{{ m.position_accuracy_m }}&nbsp;m){% endif %}</span>{% endif %}
+        </td>
+        <td>{% if m.rounding_radius_m %}{{ m.rounding_radius_m }}&nbsp;m
+            {% elif m.compound %}<span class="small muted">&mdash;</span>
+            {% else %}<span class="small muted">{{ default_radius_m }}&nbsp;m</span>{% endif %}</td>
+        <td>{{ m.buoy }}</td>
+        <td>{{ m.top_mark }}{% if m.compound and m.components %}<br><span class="small muted">Components: {{ m.components|join(", ") }}</span>{% endif %}</td>
+        {% if can_manage_marks %}
+        <td class="actions-cell">
+          {% if mark_delete_blocks.get(code) %}
+            <span class="small muted" title="{{ mark_delete_blocks.get(code) }}">In use</span>
+          {% else %}
+            <form method="post" action="{{ url_for('mark_delete', code=code) }}" class="inline" onsubmit="return confirm('Delete mark {{ code }}?')">
+              <button class="small danger" type="submit">Delete</button>
+            </form>
+          {% endif %}
+        </td>
+        {% endif %}
+      </tr>
+      {# The edit panel gets a row of its own, spanning the table. Inside the
+         actions cell it was a flex row in a cell that grows to fit its content,
+         so it never wrapped: opening one made the page 1216px wider than the
+         window and everything else had to be scrolled to. #}
+      {% if can_edit_marks and not mark_edit_blocks.get(code) %}
+      <tr class="mark-edit-row">
+        <td colspan="{{ 7 if can_manage_marks else 6 }}">
+          <details class="mark-edit">
+            <summary class="small">Edit {{ m.display or code }}</summary>
+            <form method="post" action="{{ url_for('mark_edit', code=code) }}" class="form-row compact-form">
+              <label class="tiny">Name <input name="name" value="{{ m.name }}" required></label>
+              <label class="tiny">Latitude <input name="lat" type="number" step="any" value="{{ m.lat }}" required></label>
+              <label class="tiny">Longitude <input name="lon" type="number" step="any" value="{{ m.lon }}" required></label>
+              <label class="tiny">Buoy <input name="buoy" value="{{ m.buoy or '' }}"></label>
+              <label class="tiny">Top mark <input name="top_mark" value="{{ m.top_mark or '' }}"></label>
+              <label class="tiny" title="Blank uses the radius from Settings">Rounding radius (m)
+                <input name="rounding_radius_m" type="number" min="10" max="500" step="1"
+                       value="{{ m.rounding_radius_m or '' }}" placeholder="{{ default_radius_m }}"></label>
+              <button class="small" type="submit">Save</button>
+            </form>
+            <p class="tiny muted">Decimal degrees, south and west negative. Changing a position applies
+              from now on: races already sailed keep the position they were sailed with.
+              Leave the rounding radius blank to follow the {{ default_radius_m }}&nbsp;m in
+              Settings; set it only for a mark that needs its own, such as one laid on a long
+              scope or one boats are told to give a wide berth.</p>
+          </details>
+        </td>
+      </tr>
+      {% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+{% if can_manage_marks %}
+<section class="card" id="add-mark">
+  <h3>Add a mark</h3>
+  <p class="muted">Enter the position in <strong>decimal degrees</strong> (south/west negative). The mark position text is generated automatically. Codes are 1–4 letters or digits and are used in course sequences.</p>
+  <form method="post" action="{{ url_for('marks_add') }}" class="form-row">
+    <label>Code <input name="code" required maxlength="4" placeholder="e.g. 11" autocomplete="off" style="max-width:6rem;"></label>
+    <label>Name <input name="name" required placeholder="e.g. New Committee Mark"></label>
+    <label>Latitude <input name="lat" type="number" step="any" required placeholder="52.8791"></label>
+    <label>Longitude <input name="lon" type="number" step="any" required placeholder="-4.3993"></label>
+    <label>Buoy <input name="buoy" placeholder="e.g. Large Yellow Barrel"></label>
+    <label>Top mark <input name="top_mark" placeholder="optional"></label>
+    <label title="Blank uses the radius from Settings">Rounding radius (m)
+      <input name="rounding_radius_m" type="number" min="10" max="500" step="1"
+             placeholder="{{ default_radius_m }}" style="max-width:8rem;"></label>
+    {# A waypoint is not a mark. It bends a leg round a headland so the chart, the
+       leg length and the wind analysis follow the water instead of cutting across
+       the land — and boats are never asked to round it. #}
+    <label class="checkbox" title="A turning point that bends a leg. Boats do not round it.">
+      <input type="checkbox" name="waypoint" value="1"> Waypoint (bends a leg, not rounded)</label>
+    <button type="submit">Add mark</button>
+  </form>
+</section>
+{% else %}
+<p class="muted small">Adding or removing marks requires administrator access.</p>
+{% endif %}
+{% endblock %}

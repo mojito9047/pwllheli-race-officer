@@ -1,0 +1,42 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{# One bundled docs/*.md document, rendered. The body is already HTML from
+   core/docsview.py — markdown from files that ship with the app, so it is
+   deliberately not escaped here. Nothing user-supplied reaches this page. #}
+{% extends "base.html" %}
+{% block title %}{{ document.title }} · Documentation · Pwllheli Race Officer{% endblock %}
+{% block page_heading %}Documentation{% endblock %}
+{% block content %}
+<section class="hero doc-read-head">
+  <div>
+    <h2>{{ document.title }}</h2>
+    <p class="muted small"><code>{{ document.relpath }}</code></p>
+  </div>
+  <a class="button small secondary" href="{{ url_for('documentation_page') }}">All documentation</a>
+</section>
+
+{% if not rendering_available %}
+<div class="notice">The <code>markdown</code> package is not installed, so this shows the raw file.
+  Run <code>pip install -r requirements.txt</code> for formatted documentation.</div>
+{% endif %}
+
+<div class="doc-columns doc-read-layout">
+  <article class="card doc-markdown">
+    {{ body|safe }}
+  </article>
+
+  <aside class="card doc-read-nav">
+    <h3>Other documents</h3>
+    <ul class="link-list doc-reference-list">
+      {% for doc in documents %}
+      <li>
+        {% if doc.slug == document.slug %}
+          <strong>{{ doc.title }}</strong>
+        {% else %}
+          <a href="{{ url_for('documentation_markdown', slug=doc.slug) }}">{{ doc.title }}</a>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </aside>
+</div>
+{% endblock %}

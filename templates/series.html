@@ -1,0 +1,47 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Series - Pwllheli Race Officer{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="section-head">
+    <div><h2>Series</h2></div>
+    <div class="actions">
+      <a class="button" href="{{ url_for('series_new') }}">Add series</a>
+    </div>
+  </div>
+  {% if series_list %}
+  <table>
+    <thead><tr><th>Name</th><th>Description</th><th>Races</th><th></th><th></th></tr></thead>
+    <tbody>
+      {% for s in series_list %}
+      <tr>
+        <td><strong>{{ s.name }}</strong></td>
+        <td>{{ s.description or '' }}</td>
+        <td>{{ s.race_count }}</td>
+        <td><a href="{{ url_for('series_detail', series_id=s.id) }}">Open</a></td>
+        <td class="actions-cell">
+          {% if series_delete_blocks.get(s.id) %}
+            {# A series with racing in it is not deletable, and saying "In use"
+               alone leaves you guessing what to do; the title says which. #}
+            <span class="small muted" title="{{ series_delete_blocks.get(s.id) }}">In use</span>
+          {% else %}
+            <form method="post" action="{{ url_for('series_delete', series_id=s.id) }}" class="inline"
+                  onsubmit="return confirm('Delete series {{ s.name }}?')">
+              <button class="small danger" type="submit">Delete</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <span class="empty-state-icon">{% include 'icons/layers.svg' %}</span>
+    <h3>No series yet</h3>
+    <p>A series groups races together and carries a discard-count score across the season.</p>
+    <p><a class="button" href="{{ url_for('series_new') }}">Add series</a></p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,35 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}My account - Pwllheli Race Officer{% endblock %}
+{% block page_heading %}My account{% endblock %}
+{% block content %}
+<section class="card" id="account">
+  <div class="section-head">
+    <div>
+      <h2>My account</h2>
+      <p class="muted">Signed in as <strong>{{ account_user.username }}</strong>
+        ({{ 'Administrator' if (account_user.role or '') == 'admin' else 'Race officer' }}).</p>
+    </div>
+  </div>
+</section>
+
+<section class="card" id="change-password">
+  <h3>Change my password</h3>
+  <p class="muted">Choose a new password of at least 8 characters. You will stay signed in.</p>
+  <form method="post" action="{{ url_for('account_page') }}" class="form-stack" style="max-width: 32rem;">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <label>Current password
+      <input type="password" name="current_password" required autocomplete="current-password">
+    </label>
+    <label>New password
+      <input type="password" name="new_password" required minlength="8" autocomplete="new-password">
+    </label>
+    <label>Confirm new password
+      <input type="password" name="confirm_password" required minlength="8" autocomplete="new-password">
+    </label>
+    <div>
+      <button type="submit">Change password</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

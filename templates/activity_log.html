@@ -1,0 +1,40 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Activity log - Pwllheli Race Officer{% endblock %}
+{% block content %}
+<section>
+  <div class="section-head">
+    <h2>Activity log</h2>
+    <a class="button small" href="{{ url_for('settings_page') }}">Back to settings</a>
+  </div>
+  <p class="small muted">Who did what, newest first. It records everything that changes
+    state &mdash; logins, races and results, marks and courses, settings saves with the
+    values they changed from, backups and off-site copies. Passwords, secrets and
+    passphrases are recorded as <em>changed</em> without their values.</p>
+  <p class="small muted">Read-only, and deliberately so: there is nothing here that can
+    edit or clear it. The files live in <code>runtime/logs/</code> on the race-office PC,
+    one per day, and are outside backups and release packages.</p>
+
+  {% if days %}
+  <div class="log-days">
+    {% for d in days %}
+      <a class="button small {% if d.day == log.day %}active{% endif %}"
+         href="{{ url_for('settings_activity_log') }}{% if d.day %}?day={{ d.day }}{% endif %}">{{ d.label }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if log.missing %}
+    <p class="muted">No activity log for that day.</p>
+  {% elif not log.lines %}
+    <p class="muted">Nothing recorded yet{% if log.day %} on {{ log.day }}{% endif %}.</p>
+  {% else %}
+    <p class="small muted">{{ log.total }} entr{{ 'y' if log.total == 1 else 'ies' }}{% if log.day %} on {{ log.day }}{% else %} today{% endif %}{% if log.truncated %} &mdash; showing the most recent {{ max_lines }}{% endif %}.</p>
+    <div class="log-view">
+      {%- for line in log.lines %}
+<div class="log-line">{{ line }}</div>
+      {%- endfor %}
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

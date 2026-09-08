@@ -1,0 +1,706 @@
+{# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
+{% extends "base.html" %}
+{% block title %}Trackers - Pwllheli Race Officer{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="section-head">
+    <div>
+      <h2>Trackers</h2>
+      <p class="muted">Assign GPS trackers to boats and add or remove trackers. A boat's track always stays with the boat — if you move a tracker to another boat, the old track stays with the old boat. The Traccar connection is configured in <a href="{{ url_for('settings_page') }}#gps-tracking">Settings → GPS tracking</a>.</p>
+    </div>
+  </div>
+
+  {% set reporting_now = namespace(n=0) %}
+  {% for tk in trackers %}{% set r = report_status.get(tk.unique_id) %}{% if r and r.rag in ['green', 'amber'] %}{% set reporting_now.n = reporting_now.n + 1 %}{% endif %}{% endfor %}
+  <div class="status-box {{ 'ok' if reporting_now.n else 'warn' }}" id="trackersStatusBox">
+    <strong>GPS tracking:</strong>
+    {% if not track_status.enabled %}<span id="trackersSummary">Disabled — enable it in <a href="{{ url_for('settings_page') }}#gps-tracking">Settings</a>.</span>
+    {% else %}<span id="trackersSummary">{{ reporting_now.n }} of {{ trackers|length }} tracker(s) reporting (a fix within the last hour){% if track_status.sim %} — simulated{% endif %}.</span>{% endif %}
+  </div>
+
+  <h3 class="small-top">Assign trackers to boats</h3>
+  {# A paused SIM is the one cause of a silent tracker that never recovers by
+     itself and cannot be seen from anywhere else in the app, so it is said out
+     loud rather than left as a column somebody has to notice. #}
+  {% if sim_paused %}
+  <div class="status-box warn">
+    <strong>{{ sim_paused|length }} SIM{{ 's' if sim_paused|length != 1 else '' }} cannot carry data.</strong>
+    These trackers will stay silent until the SIM is resumed at Hologram — a flat battery looks identical from here.
+    <ul class="small">
+      {% for s in sim_paused %}
+      <li><code>{{ s.imei }}</code> — {{ s.state_text }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% if sim_error %}
+  <p class="muted small">SIM status unavailable: {{ sim_error }}</p>
+  {% endif %}
+  {% if trackers %}
+  <p class="muted small">Last-reported indicator: <span class="rag-dot rag-green"></span> within 5 min · <span class="rag-dot rag-amber"></span> within 1 hr · <span class="rag-dot rag-red"></span> over 1 hr.
+    {% if sim_lookup_enabled %}
+    · SIM status checked
+    {%- if sim_age_s < 60 %} just now
+    {%- elif sim_age_s < 120 %} 1 min ago
+    {%- else %} {{ (sim_age_s / 60)|int }} min ago{% endif %}
+    <button type="submit" form="simRefresh" class="link small">check again</button>
+    · <button type="button" class="link small" id="simCostsOpen">costs and balance</button>.
+    {% endif %}</p>
+  {% if sim_lookup_enabled %}
+  <form method="post" action="{{ url_for('trackers_sim_refresh') }}" id="simRefresh">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  </form>
+  {% endif %}
+  <form method="post" action="{{ url_for('trackers_save') }}" class="stack">
+    <table class="table compact">
+      <thead><tr><th>Tracker (unique id)</th><th>Type</th><th>Label</th><th>Boat</th><th>Last reported</th><th>Battery</th>{% if sim_lookup_enabled %}<th>SIM</th>{% endif %}<th></th></tr></thead>
+      <tbody>
+        {% for tk in trackers %}
+        {% set r = report_status.get(tk.unique_id) %}
+        {% set model = tracker_models.get(tk.unique_id) %}
+        <tr>
+          <td><code>{{ tk.unique_id }}</code><input type="hidden" name="tracker_uids" value="{{ tk.unique_id }}"></td>
+          {# Derived from the IMEI's type code, falling back to the protocol Traccar
+             decoded. Unknown offers to name it, because the person looking at an
+             unfamiliar tracker is the one who knows what it is. #}
+          <td class="small">
+            {% if model and not model.endswith(' device') and model != 'unknown' %}
+              {{ model }}
+            {% else %}
+              <span class="muted">{{ model or 'unknown' }}</span>
+              {% if tk.unique_id|length == 15 and tk.unique_id.isdigit() %}
+                <button type="button" class="link small name-type"
+                        data-tac="{{ tk.unique_id[:8] }}"
+                        data-protocol="{{ tracker_protocols.get(tk.unique_id, '') }}">name it</button>
+              {% endif %}
+            {% endif %}
+          </td>
+          <td><input type="text" name="label_{{ tk.unique_id }}" value="{{ tk.label or '' }}" placeholder="e.g. Tracker A"></td>
+          <td>
+            <select name="boat_{{ tk.unique_id }}">
+              <option value="">— unassigned —</option>
+              {% for b in track_boats %}<option value="{{ b.id }}" {% if tk.boat_id == b.id %}selected{% endif %}>{{ b.boat_name }}{% if b.sail_no %} ({{ b.sail_no }}){% endif %}</option>{% endfor %}
+            </select>
+          </td>
+          <td class="small tracker-status" data-uid="{{ tk.unique_id }}"><span class="rag-dot rag-{{ r.rag if r else 'none' }}"></span> <span class="rag-text">{{ r.text if r else 'never' }}</span></td>
+          {# From the last stored fix, like the column beside it. A dash means the
+             tracker does not report a battery, which is not the same as a flat one;
+             a level marked "last seen" came off a fix too old to still be current. #}
+          <td class="small tracker-battery" data-uid="{{ tk.unique_id }}" title="{{ r.battery_title if r else 'This tracker has not reported a battery level' }}"><span class="rag-dot rag-{{ r.battery_rag if r else 'none' }}"></span> <span class="battery-text">{{ r.battery_text if r else '—' }}</span><span class="battery-stale muted">{% if r and r.battery_stale %} last seen{% endif %}</span></td>
+          {# The SIM, not the tracker. A healthy state here does not mean the
+             tracker is alive — only that nothing at the network end is stopping
+             it. The carrier is worth reading because half of a Teltonika's
+             settings are live or dead depending on whether it counts as roaming. #}
+          {% if sim_lookup_enabled %}
+          {% set sim = sim_status.get(tk.unique_id) %}
+          <td class="small nowrap">
+            {% if not sim %}
+              <span class="rag-dot rag-none" title="Hologram does not list a device with this IMEI"></span> <span class="muted">—</span>
+            {% else %}
+              <span class="rag-dot rag-{{ sim.rag }}"></span>
+              <button type="button" class="link small sim-open"
+                      data-uid="{{ tk.unique_id }}"
+                      data-state="{{ sim.status_text or sim.state_text }}"
+                      data-health="{{ sim.health }}"
+                      data-network="{{ sim.network }}"
+                      data-country="{{ sim.country }}"
+                      data-rat="{{ sim.rat }}"
+                      data-iccid="{{ sim.iccid }}"
+                      data-session="{{ dt_full_display(sim.last_session) }}"
+                      data-hardware="{{ (sim.manufacturer ~ ' ' ~ sim.model)|trim }}"
+                      data-plan="{{ sim.plan_name }}"
+                      data-rate="{{ sim.rate_per_mb if sim.rate_per_mb is not none else '' }}"
+                      data-fee="{{ sim.monthly_fee if sim.monthly_fee is not none else '' }}"
+                      data-period="{{ sim.period_bytes if sim.period_bytes is not none else '' }}"
+                      data-month="{{ '%.2f'|format(sim.month_cost) if sim.month_cost is not none else '' }}"
+                      {%- set wk = [] %}{% for w in sim.weeks %}{% set _ = wk.append(
+                        {'label': w.label, 'bytes': w.bytes, 'cost': w.cost,
+                         'range': date_display(w.start) ~ ' to ' ~ date_display(w.end)}) %}{% endfor %}
+                      data-weeks='{{ wk|tojson }}'>{{ sim.label }}</button>
+            {% endif %}
+          </td>
+          {% endif %}
+          <td class="nowrap">
+            {% if can_send_commands %}
+            <button type="button" class="small secondary tracker-command-open"
+                    data-uid="{{ tk.unique_id }}"
+                    data-model="{{ model or 'unknown' }}"
+                    data-protocol="{{ tracker_protocols.get(tk.unique_id, '') }}"
+                    data-templates='{{ command_templates.get(tk.unique_id, [])|tojson }}'>Commands</button>
+            {% endif %}
+            <button type="submit" form="removeTracker{{ loop.index }}" class="small danger" onclick="return confirm('Remove this tracker? The boat keeps its past track.')">Remove</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div><button type="submit" class="button">Save assignments</button></div>
+  </form>
+  {# Separate remove forms (can't nest forms inside the save form) #}
+  {% for tk in trackers %}
+  <form id="removeTracker{{ loop.index }}" method="post" action="{{ url_for('trackers_remove') }}" class="inline" hidden>
+    <input type="hidden" name="unique_id" value="{{ tk.unique_id }}">
+  </form>
+  {% endfor %}
+  {% else %}
+  <p class="muted">No trackers yet. Switch one on and it appears under <em>Trackers seen on the network</em> below, ready to be added.</p>
+  {% endif %}
+
+  {# Devices Traccar has seen but nobody has adopted. With automatic
+     registration on the relay a tracker appears here the moment it is switched
+     on, so a race officer picks it off the list rather than typing an IMEI. #}
+  <h3 class="small-top">Trackers seen on the network</h3>
+  {% if available_error %}
+    <p class="muted small">{{ available_error }}</p>
+  {% elif available_devices %}
+    <p class="muted small">Traccar has heard from {{ available_devices|length }} device(s) that are not set up here yet. Pick the boat and add — no need to type the id.</p>
+    <table class="compact" id="availableDevices">
+      <thead><tr><th>Unique id</th><th>Type</th><th>Name in Traccar</th><th>Last reported</th><th>Battery</th><th>Boat</th><th></th></tr></thead>
+      <tbody>
+        {% for d in available_devices %}
+        <tr>
+          <td><code>{{ d.unique_id }}</code></td>
+          <td class="small">{{ tracker_models.get(d.unique_id) or 'unknown' }}</td>
+          <td>{{ d.name or '—' }}</td>
+          <td><span class="rag-dot rag-{{ d.rag }}"></span> {{ d.age_text }}</td>
+          <td class="small" title="{{ d.battery_title }}"><span class="rag-dot rag-{{ d.battery_rag or 'none' }}"></span> {{ d.battery_text or '—' }}{% if d.battery_stale %} <span class="muted">last seen</span>{% endif %}</td>
+          <td>
+            <form method="post" action="{{ url_for('trackers_adopt') }}" class="inline" id="adopt{{ loop.index }}">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="unique_id" value="{{ d.unique_id }}">
+              <input type="hidden" name="label" value="{{ d.name }}">
+              <select name="boat_id">
+                <option value="">— unassigned —</option>
+                {% for b in track_boats %}<option value="{{ b.id }}">{{ b.boat_name }}{% if b.sail_no %} ({{ b.sail_no }}){% endif %}</option>{% endfor %}
+              </select>
+            </form>
+          </td>
+          <td><button type="submit" form="adopt{{ loop.index }}" class="button small">Add</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted small" id="availableEmpty">No unclaimed devices in Traccar. Switch a tracker on and it appears here once Traccar has heard from it{% if not track_status.enabled %} (GPS tracking is currently disabled){% endif %}.</p>
+  {% endif %}
+
+  {# The type catalogue. A tracker's model comes from the first eight digits of its
+     IMEI — the type code the manufacturer allocates — because Traccar's own protocol
+     name cannot tell two very different Teltonika units apart. New kit can be named
+     here rather than waiting for a release. #}
+  <details class="small-top" id="trackerTypes">
+    <summary><strong>Tracker types</strong> <span class="muted small">— what model an IMEI belongs to</span></summary>
+    <p class="muted small">The first 8 digits of an IMEI are its type code: every unit of the
+      same model shares it. Traccar reports the protocol, which is coarser — an asset
+      tracker and a router can both be “Teltonika”.</p>
+    {# A type code belongs to whoever certified the radio, and a tracker built around an
+       off-the-shelf cellular module often ships with the module vendor's codes — the
+       ATC700's datasheet names a Quectel EG915U. Naming the protocol stops another
+       maker's tracker on the same module being labelled as this one. #}
+    <p class="muted small">Set <strong>protocol</strong> when a code might be shared: it is
+      allocated to whoever certified the radio, so two makers using the same cellular
+      module can issue IMEIs starting the same way. A tracker speaking anything else is
+      then not matched, and falls back to its protocol.</p>
+    <table class="compact">
+      <thead><tr><th>Type code</th><th>Model</th><th>Protocol</th><th>Notes</th><th></th></tr></thead>
+      <tbody>
+        {% for t in tracker_types %}
+        <tr>
+          <td><code>{{ t.tac }}</code></td>
+          <td>{{ t.model }}</td>
+          <td class="small">{{ t.protocol or '— any —' }}</td>
+          <td class="small muted">{{ t.notes }}{% if t.built_in and not t.edited %} <span class="muted">(built in)</span>{% endif %}</td>
+          {# Only entries this club saved can be removed. A built-in lives in the code and
+             can only be overridden, so removing an override reverts to it rather than
+             leaving the model unnamed. #}
+          <td class="nowrap">
+            {% if t.edited %}
+            <form method="post" action="{{ url_for('trackers_type_remove') }}" class="inline">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="tac" value="{{ t.tac }}">
+              <button type="submit" class="small danger">{{ 'Revert' if t.built_in else 'Remove' }}</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <form method="post" action="{{ url_for('trackers_type_add') }}" class="stack">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <div class="three-col">
+        <label>Type code (first 8 digits)
+          <input type="text" name="tac" id="typeTac" maxlength="8" placeholder="86486407"
+                 pattern="[0-9]{8}" title="8 digits" required>
+        </label>
+        <label>Model
+          <input type="text" name="model" id="typeModel" placeholder="e.g. Queclink GL521MG" required>
+        </label>
+        <label>Protocol (optional)
+          <input type="text" name="protocol" id="typeProtocol" list="knownProtocols" placeholder="any">
+          <datalist id="knownProtocols">
+            {% for p in known_protocols %}<option value="{{ p }}">{% endfor %}
+          </datalist>
+        </label>
+        <label>Notes (optional)
+          <input type="text" name="notes">
+        </label>
+      </div>
+      <div><button type="submit" class="button">Save type</button></div>
+    </form>
+  </details>
+
+  {% if can_send_commands %}
+  {# Talking to a tracker directly. Administrators only: the rest of this page decides
+     which boat carries which tracker, this reconfigures hardware at sea. #}
+  <dialog id="commandDialog" class="dialog-wide">
+    <form method="dialog" class="dialog-close-row"><button class="small">Close</button></form>
+    <h3 style="margin-top:0">Send a command to <code id="cmdUid"></code></h3>
+    <p class="muted small" id="cmdModel"></p>
+    <p class="muted small">The reply comes back through Traccar. A tracker that is awake
+      answers in seconds; one that sleeps between reports answers on its next
+      connection — up to five minutes on the ATC700.</p>
+    {# How a reply arrives depends entirely on the protocol, so this is filled in per
+       tracker rather than stated once for all of them: the Queclink caveat is noise on a
+       Teltonika, and explaining a problem the reader does not have is its own confusion. #}
+    <p class="muted small" id="cmdProtocolNote" hidden></p>
+
+    <label class="small" for="cmdTemplate"><strong>Prebuilt</strong></label>
+    <select id="cmdTemplate" style="width:100%"></select>
+    <p class="muted small" id="cmdTemplateNote"></p>
+
+    <label class="small" for="cmdText"><strong>Command</strong></label>
+    <input type="text" id="cmdText" style="width:100%;font-family:monospace" maxlength="160"
+           placeholder="e.g. getparam 10100  /  AT+GTRTO=gl521m,1,,,,,,FFFF$">
+    <p class="muted small">160 characters maximum. Factory resets are refused: a tracker
+      that forgets its server address has to come off the boat to be set up again.</p>
+    <div class="stack-sm">
+      <button type="button" class="button" id="cmdSend">Send</button>
+      <span class="small" id="cmdStatus"></span>
+    </div>
+
+    <h4 class="small-top">Conversation</h4>
+    <pre id="cmdLog" class="log-box" style="max-height:16em;overflow:auto"></pre>
+  </dialog>
+  {% endif %}
+  {% if sim_lookup_enabled %}
+  <dialog id="simDialog">
+    <form method="dialog" class="dialog-close-row"><button class="small">Close</button></form>
+    <h3 style="margin-top:0">SIM in <code id="simUid"></code></h3>
+    <dl class="sim-detail" id="simRows"></dl>
+    <p class="muted small" id="simMeaning"></p>
+    <table class="sim-usage">
+      <thead><tr><th></th><th>MB</th><th>Cost</th></tr></thead>
+      <tbody id="simUsage"></tbody>
+      <tfoot id="simTotals"></tfoot>
+    </table>
+    <p class="muted small" id="simRate"></p>
+    <p class="small"><a href="{{ (sim_account or {}).get('dashboard_url') or 'https://dashboard.hologram.io/' }}"
+      target="_blank" rel="noopener">Open the Hologram dashboard</a> — search it by ICCID.</p>
+  </dialog>
+
+  <dialog id="simCostsDialog">
+    <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+    <h3 style="margin-top:0">SIM costs and balance</h3>
+    {% set acct = sim_account or {} %}
+    {% set bal = acct.balance or {} %}
+    {% set fc = acct.forecast or {} %}
+    <table class="sim-usage">
+      {# The per-tracker column is the *data* cost, not that tracker's month
+         total. Showing the month total counted the fee once in every row and
+         again in the fees line, so the column and the total disagreed by the
+         whole $7. #}
+      <thead><tr><th>Tracker</th><th>Days</th><th>MB</th><th>Data</th><th>Renews</th></tr></thead>
+      <tbody>
+        {% for tk in trackers %}{% set s = sim_status.get(tk.unique_id) %}{% if s %}
+        <tr>
+          <td>{{ tk.label or tk.unique_id }}</td>
+          <td{% if s.period_start %} title="period began {{ date_display(s.period_start) }}"{% endif %}>{{ s.days_in_period if s.days_in_period is not none else '' }}</td>
+          <td>{{ '%.2f'|format((s.period_bytes or 0) / 1000000) }}</td>
+          <td>{% if s.rate_per_mb is not none %}${{ '%.2f'|format((s.period_bytes or 0) / 1000000 * s.rate_per_mb) }}{% endif %}</td>
+          <td>{{ date_display(s.period_end) }}</td>
+        </tr>
+        {% endif %}{% endfor %}
+      </tbody>
+      <tfoot>
+        {% if acct.get('totals') %}
+        <tr><td>Data so far</td><td></td>
+            <td>{{ '%.2f'|format((acct.totals.get('period_bytes') or 0) / 1000000) }}</td>
+            <td>${{ '%.2f'|format(acct.totals.get('data_cost') or 0) }}</td><td></td></tr>
+        <tr><td>Fees{% if acct.totals.get('priced') %} ({{ acct.totals.get('priced') }} SIMs){% endif %}</td><td></td><td></td>
+            <td>${{ '%.2f'|format(acct.totals.get('fees') or 0) }}</td><td></td></tr>
+        <tr><td>Charged so far</td><td></td><td></td>
+            <td>${{ '%.2f'|format(acct.totals.get('month_cost') or 0) }}</td><td></td></tr>
+        {% if acct.totals.get('recent_days') %}
+        <tr><td>Last {{ acct.totals.get('recent_days') }} days, all SIMs</td><td></td>
+            <td>{{ '%.2f'|format((acct.totals.get('recent_bytes') or 0) / 1000000) }}</td>
+            <td>${{ '%.2f'|format(acct.totals.get('recent_cost') or 0) }}</td><td></td></tr>
+        {% endif %}
+        {% endif %}
+      </tfoot>
+    </table>
+
+    <p class="small muted">Hologram bills each SIM on its own 30-day cycle from the day it was
+      activated, so <strong>Days</strong> is how far into its own period each one is and the
+      figures beside it are not comparable with each other. <strong>Charged so far</strong> is
+      fees plus data for those periods, not a calendar month. The last row is the same window for
+      every SIM and is the one to watch over time.</p>
+
+    {% if bal.get('balance') is not none %}
+    <dl class="sim-detail small-top">
+      <dt>Balance</dt><dd>${{ '%.2f'|format(bal.get('balance')) }}{% if bal.get('promo') %} + ${{ '%.2f'|format(bal.get('promo')) }} promotional{% endif %}</dd>
+      {% if fc.get('daily_cost') is not none %}<dt>Data spend</dt><dd>${{ '%.2f'|format(fc.get('daily_cost')) }} a day, from the last week</dd>{% endif %}
+      {% if fc.get('next_renewal') %}<dt>Next fee</dt><dd>{{ date_display(fc.get('next_renewal')) }}</dd>{% endif %}
+      {% if bal.get('min_balance') %}<dt>Auto top-up</dt><dd>{% if bal.get('topoff') %}${{ '%.2f'|format(bal.get('topoff')) }} when it drops below ${{ '%.2f'|format(bal.get('min_balance')) }}{% else %}off{% endif %}</dd>{% endif %}
+    </dl>
+    {% if bal.get('postpay') %}
+    <p class="small muted">This account is billed in arrears, so there is no balance to run out.</p>
+    {% elif fc.get('beyond_horizon') %}
+    <p class="small muted">At this rate the balance lasts beyond the next six months.</p>
+    {% elif fc.get('empty_on') %}
+    <div class="status-box {{ 'warn' if fc.get('days_left') is not none and fc.get('days_left') <= 30 else '' }}">
+      <strong>Top up before {{ date_display(fc.get('empty_on')) }}</strong>
+      ({{ fc.get('days_left') }} day{{ 's' if fc.get('days_left') != 1 else '' }}) — that is when the fees due
+      that day take the balance below zero and every tracker stops.
+      {% if fc.get('below_min_on') and fc.get('below_min_on') != fc.get('empty_on') %}
+      It drops under the ${{ '%.2f'|format(bal.get('min_balance')) }} auto top-up mark on {{ date_display(fc.get('below_min_on')) }}.{% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <p class="small muted">Hologram did not return an account balance. Reading it needs the
+      billing permission, which a view-only role may not have.</p>
+    {% endif %}
+    <p class="small"><a href="{{ acct.get('dashboard_url') or 'https://dashboard.hologram.io/' }}"
+      target="_blank" rel="noopener">Open the Hologram dashboard</a> to top up.</p>
+  </dialog>
+  {% endif %}
+  <p class="muted small" id="availableChanged" hidden></p>
+
+  <h3 class="small-top">Tracker positions</h3>
+  <p class="muted small">Live position of every configured tracker that has reported. The map zooms to show them all, wherever they are.</p>
+  <div class="course-map-wrap">
+    <div class="course-map" id="trackersMap"
+         data-all-marks='{{ marks_data|tojson }}'
+         data-course-marks='[]'
+         data-base-tile-url="{{ course_chart.course_chart_tile_url }}"
+         data-overlay-tile-url="{{ course_chart.course_chart_overlay_url }}"
+         data-start-finish-mark="{{ course_chart.start_finish_mark }}"
+         data-bridge-lat="{{ course_chart.bridge_window_lat }}"
+         data-bridge-lon="{{ course_chart.bridge_window_lon }}"></div>
+    <p class="small muted course-map-message"></p>
+  </div>
+</section>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="{{ url_for('static', filename='course_map.js') }}"></script>
+<script>
+(function () {
+  const box = document.getElementById('trackersStatusBox');
+  const summary = document.getElementById('trackersSummary');
+  async function refresh() {
+    try {
+      const res = await fetch('{{ url_for("api_trackers_status") }}', {headers: {'Accept': 'application/json'}, cache: 'no-store'});
+      if (!res.ok) return;
+      const data = await res.json();
+      const report = data.report || {};
+      document.querySelectorAll('.tracker-status').forEach(function (cell) {
+        const r = report[cell.dataset.uid] || {rag: 'none', text: 'never'};
+        const dot = cell.querySelector('.rag-dot');
+        const txt = cell.querySelector('.rag-text');
+        if (dot) dot.className = 'rag-dot rag-' + r.rag;
+        if (txt) txt.textContent = r.text;
+      });
+      // The battery lives on the same fix as the age beside it, so it is refreshed
+      // from the same poll: a page left open would otherwise keep saying a level is
+      // current long after the tracker it came from had gone quiet.
+      document.querySelectorAll('.tracker-battery').forEach(function (cell) {
+        const r = report[cell.dataset.uid];
+        if (!r) return;
+        const dot = cell.querySelector('.rag-dot');
+        const txt = cell.querySelector('.battery-text');
+        const stale = cell.querySelector('.battery-stale');
+        if (dot) dot.className = 'rag-dot rag-' + (r.battery_rag || 'none');
+        if (txt) txt.textContent = r.battery_text || '—';
+        if (stale) stale.textContent = r.battery_stale ? ' last seen' : '';
+        if (r.battery_title) cell.title = r.battery_title;
+      });
+      if (window.RaceCourseMap && window.RaceCourseMap.updateBoats) {
+        window.RaceCourseMap.updateBoats(document, data.markers || [], {fit: true});
+      }
+      // A tracker switched on mid-session shows up in Traccar before this page
+      // knows about it; say so rather than leaving the list quietly stale.
+      const changed = document.getElementById('availableChanged');
+      if (changed && typeof data.available === 'number') {
+        const shown = {{ (available_devices or [])|length }};
+        if (data.available !== shown) {
+          changed.hidden = false;
+          changed.textContent = data.available
+            ? data.available + ' device(s) now seen by Traccar — reload the page to add them.'
+            : 'The list of unclaimed devices has changed — reload the page.';
+        }
+      }
+      if (summary && data.enabled) {
+        summary.textContent = data.reporting + ' of ' + data.total
+          + ' tracker(s) reporting (a fix within the last hour)' + (data.sim ? ' — simulated' : '') + '.';
+        if (box) box.className = 'status-box ' + (data.reporting ? 'ok' : 'warn');
+      }
+    } catch (err) { /* keep the last render on a transient error */ }
+  }
+  refresh();
+  setInterval(refresh, 15000);
+})();
+
+// "name it" beside an unknown type: fill the catalogue form rather than making the
+// reader work out what a type code is and copy the first eight digits by hand.
+(function () {
+  document.querySelectorAll('.name-type').forEach(function (b) {
+    b.addEventListener('click', function () {
+      const box = document.getElementById('trackerTypes');
+      if (box) box.open = true;
+      const tac = document.getElementById('typeTac');
+      if (tac) { tac.value = b.dataset.tac; }
+      // Prefill what this device actually speaks. A type code can be shared by two
+      // makers using the same cellular module, so pinning the protocol is what stops
+      // the other one being labelled with this model.
+      const proto = document.getElementById('typeProtocol');
+      if (proto) { proto.value = b.dataset.protocol || ''; }
+      const model = document.getElementById('typeModel');
+      if (model) { model.focus(); }
+      if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
+})();
+
+{% if can_send_commands %}
+// The command console. Sends one command, then polls for the device's reply, which
+// arrives out of band seconds to minutes later.
+(function () {
+  const dlg = document.getElementById('commandDialog');
+  if (!dlg) return;
+  const uidEl = document.getElementById('cmdUid');
+  const modelEl = document.getElementById('cmdModel');
+  const protoNoteEl = document.getElementById('cmdProtocolNote');
+  const tplEl = document.getElementById('cmdTemplate');
+  const noteEl = document.getElementById('cmdTemplateNote');
+  const textEl = document.getElementById('cmdText');
+  const sendEl = document.getElementById('cmdSend');
+  const statusEl = document.getElementById('cmdStatus');
+  const logEl = document.getElementById('cmdLog');
+  let uid = '', templates = [], poll = null, seen = new Set(), since = 0;
+
+  function stamp() { return new Date().toLocaleTimeString(); }
+  function say(line) { logEl.textContent += (logEl.textContent ? '\n' : '') + line; logEl.scrollTop = logEl.scrollHeight; }
+
+  function stopPolling() { if (poll) { clearInterval(poll); poll = null; } }
+
+  async function fetchReplies() {
+    try {
+      const r = await fetch('{{ url_for("trackers_command_replies") }}?unique_id='
+                            + encodeURIComponent(uid) + '&since=' + since,
+                            { headers: { 'Accept': 'application/json' } });
+      if (!r.ok) return;
+      const data = await r.json();
+      (data.replies || []).forEach(function (rep) {
+        const key = rep.at + '|' + rep.result;
+        if (seen.has(key)) return;
+        seen.add(key);
+        say('  ' + new Date(rep.at * 1000).toLocaleTimeString() + '  < ' + rep.result);
+        // An ACK on its own is a receipt, not an answer. Left unexplained it reads as a
+        // broken feature, which is how this was first reported.
+        if (/^\+ACK:/.test(rep.result.trim())) {
+          say('      (accepted by the tracker. This protocol sends its answer separately'
+              + ' and Traccar does not keep it.)');
+          statusEl.textContent = 'Accepted by the tracker.';
+        } else {
+          statusEl.textContent = 'Reply received.';
+        }
+      });
+    } catch (err) { /* transient; keep polling */ }
+  }
+
+  document.querySelectorAll('.tracker-command-open').forEach(function (b) {
+    b.addEventListener('click', function () {
+      uid = b.dataset.uid;
+      try { templates = JSON.parse(b.dataset.templates || '[]'); } catch (e) { templates = []; }
+      uidEl.textContent = uid;
+      modelEl.textContent = b.dataset.model
+        + (templates.length ? '' : ' — no prebuilt commands for this protocol, type one below.');
+      // What a reply looks like is a property of the protocol, not of the app.
+      const notes = {
+        teltonika: 'This unit answers as text, and the answer appears below.',
+        gl200: '“+ACK” means the tracker accepted the command, not that it is the answer. '
+             + 'This unit sends its answer as a separate message that Traccar does not keep, '
+             + 'so for most queries the acknowledgement is all you will see here. A position '
+             + 'request is the exception: its answer arrives as a fix on the map.'
+      };
+      const pn = notes[(b.dataset.protocol || '').toLowerCase()] || '';
+      protoNoteEl.textContent = pn;
+      protoNoteEl.hidden = !pn;
+      tplEl.innerHTML = '<option value="">— choose a prebuilt command —</option>';
+      templates.forEach(function (t, i) {
+        const o = document.createElement('option');
+        o.value = String(i); o.textContent = t.label;
+        tplEl.appendChild(o);
+      });
+      tplEl.hidden = !templates.length;
+      noteEl.textContent = '';
+      textEl.value = '';
+      logEl.textContent = '';
+      statusEl.textContent = '';
+      seen = new Set();
+      since = Math.floor(Date.now() / 1000) - 5;
+      stopPolling();
+      dlg.showModal();
+    });
+  });
+
+  tplEl.addEventListener('change', function () {
+    const t = templates[Number(tplEl.value)];
+    if (!t) { noteEl.textContent = ''; return; }
+    textEl.value = t.command;
+    const expects = { data: 'Answer appears below.',
+                      position: 'Answer arrives as a position on the map.',
+                      ack: 'Acknowledgement only — the answer is not visible here.' };
+    noteEl.textContent = ((expects[t.reply] || '') + ' ' + (t.note || '')).trim();
+  });
+
+  sendEl.addEventListener('click', async function () {
+    const command = (textEl.value || '').trim();
+    if (!command) { statusEl.textContent = 'Type a command first.'; return; }
+    // A reboot costs about six minutes off the air, so it is worth a second thought
+    // even though it is not destructive.
+    if (/cpureset|GTRTO\s*=\s*[^,]*,\s*3\s*,/i.test(command)
+        && !confirm('Reboot this tracker?\n\nMeasured: about 5 min 45 s with no fixes, '
+                    + 'then a few minutes at reduced accuracy. Never do this to a boat '
+                    + 'approaching the finish.')) return;
+    sendEl.disabled = true;
+    statusEl.textContent = 'Sending…';
+    try {
+      const body = new URLSearchParams({ unique_id: uid, command: command,
+                                         _csrf_token: '{{ csrf_token() }}' });
+      const r = await fetch('{{ url_for("trackers_command") }}',
+                            { method: 'POST', body: body,
+                              headers: { 'Accept': 'application/json' } });
+      const data = await r.json();
+      if (data.ok) {
+        say(stamp() + '  > ' + command);
+        statusEl.textContent = data.message || 'Sent.';
+        stopPolling();
+        poll = setInterval(fetchReplies, 5000);
+        fetchReplies();
+      } else {
+        say(stamp() + '  ! refused: ' + command);
+        say('    ' + (data.message || 'Refused.'));
+        statusEl.textContent = 'Refused.';
+      }
+    } catch (err) {
+      statusEl.textContent = 'Could not reach the app.';
+    } finally {
+      sendEl.disabled = false;
+    }
+  });
+
+  dlg.addEventListener('close', stopPolling);
+})();
+{% endif %}
+
+{% if sim_lookup_enabled %}
+// The SIM detail popout. Everything it shows is already on the page as data
+// attributes, so opening it costs no request — and a Hologram that is slow
+// cannot make the button feel broken.
+(function () {
+  const open = document.getElementById('simCostsOpen');
+  const costs = document.getElementById('simCostsDialog');
+  if (open && costs) { open.addEventListener('click', function () { costs.showModal(); }); }
+})();
+
+(function () {
+  const dlg = document.getElementById('simDialog');
+  if (!dlg) return;
+  const uidEl = document.getElementById('simUid');
+  const rowsEl = document.getElementById('simRows');
+  const meaningEl = document.getElementById('simMeaning');
+
+  // What each state actually means for somebody looking for a silent tracker.
+  // The healthy one is hedged on purpose: a live SIM says nothing about whether
+  // the tracker is switched on, only that the network is not stopping it.
+  const MEANING = {
+    ok: 'The network is not stopping this tracker.',
+    paused: 'This SIM cannot carry data, so the tracker will stay silent however '
+          + 'healthy it is. Resume it in the Hologram dashboard. "Paused by system" '
+          + 'means it hit a usage limit or a low balance.',
+    inactive: 'This SIM has not been activated, so the tracker cannot report at all.',
+    unknown: 'Hologram reported a state this app has not been taught. Treat it as '
+           + 'unproven rather than healthy, and check the Hologram dashboard.'
+  };
+
+  document.querySelectorAll('.sim-open').forEach(function (b) {
+    b.addEventListener('click', function () {
+      const d = b.dataset;
+      uidEl.textContent = d.uid;
+
+      // Label/value pairs. Anything Hologram did not give us is left out
+      // rather than shown empty.
+      rowsEl.innerHTML = '';
+      [['SIM status', d.state], ['Network', d.network], ['Country', d.country],
+       ['Radio', d.rat], ['ICCID', d.iccid], ['Last session', d.session],
+       ['Hardware', d.hardware]
+      ].filter(function (r) { return r[1]; }).forEach(function (r) {
+        const dt = document.createElement('dt'); dt.textContent = r[0];
+        const dd = document.createElement('dd'); dd.textContent = r[1];
+        rowsEl.appendChild(dt); rowsEl.appendChild(dd);
+      });
+      meaningEl.textContent = MEANING[d.health] || MEANING.unknown;
+
+      // Data and cost. Bytes come from Hologram; the money is worked out here
+      // from the plan's per-MB rate. A megabyte is a million bytes, which is
+      // how Hologram itself counts.
+      const bodyEl = document.getElementById('simUsage');
+      const footEl = document.getElementById('simTotals');
+      const rateEl = document.getElementById('simRate');
+      const rate = d.rate === '' ? null : parseFloat(d.rate);
+      const fee = d.fee === '' ? null : parseFloat(d.fee);
+      let weeks = [];
+      try { weeks = JSON.parse(d.weeks || '[]'); } catch (e) { weeks = []; }
+      const mb = function (n) { return (n / 1000000).toFixed(2); };
+      const money = function (n) { return '$' + n.toFixed(2); };
+      const line = function (into, label, used, cost, title) {
+        const tr = document.createElement('tr');
+        if (title) { tr.title = title; }
+        [label, used, cost].forEach(function (v) {
+          const td = document.createElement('td');
+          td.textContent = (v === null || v === undefined) ? '' : v;
+          tr.appendChild(td);
+        });
+        into.appendChild(tr);
+      };
+      bodyEl.innerHTML = '';
+      footEl.innerHTML = '';
+      weeks.forEach(function (w) {
+        line(bodyEl, w.label, mb(w.bytes), w.cost === null ? null : money(w.cost),
+             w.range);
+      });
+      if (d.period !== '') {
+        const bytes = parseInt(d.period, 10);
+        line(footEl, 'This billing period', mb(bytes),
+             rate === null ? null : money(bytes / 1000000 * rate));
+      }
+      if (fee !== null) { line(footEl, 'Monthly fee', null, money(fee)); }
+      if (d.month !== '') { line(footEl, 'Month to date', null, money(parseFloat(d.month))); }
+
+      const bits = [];
+      if (d.plan) { bits.push(d.plan); }
+      if (rate !== null) { bits.push(money(rate) + '/MB'); }
+      if (fee !== null) { bits.push(money(fee) + '/month'); }
+      rateEl.textContent = bits.length
+        ? bits.join(' · ') + '. Costed from the plan rate, not a Hologram invoice.'
+        : 'No rate returned for this plan, so data only.';
+
+      dlg.showModal();
+    });
+  });
+})();
+{% endif %}
+</script>
+{% endblock %}

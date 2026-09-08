@@ -1,0 +1,173 @@
+<!doctype html>
+<!-- Copyright © 2026 CapeNet Ltd. All Rights Reserved. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Pwllheli Race Officer{% endblock %}</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
+  {# The race-document theme, layered over style.css rather than replacing it,
+     so the whole look still comes off by dropping these two links. See
+     static/theme_race_document.css for what it is trying to be. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='theme_fonts.css') }}?v={{ app_version }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='theme_race_document.css') }}?v={{ app_version }}">
+  <script src="{{ url_for('static', filename='countdown.js') }}?v={{ app_version }}"></script>
+  {# Live camera panels (race sheet finish camera): stills, then the relay stream.
+     Inert on pages with no .live-camera container. #}
+  <script src="{{ url_for('static', filename='live_camera.js') }}?v={{ app_version }}"></script>
+  {% block head_extra %}{% endblock %}
+  <script>
+  window.RO_CSRF_TOKEN = {{ csrf_token()|tojson }};
+  (function () {
+    const token = window.RO_CSRF_TOKEN;
+    function isUnsafeMethod(method) {
+      return !['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(String(method || 'GET').toUpperCase());
+    }
+    function isSameOrigin(input) {
+      try {
+        const raw = (typeof input === 'string') ? input : input.url;
+        return new URL(raw, window.location.href).origin === window.location.origin;
+      } catch (e) {
+        return true;
+      }
+    }
+    document.addEventListener('submit', function (ev) {
+      const form = ev.target;
+      if (!form || form.tagName !== 'FORM') return;
+      if (!isUnsafeMethod(form.method || 'GET')) return;
+      if (!form.querySelector('input[name="_csrf_token"]')) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = '_csrf_token';
+        input.value = token;
+        form.appendChild(input);
+      }
+    }, true);
+    if (window.fetch) {
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = function (input, init) {
+        const options = Object.assign({}, init || {});
+        const method = (options.method || (input && input.method) || 'GET').toUpperCase();
+        if (isUnsafeMethod(method) && isSameOrigin(input)) {
+          const headers = new Headers(options.headers || (input && input.headers) || {});
+          headers.set('X-CSRFToken', token);
+          options.headers = headers;
+        }
+        return originalFetch(input, options);
+      };
+    }
+  })();
+  </script>
+</head>
+<body class="app-shell">
+<div class="app-layout">
+  <aside class="sidebar" aria-label="Main navigation">
+    <div class="brand">
+      <div class="brand-mark logo-mark"><img src="{{ url_for('static', filename='img/pwllheli_sailing_club_logo.png') }}" alt="Pwllheli Sailing Club"></div>
+      <div class="brand-title">Pwllheli Race Officer<small>Club race management</small></div>
+    </div>
+    <nav class="side-nav">
+      <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">{% include 'icons/dashboard.svg' %}Dashboard</a>
+      <a href="{{ url_for('current_race_sheet') }}" class="{% if request.endpoint == 'current_race_sheet' %}active{% endif %}">{% include 'icons/flag.svg' %}Current race</a>
+      <a href="{{ url_for('new_race') }}" class="{% if request.endpoint == 'new_race' %}active{% endif %}">{% include 'icons/plus-circle.svg' %}New race</a>
+      <a href="{{ url_for('races_page') }}" class="{% if request.endpoint in ['races_page', 'race_detail'] %}active{% endif %}">{% include 'icons/list.svg' %}Races</a>
+      <a href="{{ url_for('series_page') }}" class="{% if request.endpoint in ['series_page', 'series_detail'] %}active{% endif %}">{% include 'icons/layers.svg' %}Series</a>
+      <a href="{{ url_for('boats_page') }}" class="{% if request.endpoint in ['boats_page', 'boat_form', 'boat_lookup_form'] %}active{% endif %}">{% include 'icons/sailboat.svg' %}Boats</a>
+      <a href="{{ url_for('marks_page') }}" class="{% if request.endpoint == 'marks_page' %}active{% endif %}">{% include 'icons/map-pin.svg' %}Marks</a>
+      {% if can_race_remotely %}
+      <a href="{{ url_for('onwater_page') }}" class="{% if request.endpoint == 'onwater_page' %}active{% endif %}">{% include 'icons/flag.svg' %}Virtual Race Officer</a>
+      {% endif %}
+      <a href="{{ url_for('competitor_current_race') }}" data-popout="competitor">{% include 'icons/external-link.svg' %}Competitor page</a>
+    </nav>
+    <nav class="side-nav side-nav-bottom">
+      <a href="{{ url_for('trackers_page') }}" class="{% if request.endpoint == 'trackers_page' %}active{% endif %}">{% include 'icons/map-pin.svg' %}Trackers</a>
+      <a href="{{ url_for('power_history_page') }}" class="{% if request.endpoint == 'power_history_page' %}active{% endif %}">{% include 'icons/battery.svg' %}Hut power</a>
+      <a href="{{ url_for('documentation_page') }}" class="{% if request.endpoint in ['documentation_page', 'documentation_file'] %}active{% endif %}">{% include 'icons/book.svg' %}Documentation</a>
+      <a href="{{ url_for('settings_page') }}" class="{% if request.endpoint == 'settings_page' %}active{% endif %}">{% include 'icons/settings.svg' %}Settings</a>
+      <a href="{{ url_for('backup_restore_page') }}" class="{% if request.endpoint == 'backup_restore_page' %}active{% endif %}">{% include 'icons/refresh.svg' %}Backup / restore</a>
+    </nav>
+    <div class="sidebar-footer">
+      <strong>Human-supervised</strong><br>
+      Verify official race decisions before publishing results.
+    </div>
+  </aside>
+
+  <div class="app-main">
+    <header class="topbar">
+      <h1>{% block page_heading %}Pwllheli Race Officer{% endblock %}</h1>
+      <div class="topbar-actions">
+        {% if current_user %}
+          <a href="{{ url_for('account_page') }}" title="My account"{% if request.endpoint == 'account_page' %} class="active"{% endif %}>{{ current_user.username }}</a>
+          <a class="button secondary small" href="{{ url_for('logout') }}">Logout</a>
+        {% endif %}
+      </div>
+    </header>
+
+    <main>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <section class="messages">
+            {% for category, message in messages %}
+              <div class="message {{ category }}">{{ message }}</div>
+            {% endfor %}
+          </section>
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+      <span>Pwllheli Race Officer v{{ app_version }} · Copyright © 2026 CapeNet Ltd. All Rights Reserved.</span>
+    </footer>
+  </div>
+</div>
+<script>
+(function () {
+  // A "?" anywhere on any page opens the dialog it names. Delegated, so a new
+  // explanation is a <button data-help="x"> and a <dialog id="x"> and no JS.
+  document.addEventListener('click', (ev) => {
+    const trigger = ev.target.closest('[data-help]');
+    if (!trigger) return;
+    const dlg = document.getElementById(trigger.getAttribute('data-help'));
+    if (!dlg) return;
+    ev.preventDefault();
+    if (typeof dlg.showModal === 'function') dlg.showModal();
+    else dlg.setAttribute('open', '');   // no <dialog> support: show it inline
+  });
+
+  // Copy the value of the field a button names. Delegated for the same reason
+  // as the "?" above, and it selects the text as well as copying it: the hut PC
+  // is not always on https, where the clipboard API silently does nothing, and
+  // a selected field can at least be copied by hand.
+  document.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('[data-copy]');
+    if (!btn) return;
+    const field = document.querySelector(btn.getAttribute('data-copy'));
+    if (!field) return;
+    ev.preventDefault();
+    field.focus();
+    field.select();
+    const said = btn.textContent;
+    try {
+      await navigator.clipboard.writeText(field.value);
+      btn.textContent = 'Copied';
+    } catch (err) {
+      // No clipboard permission, or no https. The text is selected; say so
+      // rather than claiming a copy that did not happen.
+      btn.textContent = 'Press Ctrl+C';
+    }
+    setTimeout(() => { btn.textContent = said; }, 2500);
+  });
+
+  document.querySelectorAll('a[data-popout="competitor"]').forEach(a => {
+    a.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      window.open(a.href, 'pwllheli_competitor_page', 'popup=yes,width=1280,height=900,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes');
+    });
+  });
+})();
+</script>
+</body>
+</html>
