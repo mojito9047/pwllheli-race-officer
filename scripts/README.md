@@ -51,6 +51,16 @@ fresh clone. Run them from the repo root, e.g. `python scripts/build_release_zip
 | `compare_rounding_tests.py` | Compare ways of deciding a boat has rounded a mark, over recorded tracks. See [Re-examining how a rounding is decided](#re-examining-how-a-rounding-is-decided). |
 | `tracker_latency.py` | How late each tracker's fixes reach Traccar, and whether a change to one of them helped. See [Measuring tracker delay](#measuring-tracker-delay). |
 
+### 3D replay
+
+| Script | Purpose |
+|--------|---------|
+| `replay3d/export_race.py` | Write one sailed race as a JSON scene file in local metres: marks as they stood, course as sailed, finish line, wind, resampled tracks, optional terrain grid, imagery and hut-camera clips. Reads the hut's own backup with `--backup`. |
+| `replay3d/build_scene.py` | Runs inside Blender: builds sea, land, buoys, course, animated yachts with spinnakers, a cut shot list and the app-styled overlay from that JSON. |
+| `replay3d/fetch_mapbox.py` | Fetch and cache Mapbox satellite tiles for the bay as a lat/lon GeoTIFF (1.44 m/px at zoom 15). |
+| `replay3d/fetch_sentinel2.py` | The free alternative: a cloud-free Sentinel-2 window at 10 m. |
+| `replay3d/render_parallel.py` | Render a film across several background Blenders and join the parts. See [replay3d/README.md](replay3d/README.md). |
+
 ## Release pipeline (in order)
 
 1. Bump `VERSION`, update `docs/CHANGELOG.md` and `README.md`. Run the test suite
