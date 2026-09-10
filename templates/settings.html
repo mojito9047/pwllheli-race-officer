@@ -311,9 +311,10 @@
   </div>
   <p class="muted small small-top">The <strong>public address</strong> is the one competitors type in.
     Reached from outside, the app is behind the relay and only ever sees the tunnel's own internal
-    hostname, so without this every link it hands out &mdash; competitor share links, the QR code,
-    the logo addresses the live stream reads &mdash; points at that internal name over plain
-    http instead of at the club's address. Leave it empty on the hut network. Scheme and host only,
+    hostname, so without this every link it hands out &mdash; the competitor share links, and the
+    logo addresses the live stream reads &mdash; points at that internal name over plain http
+    instead of at the club's address. So does anything made from one of those links, such as a
+    QR code pinned to the noticeboard. Leave it empty on the hut network. Scheme and host only,
     no trailing path. This one takes effect immediately, without a restart.</p>
   <label>Public address
     <input form="settingsSaveForm" type="url" name="server_public_base_url" inputmode="url"

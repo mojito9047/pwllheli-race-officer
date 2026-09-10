@@ -1518,7 +1518,8 @@ story += note_box(
 story.append(Paragraph(
     "The same section carries the <b>public address</b>, which is not about sizing: it is the address "
     "competitors type in, and it is what the app uses to build any link it hands out — the competitor "
-    "share links, the QR code, and the logo addresses the live-stream relay reads. Reached from outside, "
+    "share links and the logo addresses the live-stream relay reads \u2014 and so is anything made "
+    "from one of those links, such as a QR code on the noticeboard. Reached from outside, "
     "the app is behind the relay and sees only the tunnel’s own internal hostname, so without this "
     "those links name a machine nobody can reach. Leave it empty on the hut network, where the address a "
     "request arrived on is already the right one. Scheme and host only, and unlike the three above it "
