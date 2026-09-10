@@ -20,6 +20,7 @@ a different bucket from the public video one.
 from __future__ import annotations
 
 import hashlib
+import json
 import hmac
 import re
 import shutil
@@ -219,6 +220,7 @@ def signed_request(
     query: Optional[Dict[str, str]] = None,
     extra_headers: Optional[Dict[str, str]] = None,
     timeout: Optional[float] = None,
+    allow_statuses: Tuple[int, ...] = (),
 ) -> Tuple[int, Dict[str, str], bytes]:
     """Send one signed request to R2 and return (status, headers, body).
 
@@ -228,7 +230,9 @@ def signed_request(
     tidiness measure — the signature does not verify otherwise.
 
     Raises RuntimeError with a readable message on any failure, so callers do not
-    have to know that the transport is urllib.
+    have to know that the transport is urllib. ``allow_statuses`` are the codes
+    a caller expects and wants back rather than raised: a GET for a status file
+    nobody has written yet is a 404, and that is an answer, not a fault.
     """
     account_id = str(account_id or "").strip()
     bucket = str(bucket or "").strip()
@@ -296,6 +300,10 @@ def signed_request(
     try:
         with urllib.request.urlopen(request, timeout=allowance) as response:
             return int(response.status), {k.lower(): v for k, v in response.headers.items()}, response.read()
+    except urllib.error.HTTPError as exc:
+        if exc.code in allow_statuses:
+            return int(exc.code), {k.lower(): v for k, v in (exc.headers or {}).items()}, exc.read()
+        raise RuntimeError(error_message(exc)) from exc
     except Exception as exc:
         raise RuntimeError(error_message(exc)) from exc
 
@@ -430,6 +438,51 @@ def head_object(account_id: str, bucket: str, key: str, access_key: str, secret_
         "etag": (headers.get("etag") or "").strip('"'),
         "last_modified": headers.get("last-modified") or "",
     }
+
+
+def get_object(account_id: str, bucket: str, key: str, access_key: str, secret_key: str,
+               timeout: Optional[float] = None) -> Optional[bytes]:
+    """Read one object back, or None when it is not there.
+
+    The uploader half of this module never needed to read: it puts a backup or
+    a video and checks the length with HEAD. The 3D replay does need it. The
+    hut writes a render job into the bucket and a render machine somewhere else
+    writes progress back into it, and the hut has to read that progress to show
+    it. Neither end can call the other -- that is the point of going through
+    the bucket -- so this is the return path.
+
+    A missing key is not an error. Asking for the status of a job nobody has
+    started yet is the normal case, and a caller should not have to catch an
+    exception to find out that nothing has happened.
+    """
+    status, _headers, body = signed_request(
+        "GET", account_id, bucket, key, access_key, secret_key,
+        timeout=timeout if timeout is not None else R2_METADATA_TIMEOUT_S,
+        allow_statuses=(404,),
+    )
+    if status == 404:
+        return None
+    if status != 200:
+        raise RuntimeError(f"Cloudflare R2 get returned HTTP {status}.")
+    return body
+
+
+def get_json(account_id: str, bucket: str, key: str, access_key: str, secret_key: str,
+             timeout: Optional[float] = None) -> Optional[Dict[str, Any]]:
+    """One JSON object from the bucket, or None if it is absent or unreadable.
+
+    Everything the renderer writes is small JSON, and a half-written or
+    corrupted one should read as "no news" rather than take out the dashboard
+    card that displays it.
+    """
+    raw = get_object(account_id, bucket, key, access_key, secret_key, timeout=timeout)
+    if raw is None:
+        return None
+    try:
+        value = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return None
+    return value if isinstance(value, dict) else None
 
 
 def delete_object(account_id: str, bucket: str, key: str, access_key: str, secret_key: str) -> None:
