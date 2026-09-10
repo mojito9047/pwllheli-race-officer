@@ -226,6 +226,19 @@
   </article>
   {% endif %}
 
+  {# The 3D replay film. It is rendered on another machine entirely, so the
+     thing worth showing is not really progress: it is whether that machine is
+     alive at all. A job queued against a render box that is switched off looks
+     exactly like one being worked on, until somebody notices hours later. #}
+  <article class="card" id="replay3dCard"{% if not replay3d_status.configured %} hidden{% endif %}>
+    <h3>3D replay<span id="replay3dPill" class="pill warn-pill"{% if replay3d_status.ok %} hidden{% endif %}>check</span></h3>
+    <p class="small muted" id="replay3dMessage">{{ replay3d_status.message }}</p>
+    <p class="small muted" id="replay3dRenderer"></p>
+    <div class="actions">
+      <a class="button small secondary" href="{{ url_for('races_page') }}">Races</a>
+    </div>
+  </article>
+
   <article class="card" id="offsiteBackupCard">
     <h3>Off-site backup{% if not offsite_status.ok %} <span class="pill warn-pill">check</span>{% endif %}</h3>
     <p{% if offsite_status.ok %} class="small muted"{% endif %}>{{ offsite_status.message }}</p>
@@ -296,6 +309,7 @@
 </script>
 <script src="{{ url_for('static', filename='wind_gauge.js') }}?v={{ app_version }}"></script>
 <script src="{{ url_for('static', filename='dashboard_power.js') }}?v={{ app_version }}"></script>
+<script src="{{ url_for('static', filename='dashboard_replay3d.js') }}?v={{ app_version }}"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="{{ url_for('static', filename='course_map.js') }}?v={{ app_version }}"></script>
 <script src="{{ url_for('static', filename='dashboard_map.js') }}?v={{ app_version }}"></script>

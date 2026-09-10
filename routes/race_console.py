@@ -14,6 +14,7 @@ from core.raceadmin import (
     shorten_course_at,
 )
 from core import barreplay
+from core import replay3d
 from core.races import postponement_flag
 from routes import app_module
 
@@ -210,6 +211,42 @@ def race_shorten_clear(race_id: int):
         return {"ok": True, "event_id": event_id}
     flash("Shortened course cleared.", "success")
     return redirect(back_to(race_id, "tab-shorten"))
+
+
+@app.route("/race/<int:race_id>/render3d", methods=["POST"])
+@app.route("/admin/race/<int:race_id>/render3d", methods=["POST"])
+def race_render_3d(race_id: int):
+    """Queue a 3D replay film of this race for whichever machine renders them.
+
+    The hut only writes the job. It cannot render a film in a useful time and
+    does not try: a render machine polls the bucket, picks the job up and puts
+    the film back beside the race videos.
+
+    Any signed-in user, like the bar replay next to it. It costs a couple of
+    hundred kilobytes of bucket and somebody else's compute, and the person who
+    wants the film after a race is not necessarily an administrator.
+    """
+    race = get_race(race_id)
+    if not race:
+        return Response("Race not found", status=404)
+    try:
+        queued = replay3d.submit_render(race_id, requested_by=current_actor())
+    except Exception as exc:
+        flash(f"Could not queue the render: {exc}", "error")
+        return redirect(back_to(race_id, "tab-results"))
+    replay3d.forget_status_snapshot(race_id)
+
+    pending = replay3d.clips_pending(race_id)
+    if pending["pending"]:
+        # Not a failure: the film is made either way, it simply has no inset
+        # for the clips that have not reached the bucket yet.
+        flash(f"Render queued, but {pending['pending']} of {pending['total']} race videos "
+              f"have not been published yet, so they will not appear in the film.", "warning")
+    else:
+        flash(f"Render queued: {queued['boats']} boats, "
+              f"{round((queued['duration_s'] or 0) / 60)} minutes of racing.", "success")
+    audit("3D replay render queued", f"#{race_id}")
+    return redirect(back_to(race_id, "tab-results"))
 
 
 @app.route("/race/<int:race_id>/replay", methods=["POST"])

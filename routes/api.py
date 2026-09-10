@@ -14,6 +14,7 @@ app = _app.app
 APP_VERSION = _app.APP_VERSION
 analyse_course_with_wind = _app.analyse_course_with_wind
 appstate = _app.appstate
+from core import replay3d
 course_from_sequence = _app.course_from_sequence
 current_race_course_payload = _app.current_race_course_payload
 event_for_json = _app.event_for_json
@@ -94,6 +95,23 @@ def api_weather_history():
 def api_power_status():
     """Return the current hut power (Victron VE.Direct) status as JSON."""
     status = power_runtime_status()
+    status["server_now"] = time.time()
+    response = jsonify(status)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@app.route("/api/replay3d/status")
+@app.route("/admin/api/replay3d/status")
+def api_replay3d_status():
+    """How the 3D replay render is getting on, for the dashboard card.
+
+    Served from a short-lived memo inside ``status_snapshot`` rather than read
+    fresh: the answer lives in the bucket, this is polled every few seconds by
+    every open dashboard, and what it describes moves twice a minute at most.
+    """
+    race_id = request.args.get("race_id", type=int)
+    status = dict(replay3d.status_snapshot(race_id))
     status["server_now"] = time.time()
     response = jsonify(status)
     response.headers["Cache-Control"] = "no-store"

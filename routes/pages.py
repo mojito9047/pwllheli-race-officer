@@ -8,6 +8,7 @@ used are read off the running app module (see routes.app_module) rather than
 app.py`` (module ``__main__``) or imported.
 """
 from core import docsview
+from core import replay3d
 from core import track
 from routes import app_module
 
@@ -85,6 +86,8 @@ def index():
         video_status=video_runtime_status(),
         power_status=power_runtime_status(),
         offsite_status=offsite_dashboard_status(),
+        # Cached for a few seconds inside status_snapshot: it reads the bucket.
+        replay3d_status=replay3d.status_snapshot(),
         # Only when tracking is on and only for trackers assigned to a boat:
         # a spare in the drawer being flat is not a race-day problem.
         low_batteries=low_battery_trackers() if track_config()['enabled'] else [],

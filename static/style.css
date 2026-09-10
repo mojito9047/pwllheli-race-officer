@@ -377,6 +377,12 @@ button.danger, .button.danger { background: #b3261e; color: white; }
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin: 0;
 }
 .gps-finish-row .checkbox-inline { min-width: 0; }
+/* Two unrelated things that each want one line: replaying a race in the bar,
+   and rendering the 3D film of it. One strip split rather than two strips
+   stacked, because the results tab's job is the table underneath. Collapses to
+   one column when there is not room for both, which is a phone in the hut. */
+.panel-strip.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 4px 28px; }
+.panel-strip.split > * { min-width: 0; }
 
 /* A tab's own heading sits right at the top of the pane. */
 h3.tab-heading { margin: 0 0 12px; }
@@ -392,6 +398,10 @@ h3.tab-heading { margin: 0 0 12px; }
 .wind-history { height: 300px; max-height: 300px; }
 .pill-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
 .pill { display: inline-block; padding: 6px 9px; border-radius: 999px; background: #eef2f7; color: #344054; font-weight: 650; font-size: 0.9rem; }
+/* `display: inline-block` above beats the browser's own [hidden] rule, so a
+   pill toggled with the attribute stays on screen. Same trap as .bar-video
+   and .ping-warning below; the dashboard's 3D replay warning hit it next. */
+.pill[hidden] { display: none; }
 /* Something to tidy rather than something wrong: amber, not red. */
 .warn-pill { background: #fdf1dc; color: #8a5a00; padding: 2px 7px; }
 

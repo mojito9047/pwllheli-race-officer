@@ -13,6 +13,7 @@ from core.raceadmin import next_whole_minute
 from core.series import export_attachment
 from core.racesignals import LOWER_AP_MIN_LEAD_S
 from core import barreplay
+from core import replay3d
 from core.races import postponement_flag, race_first_start_dt
 from core.raceadmin import (
     RaceSettings,
@@ -231,6 +232,10 @@ def race_detail(race_id: int):
         # rather than in the template because it is the same arithmetic the
         # display does: six times life except during the clips.
         bar_replay_race_id=barreplay.current_replay().get("race_id"),
+        # The 3D replay film, rendered on another machine. Cached for a few
+        # seconds inside status_snapshot, because this reads the bucket.
+        render3d=replay3d.status_snapshot(race_id),
+        render3d_clips=replay3d.clips_pending(race_id),
         replay_possible=_replay_plan is not None,
         replay_minutes=(round(((max(0.0, (_replay_plan["to_ts"] - _replay_plan["from_ts"])
                                     - sum(c["seconds"] for c in _replay_plan["clips"]))

@@ -505,7 +505,7 @@
   </div>
 
   <div id="tab-results" class="tab-pane">
-    <div class="panel-strip">
+    <div class="panel-strip split">
       {% if bar_replay_race_id == race.id %}
       <form method="post" action="{{ url_for('race_replay_stop', race_id=race.id) }}" class="panel-strip-row">
         <strong>Replay in the bar</strong>
@@ -527,7 +527,61 @@
         <button type="button" class="help-link" data-help="replayHelp" aria-label="About the bar replay">?</button>
       </div>
       {% endif %}
+
+      {# The 3D film. Rendered on another machine: the hut queues the job and
+         the render machine puts the film back beside the race videos. #}
+      {% if not render3d.configured %}
+      <div class="panel-strip-row">
+        <strong>3D replay</strong>
+        <span class="small muted">{{ render3d.message }}</span>
+        <button type="button" class="help-link" data-help="render3dHelp" aria-label="About the 3D replay">?</button>
+      </div>
+      {% elif render3d.state in ('queued', 'claimed', 'rendering', 'composing', 'uploading') and render3d.ok %}
+      <div class="panel-strip-row">
+        <strong>3D replay</strong>
+        <span class="pill">{{ render3d.message }}</span>
+        <span class="small muted">
+          {%- if render3d.status and render3d.status.eta_s %}About {{ (render3d.status.eta_s / 60)|round|int }} minutes left.
+          {%- else %}Rendering takes a while; this page shows how far it has got.{% endif %}</span>
+        <button type="button" class="help-link" data-help="render3dHelp" aria-label="About the 3D replay">?</button>
+      </div>
+      {% elif render3d.state == 'done' and render3d.status and render3d.status.film_url %}
+      <form method="post" action="{{ url_for('race_render_3d', race_id=race.id) }}" class="panel-strip-row">
+        <strong>3D replay</strong>
+        <a class="button small" href="{{ render3d.status.film_url }}" target="_blank" rel="noopener">Watch the film</a>
+        <button type="submit" class="small secondary">Render it again</button>
+        <button type="button" class="help-link" data-help="render3dHelp" aria-label="About the 3D replay">?</button>
+      </form>
+      {% else %}
+      <form method="post" action="{{ url_for('race_render_3d', race_id=race.id) }}" class="panel-strip-row">
+        <strong>3D replay</strong>
+        <button type="submit" class="small">Render a 3D film</button>
+        <span class="small muted">
+          {%- if not render3d.ok %}<strong>{{ render3d.message }}</strong>
+          {%- elif render3d_clips.pending %}{{ render3d_clips.pending }} of {{ render3d_clips.total }} race videos not published yet, so they will not be in the film.
+          {%- elif not render3d.renderer_up %}No render machine has checked in; the job will wait until one does.
+          {%- else %}Queued for the render machine. It takes a while.{% endif %}</span>
+        <button type="button" class="help-link" data-help="render3dHelp" aria-label="About the 3D replay">?</button>
+      </form>
+      {% endif %}
     </div>
+
+    <dialog id="render3dHelp" class="help-dialog">
+      <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+      <h4>The 3D replay film</h4>
+      <p>An animated film of the race: the bay, the marks where they were that day, the course
+        as it was sailed, and a boat for each tracked entry moving on its own GPS track, with the
+        hut camera's start and finish footage in the corner. It ends on the leaderboard.</p>
+      <p>The hut does not make it. This PC would take most of a day and would be competing with
+        the racing for the same machine, so pressing the button writes a job into the club's
+        video bucket and a separate render machine picks it up. The film lands beside the race
+        videos and the button here turns into a link to it.</p>
+      <p>Two things worth knowing. It is not quick &mdash; think of it as something to watch in the
+        bar afterwards, not during. And the start and finish clips have to be
+        <strong>published</strong> before you press it, because the render machine fetches them
+        from the bucket rather than from here; if they are not up yet the film is still made, but
+        without them in the corner.</p>
+    </dialog>
 
     <dialog id="replayHelp" class="help-dialog">
       <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
