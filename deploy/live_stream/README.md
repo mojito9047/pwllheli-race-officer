@@ -573,7 +573,7 @@ running service — an edit to `relay.env` needs a `systemctl restart mediamtx`,
 reload. `relay.env` is `0600 root`, so both of these want `sudo`:
 
     sudo grep WIND /etc/relay/relay.env
-    sudo tr ' ' '
+    sudo tr '\0' '
 ' < /proc/$(pgrep -x mediamtx)/environ | grep -i WIND
 
 The second is the one that settles it: it reads the environment the process actually
