@@ -288,10 +288,10 @@
 </details>
 
 <details class="card settings-section" id="server">
-  <summary><h3>Web server</h3><span>How many people can use the app at once</span></summary>
+  <summary><h3>Web server</h3><span>How many people at once, and the address they reach it on</span></summary>
   <p class="muted small">The app serves the race office, the clubhouse display and every competitor's
-    phone from this PC. These set how much of that it will take at once.
-    <strong>They take effect when the app restarts.</strong></p>
+    phone from this PC. The first three set how much of that it will take at once.
+    <strong>Those three take effect when the app restarts.</strong></p>
   <p class="muted small">Raise the <strong>connection limit</strong> first if phones on the water get
     &ldquo;cannot connect&rdquo; while the race office is fine. It counts open connections rather
     than people, and a browser holds several at a time, so the limit is reached long before that
@@ -309,13 +309,13 @@
       <input form="settingsSaveForm" type="number" name="server_channel_timeout" min="20" max="600" value="{{ config.server_channel_timeout }}">
     </label>
   </div>
-  <p class="muted small small-top">The <strong>public address</strong> is the one competitors type in.
-    Reached from outside, the app is behind the relay and only ever sees the tunnel's own internal
-    hostname, so without this every link it hands out &mdash; the competitor share links, and the
-    logo addresses the live stream reads &mdash; points at that internal name over plain http
-    instead of at the club's address. So does anything made from one of those links, such as a
-    QR code pinned to the noticeboard. Leave it empty on the hut network. Scheme and host only,
-    no trailing path. This one takes effect immediately, without a restart.</p>
+  <p class="muted small small-top">The <strong>public address</strong> is the one competitors type
+    in. Reached from outside, the app is behind the relay and only ever sees the tunnel's own
+    internal hostname, so any address it builds for the outside world names a machine nobody can
+    reach. Today that is the logo addresses the live stream fetches; set this and they point at the
+    club instead. Leave it empty on the hut network, where the address a request arrives on is
+    already the right one. Scheme and host only, no trailing path. Unlike the three above, this
+    takes effect immediately.</p>
   <label>Public address
     <input form="settingsSaveForm" type="url" name="server_public_base_url" inputmode="url"
            placeholder="https://pro.pwllhelisailingclub.org"

@@ -14,10 +14,10 @@ Race-office support software. It does not decide anything: official race decisio
   relay and every rule scoped to the club's address. Caddy now presents a Cloudflare Access
   service token, ready for a policy on that hostname to refuse everyone else.
 - **Settings &rarr; Web server &rarr; Public address.** Behind the tunnel the app only saw the
-  tunnel's own hostname, so the links it handed out &mdash; the competitor share links and the
-  logo addresses the live stream reads &mdash; pointed at an internal name over plain http.
-  Set the club's address here and every external link follows it. Empty keeps today's behaviour,
-  which is what the hut network wants.
+  tunnel's own hostname, so the addresses it built for the outside world &mdash; today, the logo
+  addresses the live stream fetches &mdash; pointed at an internal name over plain http. Set the
+  club's address here and every external address follows it. Empty keeps today's behaviour, which
+  is what the hut network wants.
 
 ### v1.000 update
 

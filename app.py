@@ -2132,20 +2132,6 @@ def public_context_urls(race: sqlite3.Row, selected_polar: Optional[str] = None,
     }
 
 
-def public_race_links(race: sqlite3.Row, selected_polar: Optional[str] = None) -> Dict[str, str]:
-    """Return absolute and relative public links for display on the race page."""
-    desktop_args = public_race_url_args(race, polar_file=selected_polar)
-    mobile_args = public_race_url_args(race, polar_file=selected_polar)
-    return {
-        "desktop": url_for("competitor_race", _external=True, **desktop_args),
-        "mobile": url_for("competitor_race_mobile", _external=True, **mobile_args),
-        "desktop_relative": url_for("competitor_race", **desktop_args),
-        "mobile_relative": url_for("competitor_race_mobile", **mobile_args),
-        "current": url_for("public_root", _external=True),
-        "current_relative": url_for("public_root"),
-    }
-
-
 def list_users() -> List[sqlite3.Row]:
     """Return all application users for Settings -> Users.
 
@@ -2917,7 +2903,7 @@ def _render_pursuit_race_detail(race: sqlite3.Row):
         signal_panel_schedule=signal_panel_schedule(race), signal_plan_rows=pursuit_signal_plan_rows(race, entries),
         video_status=video_runtime_status(), start_video_by_entry=start_video_by_entry, video_clip_link_text=video_clip_link_text,
         series_list=series_list, current_series=current_series, status_choices=PURSUIT_STATUS_CHOICES,
-        public_links=public_race_links(race, ""), race_delete_summary=delete_summary, now_ts=int(time.time()),
+        race_delete_summary=delete_summary, now_ts=int(time.time()),
     )
 
 

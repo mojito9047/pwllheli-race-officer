@@ -18,11 +18,10 @@ last, with no moment in between where the relay cannot reach the hut.
 
 **Links pointed at an internal hostname.** Reached through the tunnel, the app sees the
 tunnel's own `Host` header and a plain `http` scheme, so every address it built for the
-outside world came out as `http://hut-origin/...`. Those went to competitors in share links
-and to the live-stream relay in the branding manifest, and into anything made from one of
-those links, such as a QR code on the noticeboard. **Settings &rarr; Web
-server &rarr; Public address** fixes all of them at once; leave it empty and nothing changes,
-which is right on the hut network.
+outside world came out as `http://hut-origin/...`. The one with a consumer today is the
+branding manifest the live-stream relay reads, which is what makes the ordering below matter.
+**Settings &rarr; Web server &rarr; Public address** fixes that and every future external
+address with it; leave it empty and nothing changes, which is right on the hut network.
 
 The order matters, and it is the reason these shipped together. The relay downloads the logo
 addresses out of that manifest exactly as given, and it swallows a failed download, so closing

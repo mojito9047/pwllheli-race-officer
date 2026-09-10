@@ -83,7 +83,6 @@ list_series = _app.list_series
 normalise_start_time_value = _app.normalise_start_time_value
 parse_dt = _app.parse_dt
 parse_start_plan_text = _app.parse_start_plan_text
-public_race_links = _app.public_race_links
 race_class_config = _app.race_class_config
 race_console_config = _app.race_console_config
 race_delete_summary = _app.race_delete_summary
@@ -253,7 +252,6 @@ def race_detail(race_id: int):
         entry_class_labels=entry_class_labels_map(effective_class_config, entries),
         class_config=effective_class_config, start_plan=effective_start_plan, start_schedule=race_start_schedule(race),
         signal_panel_schedule=signal_panel_schedule(race),
-        public_links=public_race_links(race, polar_path.name),
         first_warning_time=str(row_get(race, "start_time", "") or ""), first_start_time=race_first_start_time(race),
         signal_plan_rows=start_signal_plan_rows(race),
         class_config_text=class_config_text(effective_class_config), start_plan_text=start_plan_text(effective_start_plan),
