@@ -133,6 +133,30 @@ and the standalone `live.` host).
 > without its session cookie — which breaks sign-in with *"Bad request: CSRF
 > token missing or invalid"* for the next visitor.
 
+- **Access policy on `hut-origin`.** The relay proxies to
+  `hut-origin.pwllhelisailingclub.org`, and that hostname is public: without a policy
+  anyone can reach the whole app there, login page included, going round this relay and
+  round every WAF or rate-limit rule scoped to `pro.`. A September 2026 external check
+  found it open. Zero Trust -> Access -> Service Auth -> **Service Tokens**, create one
+  named `relay-to-hut`; then Access -> Applications -> **Self-hosted**, domain
+  `hut-origin.pwllhelisailingclub.org` with an **empty path** so it covers the whole
+  host, and a single policy with action **Service Auth** including that token. One
+  policy only: a second permissive one, or any policy with action Bypass, and the gate
+  does nothing. Put the Client ID and Secret in `relay.env` as `HUT_ACCESS_ID` /
+  `HUT_ACCESS_SECRET` (the Caddyfile already sends them) and **restart** Caddy -- a
+  reload re-reads the Caddyfile but not the unit environment.
+
+  > **Set the app's Public address first.** Settings -> Web server -> **Public address**
+  > = `https://pro.pwllhelisailingclub.org`. Until that is set the app builds external
+  > URLs against the tunnel's own hostname, so `/api/branding/live` hands out logo
+  > addresses on `hut-origin`. Lock that host down before fixing this and
+  > `relay_branded_source.py` quietly loses the logos: a failed download is swallowed and
+  > the stream goes out unbranded. Set the address, check with
+  > `curl -s https://pro.pwllhelisailingclub.org/api/branding/live`, then add the policy.
+
+  Afterwards `curl -sI https://hut-origin.pwllhelisailingclub.org/admin/login` should no
+  longer reach the app, while `pro.` still works.
+
 ---
 
 ## 5. The relay host

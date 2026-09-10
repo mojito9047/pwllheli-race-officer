@@ -99,21 +99,32 @@ echo "== systemd units =="
 install -m 0644 "$SRC_DIR/lxc/systemd/mediamtx.service"            /etc/systemd/system/mediamtx.service
 install -m 0644 "$SRC_DIR/lxc/systemd/cloudflared-tunnel.service"  /etc/systemd/system/cloudflared-tunnel.service
 install -m 0644 "$SRC_DIR/lxc/systemd/cloudflared-camera.service"  /etc/systemd/system/cloudflared-camera.service
+# Caddy comes from the distro package, so its unit is not ours to edit; a
+# drop-in gives it the relay environment (the hut-origin Access token) and
+# survives a caddy upgrade.
+mkdir -p /etc/systemd/system/caddy.service.d
+install -m 0644 "$SRC_DIR/lxc/systemd/caddy-relay-env.conf" /etc/systemd/system/caddy.service.d/relay-env.conf
 systemctl daemon-reload
 systemctl enable mediamtx cloudflared-tunnel cloudflared-camera >/dev/null
-systemctl reload caddy 2>/dev/null || systemctl restart caddy
+# Restart rather than reload: a reload re-reads the Caddyfile but not the unit's
+# environment, and the Access token arrives through the environment.
+systemctl restart caddy
 
 echo
 echo "== installed =="
 if [ "${NEED_ENV:-0}" = "1" ]; then
-  echo "EDIT /etc/relay/relay.env  (camera URL/creds, MANIFEST_URL, tunnel token, camera Access token+hostname)"
+  echo "EDIT /etc/relay/relay.env  (camera URL/creds, MANIFEST_URL, tunnel token,"
+  echo "                              camera Access token+hostname, hut-origin Access token)"
 fi
 cat <<'EOF'
 Then start the services:
     systemctl restart mediamtx cloudflared-tunnel cloudflared-camera
 
 Cloudflare: point the tunnel's Public Hostname pro.pwllhelisailingclub.org -> http://localhost:80
-            and add the cache rules from README section 4.
+            add the cache rules from README section 4, and put an Access
+            service-token policy on hut-origin (README section 4) so the app
+            cannot be reached around this relay.
+            Set the app's Public address FIRST -- see README section 4.
 In the app: enable Public branding + set the Public live stream URL.
 
 Verify:

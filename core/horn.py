@@ -13,6 +13,8 @@ as core.db.SCHEMA_INITIALIZER.
 from __future__ import annotations
 
 import os
+import re
+import urllib.parse
 import threading
 import time
 from datetime import datetime
@@ -59,6 +61,13 @@ DEFAULT_HARDWARE_CONFIG = {
     "server_threads": int(os.environ.get("RO_THREADS", "8")),
     "server_connection_limit": int(os.environ.get("RO_CONNECTION_LIMIT", "100")),
     "server_channel_timeout": int(os.environ.get("RO_CHANNEL_TIMEOUT", "120")),
+    # The address the outside world reaches this app on. Behind the relay the app
+    # sees the tunnel's own Host header and plain http, so every link it builds
+    # with url_for(_external=True) came out as http://hut-origin... -- an internal
+    # hostname, in competitor share links and in the branding manifest the relay
+    # reads. Empty means "use whatever Host the request arrived with", which is
+    # right on the hut LAN and wrong through the tunnel.
+    "server_public_base_url": os.environ.get("RO_PUBLIC_BASE_URL", "").strip(),
     # GPS yacht-tracking (read by core.track). The hut app pulls positions from a
     # Traccar server on the relay; stored in the same hardware_settings table.
     "track_enabled": os.environ.get("RO_TRACK_ENABLED", "0").strip().lower() in ("1", "true", "yes", "on"),
@@ -111,6 +120,60 @@ PROLOG_IDLE_INPUT_LINE = "DCD"
 PROLOG_ACTIVE_INPUT_LINE = "CTS"
 
 
+def normalise_public_base_url(value: Any) -> str:
+    """Clean a public base URL down to ``scheme://host[:port]``, or "" if unusable.
+
+    Anything that is not http or https, or has no host, is dropped rather than
+    stored: a malformed value here would corrupt every external link the app
+    builds, which is worse than not having the setting at all. A path is
+    stripped too -- the app is not served under a sub-path and pretending
+    otherwise would produce links that 404.
+    """
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    parsed = urllib.parse.urlsplit(text)
+    if parsed.scheme in ("http", "https") and parsed.netloc:
+        scheme, host = parsed.scheme, parsed.netloc
+    elif "://" in text:
+        return ""                         # a scheme was given, and not one we serve
+    else:
+        guess = urllib.parse.urlsplit("https://" + text)   # a bare hostname is the common entry
+        if not guess.netloc:
+            return ""
+        scheme, host = "https", guess.netloc
+    # Last gate, and the one that matters: host[:port] and nothing else. It is
+    # what rejects "javascript:alert(1)", which otherwise survives having
+    # "https://" pasted in front of it, and any netloc carrying credentials.
+    if not re.match(r"^[A-Za-z0-9.\-]+(:\d{1,5})?$", host):
+        return ""
+    return f"{scheme}://{host.lower()}"
+
+
+# Read on every request, so it is cached and invalidated when settings are saved
+# rather than costing a database round trip per hit.
+_PUBLIC_BASE_URL_CACHE: Dict[str, Any] = {"value": None}
+
+
+def public_base_url() -> str:
+    """The address the outside world reaches this app on, or "" if not configured."""
+    cached = _PUBLIC_BASE_URL_CACHE["value"]
+    if cached is None:
+        try:
+            saved = get_hardware_setting_overrides().get("server_public_base_url")
+        except Exception:
+            saved = None
+        cached = normalise_public_base_url(
+            saved if saved is not None else DEFAULT_HARDWARE_CONFIG["server_public_base_url"])
+        _PUBLIC_BASE_URL_CACHE["value"] = cached
+    return cached
+
+
+def forget_public_base_url() -> None:
+    """Drop the cached value so the next request picks up a saved change."""
+    _PUBLIC_BASE_URL_CACHE["value"] = None
+
+
 def get_hardware_setting_overrides() -> Dict[str, str]:
     """Read horn/I/O settings from the database."""
     try:
@@ -152,6 +215,7 @@ def save_hardware_config(settings: Dict[str, Any]) -> str:
         "server_threads": str(int_in_range(settings.get("server_threads"), 8, 4, 64)),
         "server_connection_limit": str(int_in_range(settings.get("server_connection_limit"), 100, 50, 512)),
         "server_channel_timeout": str(int_in_range(settings.get("server_channel_timeout"), 120, 20, 600)),
+        "server_public_base_url": normalise_public_base_url(settings.get("server_public_base_url")),
         "track_enabled": bool_to_text(text_to_bool(settings.get("track_enabled"), False)),
         "track_ingest_secret": str(settings.get("track_ingest_secret", "") or "").strip(),
         "assistant_api_key": str(settings.get("assistant_api_key", "") or "").strip(),
@@ -194,6 +258,7 @@ def save_hardware_config(settings: Dict[str, Any]) -> str:
                 (key, value, now),
             )
         db.commit()
+    forget_public_base_url()
     return settings_change_summary(existing, values)
 
 
@@ -222,6 +287,8 @@ def hardware_config() -> Dict[str, Any]:
         cfg["server_threads"] = int_in_range(overrides.get("server_threads"), int(cfg["server_threads"]), 4, 64)
         cfg["server_connection_limit"] = int_in_range(overrides.get("server_connection_limit"), int(cfg["server_connection_limit"]), 50, 512)
         cfg["server_channel_timeout"] = int_in_range(overrides.get("server_channel_timeout"), int(cfg["server_channel_timeout"]), 20, 600)
+        cfg["server_public_base_url"] = normalise_public_base_url(
+            overrides.get("server_public_base_url", cfg["server_public_base_url"]))
         cfg["track_enabled"] = text_to_bool(overrides.get("track_enabled"), bool(cfg["track_enabled"]))
         cfg["track_ingest_secret"] = str(overrides.get("track_ingest_secret", cfg["track_ingest_secret"]) or "").strip()
         cfg["traccar_base_url"] = overrides.get("traccar_base_url", cfg["traccar_base_url"]).strip()

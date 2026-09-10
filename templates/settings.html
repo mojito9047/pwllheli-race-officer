@@ -309,6 +309,17 @@
       <input form="settingsSaveForm" type="number" name="server_channel_timeout" min="20" max="600" value="{{ config.server_channel_timeout }}">
     </label>
   </div>
+  <p class="muted small small-top">The <strong>public address</strong> is the one competitors type in.
+    Reached from outside, the app is behind the relay and only ever sees the tunnel's own internal
+    hostname, so without this every link it hands out &mdash; competitor share links, the QR code,
+    the logo addresses the live stream reads &mdash; points at that internal name over plain
+    http instead of at the club's address. Leave it empty on the hut network. Scheme and host only,
+    no trailing path. This one takes effect immediately, without a restart.</p>
+  <label>Public address
+    <input form="settingsSaveForm" type="url" name="server_public_base_url" inputmode="url"
+           placeholder="https://pro.pwllhelisailingclub.org"
+           value="{{ config.server_public_base_url }}">
+  </label>
   {% if server_status.running %}
   <div class="status-box {{ 'warn' if server_status.restart_pending else 'ok' }} small-top">
     {% if server_status.restart_pending %}

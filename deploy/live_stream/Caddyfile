@@ -174,6 +174,15 @@ http://traccar.pwllhelisailingclub.org {
 	handle @vro {
 		reverse_proxy https://hut-origin.pwllhelisailingclub.org {
 			header_up Host hut-origin.pwllhelisailingclub.org
+			# Cloudflare Access service token. hut-origin is a public Cloudflare
+			# hostname, so without this anyone can reach the hut app directly and
+			# skip this relay altogether -- and with it every WAF and rate-limit
+			# rule scoped to pro.*. An Access application on hut-origin with a
+			# service-token policy shuts that door; these two headers are how this
+			# relay goes on being let through. Same arrangement as the camera
+			# bridge (CAM_ACCESS_*), values in /etc/relay/relay.env.
+			header_up CF-Access-Client-Id {env.HUT_ACCESS_ID}
+			header_up CF-Access-Client-Secret {env.HUT_ACCESS_SECRET}
 			transport http {
 				tls_server_name hut-origin.pwllhelisailingclub.org
 				dial_timeout 3s
@@ -197,6 +206,15 @@ http://traccar.pwllhelisailingclub.org {
 	handle {
 		reverse_proxy https://hut-origin.pwllhelisailingclub.org {
 			header_up Host hut-origin.pwllhelisailingclub.org
+			# Cloudflare Access service token. hut-origin is a public Cloudflare
+			# hostname, so without this anyone can reach the hut app directly and
+			# skip this relay altogether -- and with it every WAF and rate-limit
+			# rule scoped to pro.*. An Access application on hut-origin with a
+			# service-token policy shuts that door; these two headers are how this
+			# relay goes on being let through. Same arrangement as the camera
+			# bridge (CAM_ACCESS_*), values in /etc/relay/relay.env.
+			header_up CF-Access-Client-Id {env.HUT_ACCESS_ID}
+			header_up CF-Access-Client-Secret {env.HUT_ACCESS_SECRET}
 			transport http {
 				tls_server_name hut-origin.pwllhelisailingclub.org
 				dial_timeout 3s

@@ -508,11 +508,18 @@ story += code_block([
     "CAM_HOSTNAME=hut-cam.pwllhelisailingclub.org",
     "CAM_ACCESS_ID=<Access service token Client ID, Chapter 5>",
     "CAM_ACCESS_SECRET=<Access service token Client Secret, Chapter 5>",
+    "HUT_ACCESS_ID=<Access service token Client ID for hut-origin, Chapter 4>",
+    "HUT_ACCESS_SECRET=<Access service token Client Secret for hut-origin, Chapter 4>",
 ])
+story.append(Paragraph(
+    "The last two are how this relay is let through the Access policy on <b>hut-origin</b>. "
+    "Caddy reads them from a drop-in that setup.sh installs, and needs a <b>restart</b> rather "
+    "than a reload to pick up a change, because a reload re-reads the Caddyfile and not the "
+    "unit's environment.", styles["Body"]))
 story.append(Paragraph("Start everything:", styles["Body"]))
 story += code_block([
     "systemctl restart mediamtx cloudflared-tunnel cloudflared-camera",
-    "systemctl reload caddy",
+    "systemctl restart caddy",
 ])
 story.append(Paragraph(
     "All the services start on boot. There are five to know about:", styles["Body"]))

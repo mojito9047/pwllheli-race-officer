@@ -321,6 +321,7 @@ from core.horn import (
     fire_horn,
     get_hardware_setting_overrides,
     hardware_config,
+    public_base_url,
     open_serial_for_horn_io,
     read_manual_horn_input,
     read_prolog_horn_feedback,
@@ -654,6 +655,37 @@ app.config.update(
 )
 # HSTS is only meaningful (and only sent) on an HTTPS deployment.
 _SEND_HSTS = bool(app.config["SESSION_COOKIE_SECURE"])
+
+
+class PublicBaseUrlMiddleware:
+    """Build external links against the address the public actually uses.
+
+    Behind the relay this app is reached over a Cloudflare tunnel, so it sees
+    the tunnel's Host header and a plain http scheme. Every link built with
+    ``url_for(..., _external=True)`` therefore came out as
+    ``http://hut-origin.pwllhelisailingclub.org/...``: an internal hostname
+    that is not the front door, handed to competitors in share links and to
+    the live-stream relay in the branding manifest.
+
+    Rewriting the WSGI environment is done here rather than in a
+    ``before_request`` hook so it happens before Flask builds the request and
+    caches ``host`` and ``url``. With no base URL configured this is a no-op,
+    which is what the hut LAN wants.
+    """
+
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        base = public_base_url()
+        if base:
+            scheme, _, netloc = base.partition("://")
+            environ["wsgi.url_scheme"] = scheme
+            environ["HTTP_HOST"] = netloc
+        return self.wsgi_app(environ, start_response)
+
+
+app.wsgi_app = PublicBaseUrlMiddleware(app.wsgi_app)
 
 
 # Times every request and logs the slow ones to runtime/logs/slow.log. Installed
@@ -3476,6 +3508,7 @@ def read_settings_form() -> Tuple[Dict[str, Any], Dict[str, Any]]:
         "server_threads": request.form.get("server_threads", "8"),
         "server_connection_limit": request.form.get("server_connection_limit", "100"),
         "server_channel_timeout": request.form.get("server_channel_timeout", "120"),
+        "server_public_base_url": request.form.get("server_public_base_url", ""),
         "track_enabled": request.form.get("track_enabled") == "1",
         "traccar_base_url": request.form.get("traccar_base_url", ""),
         "traccar_token": request.form.get("traccar_token", ""),
