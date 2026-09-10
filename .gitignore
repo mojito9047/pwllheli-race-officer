@@ -51,3 +51,12 @@ docs/Trackers/**/*.msi
 docs/hardware/**/*.pdf
 !docs/hardware/wiring/Hut Wiring Diagram - V0.2.pdf
 !docs/hardware/horn/Horn Control Box.pdf
+
+# Digital elevation model tiles for the 3D replay (scripts/replay3d): large, public, re-downloadable.
+data/dem/
+
+# Copies of the hut's backups for local replay rendering: real club data, never committed.
+HutData/
+
+# The render machine's settings: an R2 secret key and a Mapbox token.
+deploy/render_machine/renderer.env

@@ -1,0 +1,17 @@
+# The render machine's Python packages. NOT the app's requirements.txt: this
+# machine runs no web server and opens no database, so nothing here is Flask.
+#
+#   pip install -r deploy/render_machine/requirements.txt
+#
+# Blender is installed separately (see README) and brings its own Python.
+# Nothing here needs to go into it: the only script that runs inside Blender
+# is build_scene.py, which uses bpy, mathutils and the numpy Blender ships.
+
+Pillow          # every drawn pixel: the overlay, the cards, the imagery
+numpy           # heightfields and imagery mosaics
+av              # reading the hut's clips, writing the film (bundled FFmpeg)
+tifffile        # the DEM and imagery tiles are GeoTIFFs
+imagecodecs     # ...and those GeoTIFFs are compressed
+fonttools       # the app's woff2 faces -> TTF for Blender and PIL
+brotli          # ...which is how woff2 is compressed
+werkzeug        # core/r2.py borrows secure_filename; no web server is started

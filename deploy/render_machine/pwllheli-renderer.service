@@ -1,0 +1,40 @@
+# The 3D race-replay renderer.
+#
+#   sudo cp pwllheli-renderer.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now pwllheli-renderer
+#   journalctl -u pwllheli-renderer -f
+#
+# Deliberately not Restart=no: the loop's job is to be there when a race
+# officer presses Render, which may be a fortnight after anyone last looked
+# at this machine.
+
+[Unit]
+Description=Pwllheli 3D race-replay renderer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=render
+Group=render
+WorkingDirectory=/opt/pwllheli
+EnvironmentFile=/etc/pwllheli/renderer.env
+ExecStart=/opt/pwllheli/.venv/bin/python scripts/replay3d/renderer.py
+Restart=always
+RestartSec=30
+
+# Blender wants a home to write its config into, and a scratch space for
+# frames. A long film is a few GB of intermediate JPEGs before it is a file.
+Environment=HOME=/var/lib/pwllheli-render
+StateDirectory=pwllheli-render
+
+# It reads a bucket and writes films. It has no business anywhere else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/pwllheli/runtime
+
+[Install]
+WantedBy=multi-user.target
