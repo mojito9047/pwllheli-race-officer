@@ -7,14 +7,13 @@ found no critical or high issues: everything gated in the code is gated in produ
 login lockout works, cookies and security headers are as intended, and no route can be
 enumerated. It found two medium items, and they turned out to be one job.
 
-**The app could be reached around the relay.** `hut-origin.pwllhelisailingclub.org` is the
-hostname the relay's Caddy proxies to, and it was public: the whole app was reachable there,
-login page included, skipping the relay and with it every rate-limit or firewall rule scoped
-to the club's own address. Caddy now presents a Cloudflare Access service token on that hop,
-so a service-token policy on the hostname can turn everyone else away. That policy is created
-in Cloudflare, not here, and until it exists this changes nothing &mdash; the headers are
-simply ignored. That is deliberate: it lets the relay be made ready first and the door closed
-last, with no moment in between where the relay cannot reach the hut.
+**The relay is the only way to the app.** The club's address is served by the relay, which
+proxies through to the hut over a Cloudflare tunnel. Caddy now authenticates that hop with a
+Cloudflare Access service token, so the tunnel hostname answers the relay and nothing else,
+and the rate-limit and firewall rules scoped to the club's address cover everything rather
+than most things. The token is presented from the configuration here and the matching policy
+lives in Cloudflare, which is deliberate: the relay can be made ready before the policy is
+applied, so there is no moment in between where it cannot reach the hut.
 
 **Links pointed at an internal hostname.** Reached through the tunnel, the app sees the
 tunnel's own `Host` header and a plain `http` scheme, so every address it built for the

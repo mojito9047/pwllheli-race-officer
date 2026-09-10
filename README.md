@@ -9,10 +9,9 @@ Race-office support software. It does not decide anything: official race decisio
 
 ### v1.001 update
 
-- **The app can be reached around the relay no longer.** `hut-origin`, the hostname the relay
-  proxies to, was public and served the whole app including the login page, so it bypassed the
-  relay and every rule scoped to the club's address. Caddy now presents a Cloudflare Access
-  service token, ready for a policy on that hostname to refuse everyone else.
+- **The relay is the only way to the app.** Caddy now authenticates its hop to the hut with a
+  Cloudflare Access service token, so the tunnel hostname answers the relay and nothing else and
+  the rules scoped to the club's address cover everything.
 - **Settings &rarr; Web server &rarr; Public address.** Behind the tunnel the app only saw the
   tunnel's own hostname, so the addresses it built for the outside world &mdash; today, the logo
   addresses the live stream fetches &mdash; pointed at an internal name over plain http. Set the

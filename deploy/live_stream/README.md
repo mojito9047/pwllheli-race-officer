@@ -134,10 +134,10 @@ and the standalone `live.` host).
 > token missing or invalid"* for the next visitor.
 
 - **Access policy on `hut-origin`.** The relay proxies to
-  `hut-origin.pwllhelisailingclub.org`, and that hostname is public: without a policy
-  anyone can reach the whole app there, login page included, going round this relay and
-  round every WAF or rate-limit rule scoped to `pro.`. A September 2026 external check
-  found it open. Zero Trust -> Access -> Service Auth -> **Service Tokens**, create one
+  `hut-origin.pwllhelisailingclub.org`, and that hop has to be authenticated so the
+  hostname answers this relay and nothing else. Without it the app is reachable around
+  the relay, and around every WAF or rate-limit rule scoped to `pro.`.
+  Zero Trust -> Access -> Service Auth -> **Service Tokens**, create one
   named `relay-to-hut`; then Access -> Applications -> **Self-hosted**, domain
   `hut-origin.pwllhelisailingclub.org` with an **empty path** so it covers the whole
   host, and a single policy with action **Service Auth** including that token. One
