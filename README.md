@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.000
+# Pwllheli Race Officer v1.001
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -7,10 +7,22 @@ Race-office support software. It does not decide anything: official race decisio
 
 ## Recent releases
 
+### v1.001 update
+
+- **The app can be reached around the relay no longer.** `hut-origin`, the hostname the relay
+  proxies to, was public and served the whole app including the login page, so it bypassed the
+  relay and every rule scoped to the club's address. Caddy now presents a Cloudflare Access
+  service token, ready for a policy on that hostname to refuse everyone else.
+- **Settings &rarr; Web server &rarr; Public address.** Behind the tunnel the app only saw the
+  tunnel's own hostname, so the links it handed out &mdash; competitor share links, the QR code,
+  the logo addresses the live stream reads &mdash; pointed at an internal name over plain http.
+  Set the club's address here and every external link follows it. Empty keeps today's behaviour,
+  which is what the hut network wants.
+
 ### v1.000 update
 
 - **The MVP label comes off.** A season of the club's racing has run through it. What has not changed is that the race officer decides and the app records: results stay provisional until confirmed, and the caution in the sidebar stays.
-- **A release unpacks into `pwllheli_race_officer_v1_000`.** An existing install keeps working where it is. This also fixes a latent bug &mdash; the ZIP builder hardcoded `v0_`, so 1.000 would have produced a folder named `pwllheli_ro_mvp_v0_000`.
+- **A release unpacks into `pwllheli_race_officer_v1_001`.** An existing install keeps working where it is. This also fixes a latent bug &mdash; the ZIP builder hardcoded `v0_`, so 1.000 would have produced a folder named `pwllheli_ro_mvp_v0_000`.
 - **Every screenshot in the guides re-shot** against 1.000.
 
 ### v0.285 update

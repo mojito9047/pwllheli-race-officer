@@ -1,5 +1,39 @@
 # Change log
 
+## v1.001
+
+**Security, from an external check of the live site.** A read-only probe on 10 September 2026
+found no critical or high issues: everything gated in the code is gated in production, the
+login lockout works, cookies and security headers are as intended, and no route can be
+enumerated. It found two medium items, and they turned out to be one job.
+
+**The app could be reached around the relay.** `hut-origin.pwllhelisailingclub.org` is the
+hostname the relay's Caddy proxies to, and it was public: the whole app was reachable there,
+login page included, skipping the relay and with it every rate-limit or firewall rule scoped
+to the club's own address. Caddy now presents a Cloudflare Access service token on that hop,
+so a service-token policy on the hostname can turn everyone else away. That policy is created
+in Cloudflare, not here, and until it exists this changes nothing &mdash; the headers are
+simply ignored. That is deliberate: it lets the relay be made ready first and the door closed
+last, with no moment in between where the relay cannot reach the hut.
+
+**Links pointed at an internal hostname.** Reached through the tunnel, the app sees the
+tunnel's own `Host` header and a plain `http` scheme, so every address it built for the
+outside world came out as `http://hut-origin/...`. Those went to competitors in share links
+and the QR code, and to the live-stream relay in the branding manifest. **Settings &rarr; Web
+server &rarr; Public address** fixes all of them at once; leave it empty and nothing changes,
+which is right on the hut network.
+
+The order matters, and it is the reason these shipped together. The relay downloads the logo
+addresses out of that manifest exactly as given, and it swallows a failed download, so closing
+`hut-origin` before correcting the addresses would have quietly taken the club's branding off
+the live stream with nothing to show why. Set the public address first.
+
+Also here: the relay's installer now gives Caddy the environment it needs and restarts rather
+than reloads it, because a reload re-reads the Caddyfile but not the unit's environment &mdash;
+the kind of difference that shows up as "I set the token and it still does not work". The
+relay README, the env template and the printed relay guide carry the new token and the
+ordering.
+
 ## v1.000
 
 **The MVP label comes off.** It has run the club's racing for a season &mdash; starts, finishes,

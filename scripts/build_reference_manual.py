@@ -1515,6 +1515,16 @@ story += note_box(
     "filled it during a race: every request fast, and no sockets left. Threads are cheap here because they are "
     "mostly waiting on disk and network rather than working.")
 
+story.append(Paragraph(
+    "The same section carries the <b>public address</b>, which is not about sizing: it is the address "
+    "competitors type in, and it is what the app uses to build any link it hands out — the competitor "
+    "share links, the QR code, and the logo addresses the live-stream relay reads. Reached from outside, "
+    "the app is behind the relay and sees only the tunnel’s own internal hostname, so without this "
+    "those links name a machine nobody can reach. Leave it empty on the hut network, where the address a "
+    "request arrived on is already the right one. Scheme and host only, and unlike the three above it "
+    "takes effect immediately rather than on a restart.",
+    styles["Body"]))
+
 story.append(Paragraph("Slow-request log", styles["H2"]))
 story.append(Paragraph(
     "Any request over <b>RO_SLOW_REQUEST_MS</b> (default 250 ms) is written to "
