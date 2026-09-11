@@ -68,7 +68,7 @@ from core.replay3d import (  # noqa: E402
     build_scene,
 )
 import core.track as track_module  # noqa: E402  (re-pointed by use_data_dir)
-from fonts import ensure_fonts  # noqa: E402  (beside this script)
+from fonts import ensure_fonts, font_trouble  # noqa: E402  (beside this script)
 from branding import (  # noqa: E402  (beside this script)
     BRANDING_MANIFEST_URL,
     BRANDING_ROTATE_S,
@@ -376,6 +376,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         json.dump(data, f, separators=(",", ":"))
     out_dir = os.path.dirname(os.path.abspath(out_path))
     fonts = ensure_fonts(out_dir)
+    _font_trouble = font_trouble(fonts)
+    if _font_trouble:
+        print(f"  FONTS: {_font_trouble}")
 
     # The title and results cards, drawn now so the builder only has to show them.
     from cards import build_cards
