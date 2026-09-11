@@ -39,6 +39,7 @@ remove_tracker = _app.remove_tracker
 render_template = _app.render_template
 request = _app.request
 search_boats = _app.search_boats
+get_boat = _app.get_boat
 track_runtime_status = _app.track_runtime_status
 tracker_report_status = _app.tracker_report_status
 upsert_tracker = _app.upsert_tracker
@@ -123,14 +124,42 @@ def trackers_adopt():
 @app.route("/admin/trackers/save", methods=["POST"])
 def trackers_save():
     """Re-assign / re-label existing trackers (boat_<uid>, label_<uid>)."""
-    for uid in request.form.getlist("tracker_uids"):
-        uid = (uid or "").strip()
-        if not uid:
-            continue
-        upsert_tracker(uid, label=request.form.get(f"label_{uid}", "").strip(),
-                       boat_id=request.form.get(f"boat_{uid}", type=int))
+    rows = [(uid.strip(), request.form.get(f"label_{uid.strip()}", "").strip(),
+             request.form.get(f"boat_{uid.strip()}", type=int))
+            for uid in request.form.getlist("tracker_uids") if (uid or "").strip()]
+    # Unassignments first, then assignments. One boat has one tracker, so
+    # moving a boat from one device to another is a clear and a set -- and this
+    # page posts every row together, so doing them in form order would have the
+    # set displace a device the very next row was about to free anyway. The
+    # displacement is harmless but it would be reported, and a message about
+    # something the operator did not do is worse than no message.
+    for uid, label, boat_id in [r for r in rows if not r[2]]:
+        upsert_tracker(uid, label=label, boat_id=None)
+    # Collected per boat rather than as one flat list. Setting two trackers to
+    # the same boat in one save makes the second displace the first, so a flat
+    # list would name a tracker that ended up holding the boat after all --
+    # which is what the first version of this message did, and it read as
+    # nonsense next to a table showing that tracker assigned.
+    took_over = {}
+    for uid, label, boat_id in [r for r in rows if r[2]]:
+        lost = upsert_tracker(uid, label=label, boat_id=boat_id)
+        if lost:
+            winner, previous = took_over.get(boat_id, (None, []))
+            took_over[boat_id] = (uid, [u for u in previous + lost if u != uid])
+
     audit("trackers saved")
     flash("Tracker assignments saved.", "success")
+    for boat_id, (winner, lost) in took_over.items():
+        lost = [u for u in lost if u != winner]
+        if not lost:
+            continue
+        boat = get_boat(boat_id)
+        name = (boat["boat_name"] if boat else f"Boat {boat_id}")
+        flash(f"{name} can only carry one tracker, so it now has {winner} and "
+              + ", ".join(lost) + (" was" if len(lost) == 1 else " were")
+              + " left unassigned. If that is the wrong way round, set the boat on the"
+              " tracker you want and save again. Past fixes keep the boat they were"
+              " recorded against either way.", "warning")
     return redirect(url_for("trackers_page"))
 
 

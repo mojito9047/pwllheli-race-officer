@@ -310,6 +310,10 @@ label { font-weight: 750; color: #4b5565; display: grid; gap: 6px; min-width: 15
 .messages { margin-bottom: 18px; display: grid; gap: 8px; }
 .message { padding: 10px 12px; border-radius: 10px; background: #ecfdf3; color: #05603a; border: 1px solid #abefc6; }
 .message.error { background: #fef3f2; color: #912018; border-color: #fecdca; }
+/* A warning had no rule at all, so it rendered in the green of a success --
+   the one category whose whole job is to say "read this, it is not what you
+   asked for". Amber, matching .warn-pill: something to look at, not a failure. */
+.message.warning { background: #fdf1dc; color: #8a5a00; border-color: #f3c96a; }
 .actions-cell { white-space: nowrap; }
 .inline { display: inline; }
 details { margin-top: 12px; }

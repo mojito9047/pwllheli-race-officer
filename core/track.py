@@ -1673,14 +1673,49 @@ def list_trackers() -> List[Dict[str, Any]]:
 
 
 def upsert_tracker(unique_id: str, label: str = "", boat_id: Optional[int] = None,
-                   traccar_device_id: str = "", active: bool = True) -> None:
-    """Create or update a tracker's label / permanent boat assignment."""
+                   traccar_device_id: str = "", active: bool = True) -> List[str]:
+    """Create or update a tracker's label / permanent boat assignment.
+
+    Returns the unique ids of any **other** trackers this took the boat away
+    from, so the caller can say so. Usually none.
+
+    A boat has one tracker aboard it, and this enforces that. Without it the
+    table happily held two devices pointed at one boat -- it is keyed on the
+    device, so the second assignment simply inserted -- and every fix from both
+    was stamped with that boat. The boat's track then became the two devices
+    interleaved, which is fine while they are in the same place and disastrous
+    when they are not: in the club race of 8 August 2026 one of Crackajack's two
+    trackers was aboard Mojito, so the replay drew Crackajack flipping between
+    the two boats several times a minute, and the repair was 30,000 rows
+    (scripts/fix_track_misattribution.py).
+
+    Displacing rather than refusing, because refusing would break the ordinary
+    case. The Trackers page posts every row at once, so swapping a boat from one
+    device to another arrives as one submit -- clear A, set B -- and a refusal
+    would reject B whenever the form happened to reach it before A. Saying "this
+    device is on Crackajack" means the old one no longer is, which is what
+    somebody doing a swap means anyway.
+
+    The displaced tracker is only unassigned, never deleted, and the fixes it
+    already recorded keep the boat they were stamped with: that track happened
+    and belongs to that boat.
+    """
     unique_id = str(unique_id or "").strip()
     if not unique_id:
-        return
+        return []
     init_db()
     now = datetime.now().isoformat(timespec="seconds")
+    displaced: List[str] = []
     with get_db() as db:
+        if boat_id:
+            displaced = [r["unique_id"] for r in db.execute(
+                "SELECT unique_id FROM trackers WHERE boat_id = ? AND unique_id != ?",
+                (int(boat_id), unique_id)).fetchall()]
+            if displaced:
+                db.execute(
+                    "UPDATE trackers SET boat_id = NULL, updated_at = ?"
+                    " WHERE boat_id = ? AND unique_id != ?",
+                    (now, int(boat_id), unique_id))
         db.execute(
             """
             INSERT INTO trackers (unique_id, traccar_device_id, label, boat_id, active, updated_at)
@@ -1708,6 +1743,7 @@ def upsert_tracker(unique_id: str, label: str = "", boat_id: Optional[int] = Non
                 tdb.commit()
         except sqlite3.OperationalError:
             pass
+    return displaced
 
 
 # ---------------------------------------------------------------------------
@@ -1995,7 +2031,14 @@ def adopt_tracker(unique_id: str, name: str = "", boat_id: Optional[int] = None)
                 except Exception as exc:
                     note = (f" It could not be claimed in Traccar ({str(exc)[:120]}); positions will only"
                             " arrive by push until it is linked to your Traccar user.")
-    upsert_tracker(unique_id, label=label, boat_id=boat_id, traccar_device_id=traccar_id)
+    displaced = upsert_tracker(unique_id, label=label, boat_id=boat_id,
+                               traccar_device_id=traccar_id)
+    if displaced:
+        # Adopting a spare onto a boat that already has one is precisely how a
+        # boat came to have two, so this is the message that is worth having.
+        note += (" A boat carries one tracker, so " + ", ".join(displaced)
+                 + (" was" if len(displaced) == 1 else " were")
+                 + " unassigned; past fixes keep the boat they were recorded against.")
     return True, f"Tracker '{label or unique_id}' added from Traccar." + note
 
 
