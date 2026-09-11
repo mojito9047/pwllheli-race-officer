@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from replay_style import THEME_SRGB, boat_colour  # noqa: E402
 from replay_time import TimeWarp  # noqa: E402
+from wind import Wind  # noqa: E402
 
 # Everything below is a fraction of the frame height, so the overlay is the same
 # size whatever resolution the film is rendered at.
@@ -45,6 +46,7 @@ HUD_NAME = 0.024
 HUD_CHIP = 0.015
 HUD_CHIP_H = 0.026
 CREDIT_TEXT = 0.010
+GAP = 0.010                 # between the panels of the lower third
 MARGIN_X = 0.0125           # from the frame edge, as a fraction of WIDTH
 MARGIN_Y = 0.0175
 
@@ -118,6 +120,10 @@ class Overlay:
 
         self._cards: Dict[str, Any] = {}
         self._card_plan = self._plan_cards()
+
+        # The same lookup build_scene sets the sails from, so the number on
+        # screen and the trim of the boat under it cannot disagree.
+        self.wind = Wind(data.get("wind"))
 
         brand = data.get("branding") or {}
         self.brand_rotate_s = max(1.0, float(brand.get("rotate_s") or 5))
@@ -219,11 +225,28 @@ class Overlay:
             draw.text((x, y), label, font=self.f_mark, fill=_rgba("white", 235), anchor="mm")
         img.alpha_composite(layer)
 
-    def _clock(self, frame: int) -> Tuple[str, str]:
+    def _t_rel(self, frame: int) -> float:
+        """Seconds into the race this frame shows. The film's clock is not the
+        film's own: it runs at 30x except in the real-time windows."""
         if self.warp is not None:
-            t_rel = self.warp.time_at(frame)
-        else:
-            t_rel = (frame - 1) / self.fps * self.speed
+            return self.warp.time_at(frame)
+        return (frame - 1) / self.fps * self.speed
+
+    def _wind(self, frame: int) -> Optional[Tuple[str, str]]:
+        """True wind direction and speed at this moment, or None if unrecorded.
+
+        A race with no wind log gets no panel rather than a panel of dashes:
+        an instrument showing nothing is worse than no instrument, because it
+        reads as a broken instrument.
+        """
+        twd, tws = self.wind.at(self._t_rel(frame))
+        if twd is None and tws is None:
+            return None
+        return (f"{twd:.0f}°" if twd is not None else "--°",
+                f"{tws:.1f} kn" if tws is not None else "-- kn")
+
+    def _clock(self, frame: int) -> Tuple[str, str]:
+        t_rel = self._t_rel(frame)
         since = t_rel - self.first_start
         wall = _dt.datetime.fromtimestamp(self.t0_epoch + t_rel)
         m, s = divmod(int(abs(since)), 60)
@@ -256,6 +279,38 @@ class Overlay:
         y += self.px(HUD_TIME) + pad
         draw.text((x0 + pad, y), state, font=self.f_state, fill=_rgba("amber"), anchor="la")
 
+        # Wind, in the same instrument case as the clock and to the same
+        # rhythm -- label, the figure that matters, then the second line in
+        # amber -- so the two read as one panel of instruments rather than as
+        # two designs sharing a lower third. Speed on top: it is what says
+        # whether this was a drift or a thrash, and the direction is already
+        # legible from the boats themselves.
+        wind = self._wind(frame)
+        wind_w = 0
+        if wind is not None:
+            twd_text, tws_text = wind
+            # Sized for the widest it could ever read, not for what it reads
+            # now. 99 degrees to 100, or 9.9 knots to 10.0, is a wider string,
+            # and sizing to the moment would have this panel breathe and shove
+            # the course board sideways every time the wind ticked over. The
+            # clock next to it is only steady because it is monospaced and
+            # always eight characters.
+            wind_w = int(max(draw.textlength("00.0 kn", font=self.f_time),
+                             draw.textlength("360°", font=self.f_state),
+                             draw.textlength("TRUE WIND", font=self.f_label)) + 2 * pad)
+            wx = x0 + inst_w + self.px(GAP)
+            draw.rectangle([wx, y0, wx + wind_w, y1], fill=_rgba("panel", PANEL_ALPHA))
+            draw.rectangle([wx, y0, wx + wind_w, y0 + max(1, self.px(0.0015))],
+                           fill=_rgba("panel_rule", 235))
+            wy = y0 + pad
+            draw.text((wx + pad, wy), "TRUE WIND", font=self.f_label,
+                      fill=_rgba("panel_label"), anchor="la")
+            wy += self.px(HUD_LABEL) + pad
+            draw.text((wx + pad, wy), tws_text, font=self.f_time, fill=_rgba("panel_ink"), anchor="la")
+            wy += self.px(HUD_TIME) + pad
+            draw.text((wx + pad, wy), twd_text, font=self.f_state, fill=_rgba("amber"), anchor="la")
+            wind_w += self.px(GAP)
+
         # Course board: the race name over "COURSE N" and the rounding chips.
         chip_h = self.px(HUD_CHIP_H)
         chips = []
@@ -267,7 +322,7 @@ class Overlay:
         board_w = int(max(draw.textlength(self.race_name, font=self.f_name),
                           label_w + self.px(0.01) + chips_w) + 2 * pad)
         board_h = self.px(HUD_NAME) + chip_h + 3 * pad
-        bx = x0 + inst_w + self.px(0.01)
+        bx = x0 + inst_w + self.px(GAP) + wind_w
         by0 = y1 - board_h
         draw.rectangle([bx, by0, bx + board_w, y1], fill=_rgba("paper", PAPER_ALPHA))
         draw.text((bx + pad, by0 + pad), self.race_name, font=self.f_name,
