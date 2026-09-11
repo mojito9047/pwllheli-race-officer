@@ -45,11 +45,15 @@ class TestTheJob:
         job = replay3d.build_job(self._scene())
         assert job["job"]["out_key"] == replay3d.film_key(69)
 
-    def test_assets_are_optional(self):
-        """No terrain built yet is a film with sea and boats, not a failure."""
-        assert replay3d.build_job(self._scene())["job"]["assets"] == {}
-        job = replay3d.build_job(self._scene(), assets={"imagery": "replay3d/assets/bay.png"})
-        assert job["job"]["assets"]["imagery"] == "replay3d/assets/bay.png"
+    def test_a_job_names_no_terrain(self):
+        """The coastline is the render machine's business, not the job's.
+
+        It is the same for every race at a club, so the renderer works out
+        which map tiles a scene covers and keeps them in a cache of its own.
+        A job that named terrain would be a job that could name the wrong
+        terrain, and something somebody had to build before the first film.
+        """
+        assert "assets" not in replay3d.build_job(self._scene())["job"]
 
     def test_the_render_settings_travel_with_the_job(self):
         """So a re-render at a different speed does not need the renderer changing."""

@@ -47,7 +47,6 @@ the hut, which is the point.
 | `replay3d/jobs/race_<id>.json` | the scene, wrapped in what to do with it |
 | `replay3d/status/race_<id>.json` | state, progress, ETA, the finished film's address |
 | `replay3d/status/renderer.json` | a heartbeat, so "nothing happened" can be told from "no renderer" |
-| `replay3d/assets/…` | terrain, imagery and fonts, uploaded once |
 | `replay3d/films/race_<id>.mp4` | the result |
 
 The job and the scene are one object rather than two, because two means a renderer can

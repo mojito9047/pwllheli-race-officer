@@ -26,7 +26,6 @@ SCENE_FORMAT = "pwllheli-replay3d/1"
 # nothing has to be opened up on either side.
 JOBS_PREFIX = "replay3d/jobs"
 STATUS_PREFIX = "replay3d/status"
-ASSETS_PREFIX = "replay3d/assets"
 FILMS_PREFIX = "replay3d/films"
 # One file, written by whichever renderer is running, saying it is alive. This
 # is what turns "I pressed the button and nothing happened" into "the render

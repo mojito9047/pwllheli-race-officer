@@ -49,7 +49,7 @@ from branding import (  # noqa: E402  (beside this script)
     BRANDING_MANIFEST_URL,
     branding_from_api,
 )
-from fonts import ensure_fonts  # noqa: E402  (beside this script)
+from fonts import ensure_fonts, font_trouble  # noqa: E402  (beside this script)
 from core import r2  # noqa: E402  (a standalone S3 signer; no app, no database)
 from core.replay3d_protocol import (  # noqa: E402  (the bucket contract, shared with the hut)
     HEARTBEAT_KEY,
@@ -227,17 +227,18 @@ def run_job(store: Store, job: Dict[str, Any], who: str, blender: str) -> str:
     # to PIL's default bitmap face when they are not there. That fallback is
     # not obvious in a log and very obvious in the film, so unpack them first.
     fonts = ensure_fonts(work)
-    if fonts.get("skipped"):
-        print(f"  FONTS: {fonts['skipped']} - the film will be set in the wrong face",
-              flush=True)
+    trouble = font_trouble(fonts)
+    if trouble:
+        print(f"  FONTS: {trouble}", flush=True)
+    else:
+        print(f"  fonts: {len(fonts['written']) + len(fonts['present'])} ready", flush=True)
 
     scene = {k: v for k, v in job.items() if k != "job"}
 
     print(f"  land for race {race_id}", flush=True)
     token = os.environ.get("MAPBOX_TOKEN", "").strip() or None
-    bucket = assets.Bucket(store.account_id, store.bucket, store.access_key, store.secret_key)
     try:
-        land = assets.land_for_scene(scene, work, bucket, token=token)
+        land = assets.land_for_scene(scene, work, token=token)
         if land:
             scene["terrain"] = land
     except Exception as exc:

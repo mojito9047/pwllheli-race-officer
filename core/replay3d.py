@@ -49,7 +49,6 @@ from core.track import (
 # The half of this the render machine also needs, kept where it can import
 # it without importing the app. Re-exported so every caller here is unchanged.
 from core.replay3d_protocol import (  # noqa: E402,F401
-    ASSETS_PREFIX,
     FILMS_PREFIX,
     HEARTBEAT_KEY,
     JOB_STATES,
@@ -757,17 +756,18 @@ def branding_manifest_url() -> str:
     return f"{base}/api/branding/live" if base else ""
 
 
-def build_job(scene: Dict[str, Any], *, assets: Optional[Dict[str, str]] = None,
-              requested_by: str = "", speed: float = 30.0, slow_step: int = 5) -> Dict[str, Any]:
+def build_job(scene: Dict[str, Any], *, requested_by: str = "",
+              speed: float = 30.0, slow_step: int = 5) -> Dict[str, Any]:
     """Wrap a scene in the instructions a renderer needs to act on it.
 
     The scene and the job travel as one object rather than two. They are only a
     few hundred kilobytes together, and two files means a renderer can pick up
     a job whose scene has not landed yet.
 
-    ``assets`` names the shared terrain and imagery in the bucket. A job with no
-    assets still renders: the film simply has sea, marks and boats and no land,
-    which is a reasonable thing to get if nobody has built the terrain yet.
+    It names no terrain. The coastline is the same for every race at a club,
+    so the render machine works out which map tiles the scene covers and keeps
+    them in a cache of its own -- nothing to build, nothing to name here, and
+    nothing anybody has to remember when a longer course is set.
     """
     race = scene.get("race") or {}
     job = {
@@ -778,7 +778,6 @@ def build_job(scene: Dict[str, Any], *, assets: Optional[Dict[str, str]] = None,
             "race_name": race.get("name") or "",
             "created_at": time.time(),
             "created_by": requested_by or "",
-            "assets": dict(assets or {}),
             # Where the render machine can read the club's current logos. It
             # is the public manifest the live-stream relay already uses, so
             # the film agrees with the start and finish videos and there is
@@ -848,7 +847,7 @@ def _get_json(cfg: Dict[str, Any], key: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def submit_render(race_id: int, *, requested_by: str = "", assets: Optional[Dict[str, str]] = None,
+def submit_render(race_id: int, *, requested_by: str = "",
                   speed: float = 30.0, slow_step: int = 5, **scene_kwargs: Any) -> Dict[str, Any]:
     """Export the race and queue it for whichever machine is rendering.
 
@@ -862,7 +861,7 @@ def submit_render(race_id: int, *, requested_by: str = "", assets: Optional[Dict
         raise RuntimeError("Public video R2 is not configured, so there is nowhere to put a render job.")
 
     scene = build_scene(race_id, **scene_kwargs)
-    job = build_job(scene, assets=assets, requested_by=requested_by, speed=speed, slow_step=slow_step)
+    job = build_job(scene, requested_by=requested_by, speed=speed, slow_step=slow_step)
 
     status = blank_status(race_id, "queued", "waiting for a renderer")
     _put_json(cfg, status_key(race_id), status)

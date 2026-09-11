@@ -1,24 +1,28 @@
 #!/usr/bin/env python3
-"""The land a scene needs, fetched on demand and cached where the next job can use it.
+"""The land a scene needs, fetched on demand and cached on this machine.
 
 A job says where the race was. It does not carry the coastline, because the
 coastline is the same for every race at a club and 54,000 height samples in
 every job would be silly. So the renderer works out which map tiles the scene
-covers and gets them: from its own disk if it has them, from the shared cache
-in the bucket if another render has already been here, and only otherwise from
-Mapbox and Copernicus. Anything it had to fetch goes back into the bucket.
+covers and gets them: from its own disk if it has them, and only otherwise
+from Mapbox and Copernicus.
 
-That is the whole point of doing it this way rather than building one big asset
-by hand. The first job for a club pays for its area -- 273 tiles and 8.6 MB for
-the water Pwllheli usually races on -- and every job after it is free, on any
-machine. A passage race out to the Gwylan Islands simply pulls the tiles it
+The cache is a directory under runtime/, shared by every job this machine
+renders. The first film over a stretch of water pays for its area -- 273 tiles
+and 8.6 MB for the water Pwllheli usually races on -- and every film after it
+is free. A passage race out to the Gwylan Islands simply pulls the tiles it
 needs on the day. There is nothing for anyone to set up, and nothing to
 remember when somebody sets a longer course.
 
-Two secrets live on the render machine and neither may travel in a job, because
-a job is publicly readable: the Mapbox token and the bucket's write key. The
-elevation data needs no credentials at all; Copernicus serves it from a public
-bucket.
+Local, not shared through R2. A club renders a handful of courses and the
+whole of Pwllheli bay is a few hundred tiles, comfortably inside Mapbox's free
+tier, so a copy in the bucket saved nothing that mattered and cost a cache to
+keep in step, an upload on every miss, and the renderer needing write access
+to a bucket it otherwise only ever reads a job from.
+
+One secret lives on the render machine and may not travel in a job, because a
+job is publicly readable: the Mapbox token. The elevation data needs no
+credentials at all; Copernicus serves it from a public bucket.
 """
 from __future__ import annotations
 
@@ -34,10 +38,6 @@ sys.path.insert(0, _HERE)
 
 from fetch_mapbox import CACHE_DIR as MAPBOX_CACHE, TILE_PX, fetch_tile, lat_to_tile_y, lon_to_tile_x, read_token  # noqa: E402
 from terrain import imagery_for_terrain, terrain_grid  # noqa: E402
-
-# Where the shared cache lives in the bucket, beside the jobs and the films.
-TILE_PREFIX = "replay3d/assets/tiles"
-DEM_PREFIX = "replay3d/assets/dem"
 
 # Copernicus GLO-30, one degree per tile, served without credentials.
 DEM_HOST = "https://copernicus-dem-30m.s3.amazonaws.com"
@@ -96,75 +96,25 @@ def dem_tiles_for(bounds: Dict[str, float]) -> List[str]:
 # ---------------------------------------------------------------------------
 # The shared cache.
 
-class Bucket:
-    """The bits of R2 the renderer needs, or nothing at all.
+def _cached_file(path: str, fetch) -> Tuple[str, str]:
+    """Return (path, where it came from): 'disk' or 'source'.
 
-    Constructed with no credentials it still works: everything falls through to
-    fetching from source and caching on local disk. That keeps a developer able
-    to render without the bucket, and it means a credential problem degrades
-    into a slow render rather than a failed one.
-    """
-
-    def __init__(self, account_id: str = "", bucket: str = "", access_key: str = "",
-                 secret_key: str = "") -> None:
-        self.ready = bool(account_id and bucket and access_key and secret_key)
-        self.account_id, self.bucket = account_id, bucket
-        self.access_key, self.secret_key = access_key, secret_key
-        self._r2 = None
-        if self.ready:
-            root = os.path.dirname(os.path.dirname(_HERE))
-            if root not in sys.path:
-                sys.path.insert(0, root)
-            # core/r2.py is a standalone S3 signer: no database, no app. Using it
-            # rather than writing a second one keeps one implementation of SigV4.
-            from core import r2 as _r2
-            self._r2 = _r2
-
-    def get(self, key: str) -> Optional[bytes]:
-        if not self.ready:
-            return None
-        try:
-            return self._r2.get_object(self.account_id, self.bucket, key,
-                                       self.access_key, self.secret_key)
-        except Exception:
-            return None
-
-    def put(self, key: str, body: bytes, content_type: str) -> bool:
-        if not self.ready:
-            return False
-        try:
-            self._r2.put_object(self.account_id, self.bucket, key, body,
-                                self.access_key, self.secret_key, content_type=content_type)
-            return True
-        except Exception:
-            return False
-
-
-def _cached_file(path: str, key: str, bucket: Bucket, fetch, content_type: str) -> Tuple[str, str]:
-    """Return (path, where it came from): 'disk', 'bucket' or 'source'.
-
-    Local disk first because it is free, then the bucket, then the original.
-    Anything fetched from the original is pushed to the bucket so the next
-    render -- or the next machine -- does not fetch it again.
+    The cache is a directory on this machine, shared by every job it renders,
+    so the first film over a stretch of water pays for the tiles and every
+    film after it is free. It deliberately does not also push them to R2: a
+    club renders a handful of courses, the download is a few hundred tiles
+    inside Mapbox's free tier, and a second copy in the bucket bought nothing
+    but a second thing to keep in step.
     """
     if os.path.exists(path) and os.path.getsize(path) > 0:
         return path, "disk"
     os.makedirs(os.path.dirname(path), exist_ok=True)
-
-    body = bucket.get(key)
-    if body:
-        with open(path + ".part", "wb") as f:
-            f.write(body)
-        os.replace(path + ".part", path)
-        return path, "bucket"
-
     body = fetch()
+    # Written aside and moved into place, so an interrupted download cannot
+    # leave a half tile in the cache to be trusted for ever afterwards.
     with open(path + ".part", "wb") as f:
         f.write(body)
     os.replace(path + ".part", path)
-    # Each tile is its own object, so two renderers racing on the same one just
-    # write the same bytes twice. Nothing assembles a combined file up there.
-    bucket.put(key, body, content_type)
     return path, "source"
 
 
@@ -174,27 +124,17 @@ def _http_get(url: str, timeout: float = 180.0) -> bytes:
         return resp.read()
 
 
-def ensure_imagery_tiles(tiles: List[Tuple[int, int, int]], bucket: Bucket,
+def ensure_imagery_tiles(tiles: List[Tuple[int, int, int]],
                          token: Optional[str] = None, workers: int = 6) -> Dict[str, int]:
     """Make sure every satellite tile is on local disk. Returns where they came from."""
     tok = read_token(token)
-    counts = {"disk": 0, "bucket": 0, "source": 0}
+    counts = {"disk": 0, "source": 0}
 
     def one(z: int, x: int, y: int) -> str:
         path = os.path.join(MAPBOX_CACHE, str(z), str(x), f"{y}.jpg")
-        key = f"{TILE_PREFIX}/{z}/{x}/{y}.jpg"
         if os.path.exists(path) and os.path.getsize(path) > 0:
             return "disk"
-        body = bucket.get(key)
-        if body:
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path + ".part", "wb") as f:
-                f.write(body)
-            os.replace(path + ".part", path)
-            return "bucket"
         fetch_tile(z, x, y, tok)                       # writes into the disk cache itself
-        with open(path, "rb") as f:
-            bucket.put(key, f.read(), "image/jpeg")
         return "source"
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
@@ -203,15 +143,14 @@ def ensure_imagery_tiles(tiles: List[Tuple[int, int, int]], bucket: Bucket,
     return counts
 
 
-def ensure_dem_tiles(names: List[str], bucket: Bucket) -> Tuple[List[str], Dict[str, int]]:
+def ensure_dem_tiles(names: List[str]) -> Tuple[List[str], Dict[str, int]]:
     """Make sure every elevation tile is on local disk. Returns (paths, provenance)."""
-    paths, counts = [], {"disk": 0, "bucket": 0, "source": 0}
+    paths, counts = [], {"disk": 0, "source": 0}
     for name in names:
         path = os.path.join(DEM_CACHE, f"{name}.tif")
-        key = f"{DEM_PREFIX}/{name}.tif"
         try:
             got_path, where = _cached_file(
-                path, key, bucket, lambda n=name: _http_get(f"{DEM_HOST}/{n}/{n}.tif"), "image/tiff")
+                path, lambda n=name: _http_get(f"{DEM_HOST}/{n}/{n}.tif"))
         except Exception as exc:
             # A tile that is all sea is not published at all, which is not an
             # error: the grid simply has no land in that square.
@@ -225,7 +164,7 @@ def ensure_dem_tiles(names: List[str], bucket: Bucket) -> Tuple[List[str], Dict[
 # ---------------------------------------------------------------------------
 # Putting the land into a scene.
 
-def land_for_scene(scene: Dict[str, Any], out_dir: str, bucket: Bucket, *,
+def land_for_scene(scene: Dict[str, Any], out_dir: str, *,
                    zoom: int = DEFAULT_ZOOM, cell_m: float = DEFAULT_CELL_M,
                    token: Optional[str] = None, margin_m: float = LAND_MARGIN_M
                    ) -> Optional[Dict[str, Any]]:
@@ -239,7 +178,7 @@ def land_for_scene(scene: Dict[str, Any], out_dir: str, bucket: Bucket, *,
     race_id = int((scene.get("race") or {}).get("id") or 0)
 
     dem_names = dem_tiles_for(bounds)
-    dem_paths, dem_counts = ensure_dem_tiles(dem_names, bucket)
+    dem_paths, dem_counts = ensure_dem_tiles(dem_names)
     if not dem_paths:
         print("  land: no elevation tiles, so the scene gets sea only")
         return None
@@ -257,7 +196,7 @@ def land_for_scene(scene: Dict[str, Any], out_dir: str, bucket: Bucket, *,
 
     tiles = imagery_tiles_for(bounds, zoom)
     try:
-        counts = ensure_imagery_tiles(tiles, bucket, token)
+        counts = ensure_imagery_tiles(tiles, token)
         print(f"  imagery: {len(tiles)} tile(s) {counts}")
         mosaic = _mosaic_path(bounds, zoom, out_dir)
         _build_mosaic(tiles, bounds, zoom, mosaic)

@@ -11,13 +11,14 @@ in the same bucket beside the start and finish clips it is made from.
    race results page                             ┌───────────────────────────┐
      [ Render 3D replay ]  ──── job ───────────► │ replay3d/jobs/649.json    │
                                                  │ replay3d/status/649.json  │◄─┐
-   dashboard "3D replay" card ◄──── status ───── │ replay3d/assets/…  (tiles)│  │
+   dashboard "3D replay" card ◄──── status ───── │                           │  │
    race page  ◄────────────────── the film ───── │ replay3d/films/649.mp4    │  │
                                                  └───────────────────────────┘  │
                                                          ▲     │                │
    The render machine (anywhere with a GPU)              │     ▼                │
      renderer.py ── polls every 30 s ────────────────────┘  claims the job ─────┘
        Blender × N ── frames ──► compose ── overlay ──► MP4 ──► upload
+       runtime/replay3d/ ── its own tile cache ◄── Mapbox + Copernicus, on a miss
 ```
 
 Nothing connects **to** the render machine and it never talks to the hut. Both
@@ -210,7 +211,9 @@ by running it, so it catches both before a job is claimed.
 
 **The film has no land.** The `land for race N` step said why. Usually
 `MAPBOX_TOKEN` — the first job over a new stretch of water is the one that
-fetches tiles; after that they are cached in the bucket and it renders offline.
+fetches tiles. After that they are in this machine's own cache under
+`runtime/replay3d/` and it renders that water offline. The cache is worth
+keeping if you ever move the checkout; losing it costs one job's downloads.
 
 **The film is set in the wrong typeface.** `fontTools` or `brotli` missing, so
 the woff2 faces could not be converted and PIL fell back to its bitmap font.
