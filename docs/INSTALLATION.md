@@ -29,7 +29,7 @@ The normal deployment is a Windows Scheduled Task called **Pwllheli Race Officer
 From the unzipped project folder:
 
 ```bash
-cd pwllheli_race_officer_v1_001
+cd pwllheli_race_officer_v1_002
 python -m venv .venv
 ```
 
@@ -117,7 +117,7 @@ For other devices to view the app or public pages, run on a PC reachable on the 
 For an internet-facing deployment the defaults are already hardened: session cookies are `Secure`, `HttpOnly` and `SameSite=Lax`, security response headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, HSTS) are sent, request bodies are capped, and repeated failed logins are rate-limited per client IP + username.
 
 - `RO_COOKIE_SECURE` — session cookies are `Secure` by default (they only work over HTTPS). When testing locally over plain `http://` (e.g. `http://localhost:5050`), set `RO_COOKIE_SECURE=0` or the browser will refuse to store the login cookie. Leave it unset in production behind Cloudflare/HTTPS.
-- `RO_PUBLIC_BASE_URL` — the address the outside world reaches the app on, e.g. `https://pro.pwllhelisailingclub.org`. Sets the initial value of **Settings → Web server → Public address**, which is where you would normally change it. Behind a Cloudflare Tunnel the app only ever sees the tunnel's own internal hostname and a plain `http` scheme, so without this every link it builds — competitor share links, the QR code, the logo addresses in `/api/branding/live` that the live-stream relay downloads — points at that internal name. Leave it empty on the hut LAN. Scheme and host only.
+- `RO_PUBLIC_BASE_URL` — the address the outside world reaches the app on, e.g. `https://pro.pwllhelisailingclub.org`. Sets the initial value of **Settings → Web server → Public address**, which is where you would normally change it. Behind a Cloudflare Tunnel the app only ever sees the tunnel's own internal hostname and a plain `http` scheme, so without this every address it builds for the outside world — the logo addresses in `/api/branding/live` that the live-stream relay downloads, and the same manifest a 3D replay render machine reads to brand a film — points at that internal name. Leave it empty on the hut LAN. Scheme and host only.
 - `RO_MAX_UPLOAD_MB` — maximum request/upload size in MB (default `64`). Raise it only if restoring a very large backup ZIP that contains video clips.
 - `RO_WEATHER_ALLOWED_HOSTS` — optional comma-separated allow-list restricting which hosts the weather-station poller may connect to (defence-in-depth against SSRF on an exposed box).
 - `RO_DB_TIMEOUT_S` — how long a database write waits for another writer before giving up (default `30`). The database uses rollback journalling rather than WAL, so a writer excludes readers; waiting beats failing, because a finish that is not recorded is the one thing the app cannot afford to lose.

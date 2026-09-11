@@ -261,8 +261,10 @@ story += note_box(
 story.append(Paragraph("1.2 &nbsp; The dashboard", styles["H2"]))
 story.append(Paragraph(
     "After signing in you land on the <b>Dashboard</b>. It is a single at-a-glance view of race-office status: "
-    "the currently active race and its countdown clock, the live wind reading, whether the horn and video systems "
-    "are configured, and the club's own start-line, finish-line and radio notes for quick reference during racing.",
+    "the currently active race and its countdown clock, the live wind reading, the marks and any trackers "
+    "reporting, and whether the horn and video systems are configured. Everything on it is something that "
+    "changes during a day; the club's standing start-line, finish-line and radio notes belong to the Sailing "
+    "Instructions and are no longer repeated here.",
     styles["Body"]))
 story.append(figure("02_dashboard.png", "The Dashboard. “Current race” always tracks the most relevant "
                                          "race — this is also what the public competitor page shows by default."))
@@ -909,6 +911,30 @@ story += note_box(
     "need GPS tracking running to be worth putting up; without it there is nothing to draw.")
 
 story.append(Paragraph("13.6 &nbsp; Replaying a race in the bar", styles["H2"]))
+
+story.append(Paragraph("13.7 &nbsp; A 3D film of the race", styles["H2"]))
+story.append(Paragraph(
+    "Beside that button on the same <b>Results</b> tab is <b>Render a 3D film</b>. It makes a film of the "
+    "race in three dimensions - the fleet sailing the course they actually sailed, over the real coastline, "
+    "trimmed to the wind of the moment, with the hut camera cut in at the start and at the finishes and the "
+    "club's own branding on it. It is built from the tracks, the course, the wind log and the videos you "
+    "already recorded, so there is nothing extra to do on the water.", styles["Body"]))
+story.append(bullets([
+    "<b>The race-office PC does not make it.</b> It cannot - it is a fanless box that is also running the "
+    "race. Pressing the button queues the job, and a separate render machine picks it up and does the work. "
+    "Nothing happens at all until that machine is switched on, which is what the dashboard's <b>3D replay</b> "
+    "card is there to tell you.",
+    "<b>Think this evening, not this minute.</b> An eight-minute film takes between twenty minutes and a "
+    "couple of hours depending on the machine. The page shows how far it has got.",
+    "<b>Publish the race videos first</b> if you want the hut camera in it. The film is made either way; it "
+    "simply has no camera inset for clips that have not been published, and the button says so before you "
+    "press it.",
+    "<b>Competitors get it by themselves.</b> Once the film exists a link appears on the public races list, "
+    "on that race's public page and in the published results - nothing to send round.",
+]))
+story.append(figure("replay3d_film.png",
+                    "A finish, from a film of a club race.", max_h=8 * cm))
+
 story.append(Paragraph(
     "The same television will play a race back for people coming in from sailing. On the race sheet's "
     "<b>Results</b> tab, <b>Replay this race in the bar</b> puts it up: anybody signed in can start one, it "

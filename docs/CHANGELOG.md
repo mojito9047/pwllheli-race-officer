@@ -1,5 +1,60 @@
 # Change log
 
+## v1.002
+
+**A race, as a film.** The app can now turn a sailed race into a 3D replay: the fleet on the water
+in three dimensions, sailing the course they actually sailed, over the real coastline, with the
+start-hut camera cut in at the start and at each finish. It is built from what the race office
+already recorded — GPS tracks, the course as sailed, the wind log, the results and the published
+videos — so there is nothing extra to do on the water to get one. On a race's **Results** tab,
+beside *Replay this race in the bar*, there is **Render a 3D film**.
+
+**The hut PC does not make it, and does not try.** A replay is around eleven thousand frames and
+the race-office PC is a fanless box that is also running the race. Pressing the button writes a job
+into the same R2 bucket the club's race videos already use; a render machine somewhere else — a
+desktop with a graphics card, switched on when there is something to make — picks it up, makes the
+film and puts it back beside the clips it is made from. Neither machine connects to the other: the
+hut only pushes and the renderer only polls, so nothing has to be opened up at either end. A
+dashboard card says whether there is a render machine at all, because a job queued against one that
+is switched off otherwise looks exactly like one being worked on.
+
+**Competitors get the film without being sent it.** Once one exists, a link appears by itself on the
+public races list, on that race's own page and in each race's section of a published results
+document. Every one of them goes straight to the bucket rather than through the hut, so a film plays
+whether or not the clubhouse PC is on and a large download never crosses the hut's 4G connection.
+Nothing shows until the film is really there.
+
+**The fleet is trimmed to the wind of the moment, not the race's average.** The scene carries the
+whole wind log. For one club race the mean was 162° while the wind actually went from 122° to 196°
+and built from two knots to eight, so an average would have shown a fleet trimmed to a wind that was
+only briefly true — and the shift that decided the race would not have been on screen at all. Heel
+follows the breeze and a spinnaker goes up when the angle calls for one. A true wind readout sits
+between the race clock and the course board.
+
+**A render machine is built from a release ZIP**, like everything else at this club. The renderer
+ships inside it, so there is no separate download and no source checkout: unzip, make a virtual
+environment, install Blender. It needs a graphics card — EEVEE will not start without one — and it
+holds no club race data: the course, the marks and both lines are baked into the job it is handed.
+Full procedure in `deploy/render_machine/README.md`, which is also on the Documentation page.
+
+**Map tiles are cached on the render machine rather than in R2.** The first film over a stretch of
+water fetches what it needs and every film after it is free. A club renders a handful of courses and
+the whole of Pwllheli bay is a few hundred tiles, well inside Mapbox's free tier, so a second copy
+in the bucket bought nothing and cost a cache to keep in step.
+
+**The start line, finish line and radio/limits cards are off the dashboard.** They never changed.
+That is Sailing Instructions, not a dashboard, and three cards of standing text were taking room on
+the page the race office leaves open all day, above the things that do change.
+
+**A release is 14 MB again.** `data/dem` — 30 MB of map scratch, untracked, and present only on a
+machine that had once run the fetch scripts — was being swept into the ZIP. Nothing installed reads
+it. A release built on the wrong machine went out at 44 MB over the hut's 4G link.
+
+**Documentation.** A new guide, `docs/RACE_REPLAY_3D.md`, and a chapter in the Reference Manual, a
+section in the race-day guide and one in the Competitor Guide. Two older errors went with them: the
+manuals described a dashboard that no longer exists, and both the manual and the installation guide
+claimed the app builds a QR code and competitor share links. It does not, and never did.
+
 ## v1.001
 
 **Security, from an external check of the live site.** A read-only probe on 10 September 2026

@@ -31,9 +31,12 @@ on different machines:
   the things a hut has no business doing: decoding a digital elevation model, draping
   imagery, downloading clips, drawing cards.
 
-A scene deliberately carries no terrain. The height grid and the satellite imagery are the
-same for every race at one club, so they are built once and shared; a scene names them and
-the renderer fetches them. Fifty-four thousand height samples in every job would be silly.
+A scene deliberately carries no terrain, and names none. Fifty-four thousand height
+samples in every job would be silly, and the coastline is the same for every race at one
+club anyway. The renderer works out which map tiles a scene covers and keeps them in a
+cache of its own under `runtime/`: the first film over a stretch of water pays for its
+area, every film after it is free, and nobody has to build or name anything before the
+first render or when somebody sets a longer course.
 
 ### The job and the status beside it
 

@@ -517,8 +517,11 @@ story.append(Paragraph(
 
 story.append(Paragraph("The Dashboard", styles["H2"]))
 story.append(Paragraph(
-    "The landing page after login. A single at-a-glance view: the currently active race and its countdown, "
-    "live wind, horn/video configuration status, and the club's own start-line, finish-line and radio notes.",
+    "The landing page after login. A single at-a-glance view of what needs watching: the currently active "
+    "race and its countdown, live wind, the marks and any reporting trackers, horn, video and hut-power "
+    "status, the age of the last off-site backup, and — when the club makes them — how a 3D replay render "
+    "is getting on. Everything on it is something that changes; the club's standing start-line, finish-line "
+    "and radio notes are Sailing Instructions and were taken off it in v1.002.",
     styles["Body"]))
 story.append(figure("02_dashboard.png", "The Dashboard."))
 
@@ -1501,6 +1504,7 @@ story.append(Paragraph(
     "going wrong.", styles["Body"]))
 
 story.append(Paragraph("Web server sizing", styles["H2"]))
+
 story.append(Paragraph(
     "<b>Settings → Web server</b> sets how much the app takes on at once: <b>worker threads</b> (4–64, "
     "default 8), the <b>connection limit</b> (50–512, default 100) and the <b>idle timeout</b> "
@@ -1518,13 +1522,15 @@ story += note_box(
 story.append(Paragraph(
     "The same section carries the <b>public address</b>, which is not about sizing: it is the address "
     "competitors type in, and it is what the app uses for any address it builds for the outside "
-    "world. Today that is the logo addresses the live-stream relay fetches from the branding "
-    "manifest \u2014 and anything made from an address the app hands out, such as a QR code on the "
-    "noticeboard. Reached from outside, "
+    "world. Two things consume those addresses today: the logo addresses the live-stream relay "
+    "fetches from the branding manifest, and the same manifest read by a <b>3D replay render "
+    "machine</b> when it brands a film. Reached from outside, "
     "the app is behind the relay and sees only the tunnel’s own internal hostname, so without this "
     "those addresses name a machine nobody can reach. Leave it empty on the hut network, where the address a "
     "request arrived on is already the right one. Scheme and host only, and unlike the three above it "
-    "takes effect immediately rather than on a restart.",
+    "takes effect immediately rather than on a restart. Neither failure is loud \u2014 the stream "
+    "simply carries no logos and a film comes out unbranded \u2014 which is why it is worth setting "
+    "when the club is first published rather than diagnosing later.",
     styles["Body"]))
 
 story.append(Paragraph("Slow-request log", styles["H2"]))
@@ -2268,6 +2274,116 @@ story.append(Paragraph(
     "Saving <b>Course &amp; start</b> with the picker left on <b>Course not set</b> saves everything else "
     "and leaves the race without a course, so a first warning signal can be set before the course is "
     "known. It only ever goes one way: a course already chosen stays chosen.", styles["Body"]))
+
+
+# ================================================================================================
+# PART X - 3D RACE REPLAY FILMS
+# ================================================================================================
+story.append(PageBreak())
+story += part_heading("Part X - 3D race replay films", "Chapter 26", "Making a film of a race")
+story.append(Paragraph(
+    "The app can turn a sailed race into a <b>film</b>: the fleet on the water in three dimensions, "
+    "sailing the course they actually sailed, over the real coastline, with the hut camera cut in at the "
+    "start and at the finishes. It is built from what the race office already recorded &#8212; GPS tracks, "
+    "the course as sailed, the wind log, the results and the published start and finish videos &#8212; so "
+    "there is nothing extra to do on the water to get one.", styles["Body"]))
+story.append(figure("replay3d_film.png",
+                    "A finish, from a film of a club race: the fleet in three dimensions, the hut camera "
+                    "cut in against the same race clock, and the club's own branding.",
+                    max_h=9 * cm))
+
+story.append(Paragraph("The hut PC does not make the film", styles["H2"]))
+story.append(Paragraph(
+    "It cannot. A single replay is around eleven thousand frames, which is a couple of hours of work for a "
+    "machine with a graphics card, and the race-office PC is a fanless box that is also running the race. "
+    "So it does not try. Pressing <b>Render a 3D film</b> writes a <i>job</i> into the same Cloudflare R2 "
+    "bucket the club's race videos already use. A separate <b>render machine</b> &#8212; a desktop at home, "
+    "switched on when there is something to make &#8212; picks the job up, makes the film, and puts it back "
+    "in that bucket beside the clips it is made from.", styles["Body"]))
+story += note_box(
+    "Neither machine connects to the other. The hut only ever pushes and the render machine only ever "
+    "polls, so the render machine needs no route into the club and can sit behind any router. It also "
+    "means nothing happens until a render machine is switched on: a job queued against one that is off "
+    "waits patiently, which is what the dashboard card is for.")
+story.append(Paragraph(
+    "A render machine is built by unzipping the same release as the clubhouse PC &#8212; the renderer ships "
+    "inside it &#8212; onto a machine with a graphics card. The full procedure is in "
+    "<b>deploy/render_machine/README.md</b>, which is also on the Documentation page. A club with no "
+    "render machine simply never sees the button do anything, and nothing else in the app is affected.",
+    styles["Body"]))
+
+story.append(Paragraph("Asking for a film", styles["H2"]))
+story.append(Paragraph(
+    "On a race's <b>Results</b> tab, beside <i>Replay this race in the bar</i>, there is <b>Render a 3D "
+    "film</b>. Any signed-in user may press it: it costs a little storage and somebody else's computer, "
+    "and the person who wants the film after a race is not always an administrator.", styles["Body"]))
+story.append(Paragraph("What it tells you when you press it:", styles["Body"]))
+story.append(bullets([
+    "<b>How many boats, and how long the racing was</b> &#8212; enough to see it picked up the race you "
+    "meant.",
+    "<b>A warning if race videos have not been published yet.</b> The film cuts the hut camera in at the "
+    "start and at each finish and can only use clips that have reached the bucket. This is not a failure: "
+    "the film is made either way, it simply has no inset for the missing clips. Publish the videos first "
+    "if you want them in it.",
+    "<b>Whether any render machine has checked in.</b> If none has, the job is queued and will be picked "
+    "up whenever one appears.",
+]))
+story.append(Paragraph(
+    "The same strip then shows progress and finally <b>Watch the film</b>. <b>Render it again</b> replaces "
+    "the film everywhere, including on links already shared. Treat a render as <i>this evening</i> rather "
+    "than <i>in a minute</i>: an eight-minute film of a three-boat race took two hours on a modest "
+    "graphics card and about twenty minutes on a good one.", styles["Body"]))
+
+story.append(Paragraph("The dashboard card", styles["H2"]))
+story.append(Paragraph(
+    "The <b>3D replay</b> card is not really about progress. It is about whether there is a render machine "
+    "at all, because a job queued against a machine that is switched off looks exactly like one being "
+    "worked on until somebody notices hours later. It names the race being worked on, says when no render "
+    "machine has checked in, and flags a render that stopped reporting part way through. It hides itself "
+    "completely when the club has not set this up.", styles["Body"]))
+
+story.append(Paragraph("What competitors see", styles["H2"]))
+story.append(Paragraph(
+    "Once a film exists a link appears by itself in three places: a <b>3D replay</b> button beside "
+    "<i>Open</i> in the public races list, <b>Watch the 3D replay</b> in the public race page header, and "
+    "a line in each race's section of a published results document. Nothing appears until the film is "
+    "actually in the bucket, so an unrendered race looks exactly as it did before. Every one of those "
+    "links goes straight to the storage bucket rather than through the hut, so a film plays whether or not "
+    "the clubhouse PC is switched on and a large download never crosses the hut's 4G connection.",
+    styles["Body"]))
+
+story.append(Paragraph("What is in the film", styles["H2"]))
+story.append(bullets([
+    "<b>The boats</b>, each in its own colour, heeling and trimmed to the wind of that moment and setting "
+    "a spinnaker when the angle calls for one. The wind is the race's own log sampled through the race "
+    "rather than averaged &#8212; on a day that went from 122&#176; to 196&#176;, an average would have "
+    "shown a fleet trimmed to a wind that was only briefly true.",
+    "<b>The course actually sailed</b>, including a shortened course, with the marks where they stood on "
+    "the day rather than where they are now.",
+    "<b>The start line and the finish line.</b> For an ISORA passage race these are not the same line, "
+    "and the film uses both.",
+    "<b>The hut camera</b>, cut in at the start and at each finish, locked to the same clock as the 3D "
+    "view so the picture and the boats agree.",
+    "<b>A race clock, the course board, the true wind and boat names</b>, in the app's own typefaces.",
+    "<b>The club burgee and the sponsors</b>, from the same source as the club's start and finish videos, "
+    "so changing a sponsor in Settings changes the films too.",
+]))
+story.append(Paragraph(
+    "The replay runs at 30&#215; real time, dropping to real time at the start and at each finish so those "
+    "can be watched properly.", styles["Body"]))
+
+story.append(Paragraph("Before it will work", styles["H2"]))
+story.append(bullets([
+    "<b>Public video (Cloudflare R2)</b> configured under <b>Settings &#8594; Video</b>. The films go in "
+    "the same bucket as the race videos, and both ends find each other through it.",
+    "<b>Settings &#8594; Web server &#8594; Public address</b> set to the address competitors use. The "
+    "render machine reads the club's logos from there; without it the film still renders, just unbranded.",
+    "<b>A render machine</b>, per <b>deploy/render_machine/README.md</b>.",
+]))
+story.append(Paragraph(
+    "Fuller operating notes, including what to check when a film comes out without land or without logos, "
+    "are in <b>docs/RACE_REPLAY_3D.md</b> on the Documentation page.", styles["Body"]))
+
 
 doc.multiBuild(story)
 print("PDF written to", OUT_PATH)

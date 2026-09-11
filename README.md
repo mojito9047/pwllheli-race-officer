@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.001
+# Pwllheli Race Officer v1.002
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -6,6 +6,24 @@ Race-office support software. It does not decide anything: official race decisio
 
 
 ## Recent releases
+
+### v1.002 update
+
+- **3D replay films.** A sailed race as a film: the fleet in three dimensions over the real
+  coastline, sailing the course they actually sailed, trimmed to the wind of the moment, with
+  the hut camera cut in at the start and the finishes and the club's own branding on it. The
+  race-office PC cannot render one and does not try &mdash; **Render a 3D film** on the Results
+  tab queues a job in the club's R2 bucket and a render machine elsewhere makes it. Competitors
+  get a link by themselves on the public races list, the public race page and the published
+  results. See [`docs/RACE_REPLAY_3D.md`](docs/RACE_REPLAY_3D.md).
+- **A render machine is built from a release ZIP**, like everything else at this club: the
+  renderer now ships inside it, so there is no separate download and no git. Setting one up:
+  [`deploy/render_machine/README.md`](deploy/render_machine/README.md).
+- **The dashboard lost the start line, finish line and radio/limits cards.** They never changed.
+  That is Sailing Instructions, not a dashboard, and they were taking room on the page the race
+  office leaves open all day.
+- **A release is 14 MB again.** `data/dem` &mdash; 30 MB of map scratch, untracked, and present
+  only on a machine that had fetched it &mdash; was being swept into the ZIP.
 
 ### v1.001 update
 
@@ -35,14 +53,6 @@ Race-office support software. It does not decide anything: official race decisio
 - **The IRC and YTC listings download while you type.** Both start when the Add/Edit boat page opens, and the search joins that download instead of starting a second one: 0.13 s instead of 3.24 s once you have typed a boat name.
 - **A finished race stops walking fixes recorded after it finished.** One sailed in July was reading 98,362 of them, six weeks of later tracking, and gaining a day's worth a day &mdash; 518 ms to draw, now 15 ms. A race still being sailed is still followed to now, with room for a passage race.
 - **A camera that is not answering no longer costs every request 286 ms**, FFmpeg is killed when the app closes, and the recorder log is bounded at 8 MB instead of the 65 MB it had reached.
-
-### v0.283 update
-
-- **A boat with no tracker on it is not out on the water.** In a race with no trackers assigned, boats were listed at 96.73 nm to go with a last fix twenty-seven days old &mdash; the display position reached outside the race window with no bound, so any boat that ever carried a tracker sat at wherever it last was, for ever. That reach is now bounded by an hour, the app's own definition of a tracker that is not reporting.
-- **A boat with nothing to report says which kind of nothing**: **Not reporting** when a tracker is on the boat and nothing has been heard from it, **No tracker** when there is none on it today &mdash; instead of a row showing *0/7 marks, next 1* beside an empty Fix.
-- **A course nobody set is not a course to sail round.** A race reading *Course: not set yet* listed a boat at *0/7 marks, next 1, 5.05 nm to go* &mdash; measured against course 1, the fallback the chart uses when no course has been chosen. The fleet list, the replay and GPS finish detection all walked that guess; none of them do now.
-- **The published results page fits a phone.** It overflowed sideways by 438px and gave the banner 30% of the screen; the results table now scrolls inside its own box and the banner shrinks. Zero horizontal overflow at 1440, 820 and 390.
-- **The footer no longer tells you to upload the file to the club website**, which the app has done itself since v0.281.
 
 ## Main features
 
@@ -77,6 +87,7 @@ Race-office support software. It does not decide anything: official race decisio
 - Public **competitor pages** — one responsive page for phones, tablets and PCs. Its **Chart** tab shows the fleet live, winds back through the race so far and plays it at up to 60x, with a translucent leaderboard rolling up over it.
 - That leaderboard offers the order on the water or an **estimated IRC/YTC corrected order**, projected from its average pace since the start (the default), its pace over the last twenty minutes, or its pace against its polar. Whichever is chosen drives the order *and* the times beside it. It is labelled an estimate, not a result.
 - A **clubhouse display** at `/bar` for a television in the club bar: the chart zoomed to the boats still racing, the leaderboards cycling beside it, and the start-hut camera at the start, at each rounding of the ODM and at each finish. No controls — open it once and leave it. See [`docs/BAR_DISPLAY.md`](docs/BAR_DISPLAY.md).
+- A **3D replay film** of a sailed race: the fleet in three dimensions over the real coastline, sailing the course they actually sailed, trimmed to the wind of the moment, with the hut camera cut in at the start and the finishes and the club's own branding on it. The hut PC cannot render a film and does not try — it queues the job in the club's R2 bucket and a render machine elsewhere makes it. Competitors get a link on the public pages and in the published results. See [`docs/RACE_REPLAY_3D.md`](docs/RACE_REPLAY_3D.md).
 - An optional **live camera** view, served on demand through the relay.
 
 **Running it**
@@ -229,6 +240,7 @@ Detailed documentation is in the `docs/` folder:
 - [`docs/WEATHER_STATION.md`](docs/WEATHER_STATION.md) — start-hut weather station setup.
 - [`docs/PUBLIC_COMPETITOR_PAGE.md`](docs/PUBLIC_COMPETITOR_PAGE.md) — the public competitor home and race pages.
 - [`docs/BAR_DISPLAY.md`](docs/BAR_DISPLAY.md) — the clubhouse TV at `/bar`.
+- [`docs/RACE_REPLAY_3D.md`](docs/RACE_REPLAY_3D.md) — 3D replay films of a sailed race, and what a club needs to make them. Setting up the machine that renders them: [`deploy/render_machine/README.md`](deploy/render_machine/README.md).
 - [`docs/REMOTE_ACCESS_CLOUDFLARE.md`](docs/REMOTE_ACCESS_CLOUDFLARE.md) — publishing the hut app through a Cloudflare Tunnel.
 - [`docs/COMPOUND_MARKS.md`](docs/COMPOUND_MARKS.md) — parent marks that expand into physical corner marks for charting and analysis.
 - [`docs/WAYPOINTS.md`](docs/WAYPOINTS.md) — turning points that bend a leg round a headland without being marks boats round.

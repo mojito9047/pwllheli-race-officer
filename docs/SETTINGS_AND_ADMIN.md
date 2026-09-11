@@ -257,6 +257,12 @@ How much the app will take on at once. It serves the race office, the clubhouse 
 
 The environment variables `RO_THREADS`, `RO_CONNECTION_LIMIT` and `RO_CHANNEL_TIMEOUT` still work and are the defaults these settings override. All three are clamped on save and on read, so a mistyped value cannot make the app unreachable.
 
+### Public address (v1.001)
+
+The address competitors type in, for example `https://pro.pwllhelisailingclub.org`. Scheme and host only, no trailing path. **Unlike the three above, it takes effect immediately.**
+
+Leave it empty on the club LAN, where the address a request arrives on is already the right one. It matters when the app is reached from outside: behind the relay, the app only ever sees the tunnel's own internal hostname, so every address it builds for the outside world names a machine nobody can reach. Two things consume those addresses today — the logo addresses the **live stream** fetches, and the branding manifest a **3D replay render machine** reads — and both quietly get nothing useful without this. Neither fails loudly, which is exactly why it is worth setting once and forgetting.
+
 ## Slow-request log (v0.256)
 
 Any request taking longer than `RO_SLOW_REQUEST_MS` (default 250 ms) is written to `runtime/logs/slow.log` with its method, path, status and duration:

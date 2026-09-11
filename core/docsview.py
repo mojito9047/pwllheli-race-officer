@@ -51,6 +51,7 @@ EXTRA_DOCUMENTS = (
     {"path": "README.md", "slug": "overview", "title": "Overview and quick start"},
     {"path": "deploy/live_stream/README.md", "slug": "relay-setup"},
     {"path": "deploy/windows/README.md", "slug": "windows-deployment-scripts"},
+    {"path": "deploy/render_machine/README.md", "slug": "render-machine"},
 )
 
 

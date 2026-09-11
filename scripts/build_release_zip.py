@@ -12,7 +12,27 @@ OUT = SRC / f"{TOP_FOLDER}.zip"
 
 # deploy/ ships in the release (deploy/windows install scripts + deploy/live_stream
 # relay setup). Only the usual runtime/build junk is excluded.
-EXCLUDE_DIRS = {".venv", ".claude", "runtime", "__pycache__", ".pytest_cache", ".git", "video_clips", "odm_frames", "scripts"}
+EXCLUDE_DIRS = {".venv", ".claude", "runtime", "__pycache__", ".pytest_cache", ".git", "video_clips", "odm_frames"}
+# scripts/ is developer tooling -- PDF builders, screenshot capture, one-off
+# analysis -- and does not ship. With one exception: scripts/replay3d is the 3D
+# replay renderer, and a render machine is built from a release ZIP like
+# everything else at this club rather than from a git checkout. Nobody setting
+# up a spare desktop in a clubhouse should need git first.
+#
+# Two layers rather than one set, because the junk rules above must still win
+# inside a kept folder: __pycache__ under scripts/replay3d is still junk.
+PARTLY_EXCLUDED_DIRS = {"scripts"}
+KEEP_REL_DIRS = {os.path.join("scripts", "replay3d")}
+
+
+def _within(rel, roots):
+    """Is this relative path one of ``roots``, or inside one?"""
+    return any(rel == root or rel.startswith(root + os.sep) for root in roots)
+
+
+def _leads_to_kept(rel):
+    """Would pruning here also prune something we mean to keep?"""
+    return any(keep == rel or keep.startswith(rel + os.sep) for keep in KEEP_REL_DIRS)
 # docs/hardware holds the start-hut vendor PDF manuals (~84 MB). They are reference
 # material for physically installing the hut, not needed to run the app, and dominate
 # the download — keep them version-controlled in the repo but out of the release ZIP.
@@ -21,7 +41,16 @@ EXCLUDE_REL_DIRS = {os.path.join("docs", "hardware"),
                     # command manuals for the GL521M and LL301 trackers (47 MB).
                     # Reference material for configuring the units, not needed to run
                     # the app, and it would more than quadruple the hut's download.
-                    os.path.join("docs", "Trackers")}
+                    os.path.join("docs", "Trackers"),
+                    # data/dem is scratch, not data: GeoTIFFs pulled by hand while
+                    # the 3D replay was being built (a 9.6 MB elevation tile and two
+                    # imagery mosaics, 30 MB together). It is untracked, so a clean
+                    # clone has none of it and a developer who once ran those
+                    # fetch scripts has all of it -- which is how a release built on
+                    # the wrong machine goes from 14 MB to 44 MB over the hut's 4G
+                    # link. Nothing installed reads it: the renderer keeps its tiles
+                    # under runtime/replay3d/ and fetches what it is missing.
+                    os.path.join("data", "dem")}
 EXCLUDE_FILES = {
     str(Path("data") / "race_officer.db"),
 }
@@ -58,12 +87,22 @@ with zipfile.ZipFile(OUT, "w", zipfile.ZIP_DEFLATED) as zf:
             if d in EXCLUDE_DIRS or rel_dir in EXCLUDE_REL_DIRS:
                 pruned.append(d)
                 dirs.remove(d)
+            elif _within(rel_dir, PARTLY_EXCLUDED_DIRS) and not _leads_to_kept(rel_dir):
+                pruned.append(d)
+                dirs.remove(d)
         for d in pruned:
             excluded_dirs_hit.add(str(rel_root / d))
 
         for f in files:
             rel_path = rel_root / f if str(rel_root) != "." else Path(f)
             rel_str = str(rel_path)
+            # We now walk into scripts/ for the renderer, so the files sitting
+            # directly in it have to be turned away by name rather than by
+            # never being reached.
+            if (_within(str(rel_root), PARTLY_EXCLUDED_DIRS)
+                    and not _within(str(rel_root), KEEP_REL_DIRS)):
+                excluded_files_hit.append(rel_str)
+                continue
             if rel_str in EXCLUDE_FILES:
                 excluded_files_hit.append(rel_str)
                 continue

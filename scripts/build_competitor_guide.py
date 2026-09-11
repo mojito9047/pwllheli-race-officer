@@ -545,5 +545,27 @@ story.append(Paragraph(
     "raise it with the race officer rather than the page itself; these pages simply display what has been "
     "recorded in the race-office system.", styles["Body"]))
 
+
+story.append(PageBreak())
+story.append(Paragraph("<b>Watching the race again, in 3D</b>", styles["H2"]))
+story.append(Paragraph(
+    "Some races are turned into a <b>3D replay film</b>: the whole fleet on the water in three dimensions, "
+    "sailing the course you actually sailed, over the real coastline, with the start-hut camera cut in at "
+    "the start and at each finish. It is built from the GPS tracks, the course, the wind log and the "
+    "club's own videos, so it is a record of the race rather than an impression of it.", styles["Body"]))
+story.append(figure("replay3d_film.png",
+                    "A finish, from a film of a club race.", max_h=9 * cm))
+story.append(Paragraph("When a race has one, a link appears by itself:", styles["Body"]))
+story.append(bullets([
+    "a <b>3D replay</b> button beside <b>Open</b> in the races list on the competitor home page;",
+    "<b>Watch the 3D replay</b> at the top of that race's own page;",
+    "a line in the race's section of the club's published results.",
+]))
+story.append(Paragraph(
+    "Nothing shows until the film exists, and a film is made in the days after a race rather than on the "
+    "water, so there is nothing to look for on race day. The film plays from the club's video storage "
+    "rather than from the hut, so it works at any time and is worth watching on a big screen: it is a "
+    "full-size video and a long one, so use wifi rather than mobile data if you can.", styles["Body"]))
+
 doc.build(story)
 print("PDF written to", OUT_PATH)

@@ -60,6 +60,7 @@ fresh clone. Run them from the repo root, e.g. `python scripts/build_release_zip
 | `replay3d/fetch_mapbox.py` | Fetch and cache Mapbox satellite tiles for the bay as a lat/lon GeoTIFF (1.44 m/px at zoom 15). |
 | `replay3d/fetch_sentinel2.py` | The free alternative: a cloud-free Sentinel-2 window at 10 m. |
 | `replay3d/render_parallel.py` | Render a film across several background Blenders and join the parts. See [replay3d/README.md](replay3d/README.md). |
+| `replay3d/renderer.py` | The render machine's loop: claim a job from the bucket, fetch what it needs, render, upload, report. **This folder ships in the release**, unlike the rest of `scripts/`, because a render machine is built by unzipping one. |
 
 ## Release pipeline (in order)
 
@@ -81,7 +82,8 @@ fresh clone. Run them from the repo root, e.g. `python scripts/build_release_zip
    That makes the cover a *claim*, not a check: rebuilding restamps the version
    but the prose is hand-written in the builders, so **write the new features in
    before you rebuild** or the cover asserts coverage the content hasn't got. The
-   embedded screenshots are checked-in PNGs under `docs/screenshots/` and are just
+   embedded screenshots are checked-in PNGs under `scripts/screenshots/`,
+   `scripts/ref_screens/` and `scripts/competitor_screens/`, and are just
    as stale-able — re-capture the pages a release changed (see the capture script's
    `RO_CAP_BASE`, which needs the app running).
 4. Build the release ZIP:
@@ -89,13 +91,20 @@ fresh clone. Run them from the repo root, e.g. `python scripts/build_release_zip
    python scripts/build_release_zip.py
    ```
    Produces `pwllheli_race_officer_v<version>.zip` in the repo root. It excludes `.git`, `.venv`,
-   `runtime`, `scripts`, `__pycache__`, the three SQLite databases, saved video clips
+   `runtime`, `__pycache__`, the three SQLite databases, saved video clips
    and previously built ZIPs — and, by relative path, the two folders of **vendor
    manuals**: `docs/hardware` (start-hut hardware, ~84 MB) and `docs/Trackers` (tracker
    protocol and command manuals, ~47 MB). Both are reference material for installing
    kit rather than anything needed to run the app, and together they would be six times
-   the size of everything else over the hut's 4G link. Check what comes out: ~18 MB is
-   right, ~150 MB means an exclusion has stopped matching.
+   the size of everything else over the hut's 4G link. `data/dem` goes the same way:
+   hand-pulled GeoTIFF scratch from the 3D replay work, untracked, and 30 MB on the
+   machine that fetched it. Check what comes out: **~17 MB is right** (most of it the four PDFs), ~150 MB means an
+   exclusion has stopped matching.
+
+   All of `scripts/` is excluded **except `scripts/replay3d`**, which is the 3D replay
+   renderer: a render machine is built by unzipping a release like everything else at
+   this club, not by cloning the repository. See
+   [`deploy/render_machine/README.md`](../deploy/render_machine/README.md).
 5. Commit and push, then publish with **`.\release.ps1`** — in the repo root, not one
    level up. It reads `VERSION`, extracts that version's section from
    `docs/CHANGELOG.md` as the release notes, creates and pushes the annotated `vX.Y`

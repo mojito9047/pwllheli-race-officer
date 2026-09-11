@@ -156,6 +156,12 @@ The Chart and Course analysis tabs then become a **record of the conditions**: i
 
 Wind samples inside a race window are exempt from the normal 24-hour history purge, so an old race's averages are still available months later.
 
+### The 3D replay film (v1.002)
+
+Once a race has been rendered as a [3D replay film](RACE_REPLAY_3D.md), a link to it appears by itself: a **3D replay** button beside *Open* in the races list, and **Watch the 3D replay** in the race page header under the entry counts. It is also in each race's section of a published results document.
+
+Nothing appears until the film is actually in the bucket, so an unrendered race looks exactly as it did before, and race day is unchanged — a film exists days after the racing, not on the water. The link goes straight to the storage bucket rather than through the hut, so it plays whether or not the clubhouse PC is switched on and a large download never crosses the hut's 4G connection.
+
 ## Phones and tablets
 
 There is now **one responsive public page** for every device. On a phone the wide data tables (entries, results, leg analysis, pursuit start times) become **one card per boat/leg** with the column heading beside each value, so nothing is cut off and the page never scrolls sideways; the course chart, countdown and wind chips size themselves to the screen. On a tablet or PC the same page shows the familiar tables.

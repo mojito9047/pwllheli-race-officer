@@ -125,3 +125,60 @@ class TestVendorManualsDoNotShip:
         source = _SCRIPT.read_text(encoding="utf-8")
         assert "rel_dir in EXCLUDE_REL_DIRS" in source, (
             "the exclusion list is defined but no longer consulted")
+
+
+class TestTheRendererShips:
+    """scripts/ is developer tooling and does not ship -- except the renderer.
+
+    A render machine is built by unzipping a release like everything else at
+    this club. It used to be a git checkout, which meant a second way to
+    install the same software and a clubhouse volunteer needing git to set up
+    a spare desktop. These guard the one-folder exception, because it is a
+    single entry in a rule whose whole purpose is to keep scripts/ out.
+    """
+
+    def _source(self):
+        return _SCRIPT.read_text(encoding="utf-8")
+
+    def test_scripts_is_no_longer_excluded_wholesale(self):
+        assert "scripts" not in _rules()["EXCLUDE_DIRS"], (
+            "scripts is back in EXCLUDE_DIRS, which prunes it before the renderer "
+            "inside it can be reached")
+
+    def test_the_renderer_is_named_as_the_exception(self):
+        source = self._source()
+        assert "PARTLY_EXCLUDED_DIRS" in source and "KEEP_REL_DIRS" in source
+        assert '"replay3d"' in source, "the kept folder is no longer named"
+
+    def test_the_rest_of_scripts_is_still_turned_away(self):
+        """By name now, not by never being walked into."""
+        source = self._source()
+        assert "_within(str(rel_root), PARTLY_EXCLUDED_DIRS)" in source, (
+            "files sitting directly in scripts/ are no longer excluded, and the "
+            "walk now descends into it")
+
+    def test_everything_the_renderer_needs_is_in_the_release(self):
+        """The two core modules, the typefaces and the setup guide.
+
+        The renderer converts the app's woff2 faces itself; without them the
+        film comes out in PIL's default bitmap face and nothing says so until
+        somebody watches it.
+        """
+        for path in ("scripts/replay3d/renderer.py",
+                     "scripts/replay3d/build_scene.py",
+                     "core/r2.py",
+                     "core/replay3d_protocol.py",
+                     "static/fonts/plex-mono-600-latin.woff2",
+                     "deploy/render_machine/requirements.txt",
+                     "deploy/render_machine/README.md"):
+            assert (_ROOT / path).is_file(), f"{path} is missing from the repo"
+
+    def test_the_scratch_geotiffs_do_not_ship(self):
+        """30 MB of hand-pulled tiles, untracked, in a folder that ships.
+
+        A release built on the machine that once ran the fetch scripts came out
+        at 44 MB instead of 14, over the hut's 4G link.
+        """
+        source = _SCRIPT.read_text(encoding="utf-8")
+        after = source.split("EXCLUDE_REL_DIRS", 1)[1].split("EXCLUDE_FILES", 1)[0]
+        assert '"dem"' in after, "data/dem is no longer excluded from the release"

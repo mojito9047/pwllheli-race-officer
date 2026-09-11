@@ -9,7 +9,7 @@ in the same bucket beside the start and finish clips it is made from.
 ```
    Hut PC (Windows, on the water)                Cloudflare R2
    race results page                             ┌───────────────────────────┐
-     [ Render 3D replay ]  ──── job ───────────► │ replay3d/jobs/649.json    │
+     [ Render a 3D film ] ──── job ───────────► │ replay3d/jobs/649.json    │
                                                  │ replay3d/status/649.json  │◄─┐
    dashboard "3D replay" card ◄──── status ───── │                           │  │
    race page  ◄────────────────── the film ───── │ replay3d/films/649.mp4    │  │
@@ -65,21 +65,29 @@ runs headless, because that is the only way the renderer ever calls it:
 blender --version
 ```
 
-**The app checkout.** The renderer lives in this repository and imports two
-modules from `core/` — the S3 signer and the bucket contract it shares with the
-hut. It opens no database, starts no web server, and needs no `data/`
-directory: the course, the marks and both lines are already baked into the job
-it is handed, so a render machine holds no club race data at all.
+**The app.** Unzip the same release ZIP the clubhouse PC runs — the renderer
+ships inside it. No git, and no separate build for a render machine.
+
+On Windows, unzip `pwllheli_race_officer_v<version>.zip` and, in that folder:
 
 ```bash
-git clone <the repo> /opt/pwllheli
-cd /opt/pwllheli
+py -m venv .venv
+.venv\Scripts\pip install -r deploy\render_machine\requirements.txt
+```
+
+On Linux:
+
+```bash
+unzip pwllheli_race_officer_v<version>.zip -d /opt && cd /opt/pwllheli_race_officer_v*
 python -m venv .venv
 .venv/bin/pip install -r deploy/render_machine/requirements.txt
 ```
 
-On Windows: `py -m venv .venv`, then
-`.venv\Scripts\pip install -r deploy\render_machine\requirements.txt`.
+The renderer imports exactly two modules from `core/` — the S3 signer and the
+bucket contract it shares with the hut. It opens no database, starts no web
+server, and never reads the club's course, mark or start-line files: all of that
+is already baked into the job it is handed. The rest of the folder simply sits
+there unused.
 
 ## 2. Configure
 
@@ -91,7 +99,7 @@ Fill in the five `R2_*` values from the app's **Settings → Video** page and a
 `MAPBOX_TOKEN`. Every setting is commented in the file. It holds a secret key:
 `chmod 600` it, and don't commit it.
 
-**On the hut, check Settings → Web server → "Public base URL" is set.** That is
+**On the hut, check Settings → Web server → "Public address" is set.** That is
 where the render machine reads the club's logos from, so the film carries the
 same club mark and rotating sponsors as the start and finish videos. Unset, the
 film still renders — just unbranded, and the log says so.
@@ -116,7 +124,7 @@ On Linux, load the env file and run the loop directly:
 set -a; . /etc/pwllheli/renderer.env; set +a; .venv/bin/python scripts/replay3d/renderer.py --once
 ```
 
-Then queue a race: on the app's **race results** page, **Render 3D replay**. The
+Then queue a race: on the app's **race results** tab, **Render a 3D film**. The
 renderer claims it within thirty seconds and the dashboard's **3D replay** card
 follows it. What a good run says:
 
