@@ -95,6 +95,7 @@ from core.ratings import (
     rating_type_from_class_name,
 )
 from core import marks as core_marks
+from core import replay3d
 from core import resultspublish
 from core.courses import course_leg_analysis  # noqa: F401 — re-exported for routes/templates
 from core.courses import (
@@ -1761,6 +1762,9 @@ def publish_race_table_for_series_class(
         "table": table,
         "rows": table.get("rows", []),
         "videos": published_video_links_for_race(int(race["id"])),
+        # The document is read long after the hut has been switched off, so
+        # every link in it has to be a public one. This is a bucket address.
+        "film_url": replay3d.film_url_for(int(race["id"])),
     }
 
 
@@ -2647,8 +2651,14 @@ def horn_connection_status() -> Dict[str, Any]:
     return {"ok": configured, "configured": configured, "message": message, "config": cfg}
 
 
-def public_race_card(race: sqlite3.Row, current_race_id: Optional[int] = None) -> Dict[str, Any]:
-    """Return compact public-list information for one race."""
+def public_race_card(race: sqlite3.Row, current_race_id: Optional[int] = None,
+                     films: Optional[Dict[int, str]] = None) -> Dict[str, Any]:
+    """Return compact public-list information for one race.
+
+    ``films`` is the whole bucket's worth of 3D replay films, passed in rather
+    than looked up here: this is called once per race of the season and that
+    index costs a network call to build.
+    """
     entries = get_entries(int(race["id"]))
     racing_count = sum(1 for e in entries if e["status"] == "RACING")
     finished_count = sum(1 for e in entries if e["finish_time"] or e["status"] == "FINISHED")
@@ -2667,6 +2677,9 @@ def public_race_card(race: sqlite3.Row, current_race_id: Optional[int] = None) -
         "racing_count": racing_count,
         "is_current": current_race_id is not None and int(race["id"]) == int(current_race_id),
         "public_url": url_for("competitor_race", race_id=int(race["id"])),
+        # Absolute, and straight at the bucket: the film is not served by the
+        # hut, and this link is followed from phones on the water.
+        "film_url": (films or {}).get(int(race["id"]), ""),
     }
 
 
@@ -2694,6 +2707,10 @@ def public_year_race_groups(current_race: Optional[sqlite3.Row], current_series_
     # One query for every series, not one per roll-up: this page is left open
     # all day in the clubhouse and on phones on the water.
     published = resultspublish.latest_published_by_series()
+    # One listing for the season rather than a status read per race. Memoised
+    # inside, and empty if the bucket cannot be reached, which costs the page
+    # its film links and nothing else.
+    films = replay3d.published_films()
     groups: Dict[Any, Dict[str, Any]] = {}
     for race in races:
         series_id = row_get(race, "series_id", None) or None
@@ -2712,7 +2729,7 @@ def public_year_race_groups(current_race: Optional[sqlite3.Row], current_series_
                 "last_date": "",
             }
             groups[key] = group
-        card = public_race_card(race, current_race_id)
+        card = public_race_card(race, current_race_id, films)
         group["cards"].append(card)
         group["published"] = published.get(key)
         group["has_current_race"] = group["has_current_race"] or bool(card["is_current"])

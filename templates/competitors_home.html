@@ -93,7 +93,11 @@
               <td data-label="First start">{{ dt_full_display(item.first_start_time) or 'Not set' }}</td>
               <td data-label="Status">{{ item.status }}</td>
               <td data-label="Entries">{{ item.entry_count }}{% if item.finished_count %} · {{ item.finished_count }} finished{% endif %}</td>
-              <td data-label="Link"><a class="button small secondary" href="{{ item.public_url }}">Open</a></td>
+              <td data-label="Link"><a class="button small secondary" href="{{ item.public_url }}">Open</a>{% if item.film_url %}
+              {# Straight at the bucket, not through the hut: the film is big, and
+                 this is followed from phones. Only shown when the film is really
+                 there -- the index is the bucket's own listing. #}
+              <a class="button small secondary" href="{{ item.film_url }}" target="_blank" rel="noopener">3D replay</a>{% endif %}</td>
             </tr>
           {% endfor %}
           </tbody>

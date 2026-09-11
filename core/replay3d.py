@@ -30,7 +30,7 @@ import os
 import re
 import time
 import urllib.parse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from core import appstate
@@ -874,6 +874,97 @@ def submit_render(race_id: int, *, requested_by: str = "",
         "clips": len(scene.get("videos") or []),
         "duration_s": (scene.get("time") or {}).get("duration_s"),
     }
+
+
+# ---------------------------------------------------------------------------
+# Which races have a film, for pages that list a whole season.
+
+FILM_INDEX_TTL_S = 600.0
+_FILM_INDEX: Dict[str, Any] = {"at": 0.0, "films": {}}
+
+
+def _public_url(cfg: Dict[str, Any], key: str) -> str:
+    """Where a bucket key is served from, using this config's own base URL."""
+    from urllib.parse import quote
+
+    base = str(cfg.get("public_base_url") or "").rstrip("/")
+    return base + "/" + "/".join(quote(part, safe="") for part in str(key).split("/"))
+
+
+def _film_version(last_modified: str) -> str:
+    """The object's own modification time, as a cache-busting token.
+
+    The film's key is only the race id, and it is served with a day of cache,
+    so a re-render otherwise sits behind the old copy. Taking the token from
+    the object itself means nothing has to be recorded anywhere: the URL for a
+    given film is the same for everyone until that film is replaced.
+    """
+    try:
+        stamp = datetime.strptime(last_modified.strip(), "%Y-%m-%dT%H:%M:%S.%fZ")
+    except (AttributeError, ValueError):
+        try:
+            stamp = datetime.strptime(last_modified.strip(), "%Y-%m-%dT%H:%M:%SZ")
+        except (AttributeError, ValueError):
+            return ""
+    return str(int(stamp.replace(tzinfo=timezone.utc).timestamp()))
+
+
+def published_films(max_age_s: float = FILM_INDEX_TTL_S) -> Dict[int, str]:
+    """``{race_id: public film URL}`` for every film in the bucket.
+
+    One listing answers for a whole season, which is the point: the competitor
+    landing page draws every race of the year and the published results
+    document draws every race of a series, and a status read apiece would be a
+    network call apiece on pages the public hits.
+
+    The existence check is the bucket's own listing rather than anything the
+    hut wrote down. A link to a film is only worth showing while the film is
+    actually there, and a record of a publish can outlive the object it
+    describes. Memoised, because a film appears a few times a season.
+
+    Empty on any failure: no links is a correct page, and a page of links to
+    films that cannot be fetched is not.
+    """
+    now = time.time()
+    if now - float(_FILM_INDEX["at"]) < max_age_s:
+        return dict(_FILM_INDEX["films"])
+
+    films: Dict[int, str] = {}
+    cfg = bucket_config()
+    if cfg:
+        from core import r2
+
+        try:
+            objects = r2.list_objects(cfg["account_id"], cfg["bucket"], FILMS_PREFIX + "/",
+                                      cfg["access_key"], cfg["secret_key"])
+        except Exception:
+            objects = []
+        for obj in objects:
+            key = str(obj.get("key") or "")
+            match = re.fullmatch(re.escape(FILMS_PREFIX) + r"/race_(\d+)\.mp4", key)
+            if not match or not int(obj.get("size_bytes") or 0):
+                continue
+            # Built from the same config that just supplied the credentials,
+            # rather than going back to video_config for the address. One
+            # bucket, one answer: a listing from one account and a link to
+            # another is the kind of mismatch nobody sees until a competitor
+            # clicks it.
+            url = _public_url(cfg, key)
+            version = _film_version(str(obj.get("last_modified") or ""))
+            films[int(match.group(1))] = f"{url}?v={version}" if version else url
+
+    _FILM_INDEX["films"], _FILM_INDEX["at"] = films, now
+    return dict(films)
+
+
+def forget_published_films() -> None:
+    """Drop the memo, so a fresh render shows up without waiting it out."""
+    _FILM_INDEX["films"], _FILM_INDEX["at"] = {}, 0.0
+
+
+def film_url_for(race_id: int) -> str:
+    """The public film for one race, or "" if there is not one."""
+    return published_films().get(int(race_id), "")
 
 
 def read_status(race_id: int) -> Optional[Dict[str, Any]]:

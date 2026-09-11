@@ -235,6 +235,16 @@
       <section id="{{ race_table.id }}" class="race-section">
         <h3 class="racetitle">{{ race_table.title }}</h3>
         <div class="caption racecaption">{{ race_table.caption }}</div>
+        {% if race_table.film_url %}
+        {# A bucket address, like every other link in this document: it is read
+           long after the hut has been switched off. The token on the URL is the
+           film's own modification time, so a re-rendered race is not served
+           from a day-old cache. #}
+        <div class="video-links">
+          <strong>3D replay:</strong>
+          <a href="{{ race_table.film_url }}" target="_blank" rel="noopener">Watch the film</a>
+        </div>
+        {% endif %}
         {% if race_table.videos and race_table.videos.start_links %}
         <div class="video-links">
           <strong>Start video{% if race_table.videos.start_links|length > 1 %}s{% endif %}:</strong>

@@ -233,3 +233,66 @@ class TestTheRenderMachineCarriesNoClubData:
         assert pulled == {"core.r2", "core.replay3d_protocol"}, (
             f"the renderer now pulls in {sorted(pulled)}; anything reaching core.appstate "
             f"makes every render machine need the club's data directory")
+
+
+class TestWhichRacesHaveAFilm:
+    """The index the public pages and the published results document read.
+
+    One bucket listing answers for a whole season. The alternative -- a status
+    read per race -- is a network call per row on a page competitors open on
+    the water, and on a document that is read long after the hut is off.
+    """
+
+    BUCKET = {"account_id": "acc", "bucket": "buck", "access_key": "id",
+              "secret_key": "secret", "public_base_url": "https://films.example"}
+
+    def _listing(self, monkeypatch, objects):
+        from core import r2, replay3d
+        monkeypatch.setattr(replay3d, "bucket_config", lambda: dict(self.BUCKET))
+        monkeypatch.setattr(r2, "list_objects", lambda *a, **k: list(objects))
+        replay3d.forget_published_films()
+        return replay3d.published_films()
+
+    def test_a_film_is_found_and_carries_its_own_version(self, monkeypatch):
+        """The token is the object's modification time, so nothing is recorded.
+
+        The film's key is only the race id and it is served with a day of
+        cache, so a re-render would otherwise sit behind the old copy.
+        """
+        films = self._listing(monkeypatch, [
+            {"key": "replay3d/films/race_649.mp4", "size_bytes": 128832083,
+             "last_modified": "2026-09-10T21:24:10.000Z"},
+        ])
+        assert films == {649: "https://films.example/replay3d/films/race_649.mp4?v=1789075450"}
+
+    def test_an_empty_object_is_not_a_film(self, monkeypatch):
+        """A link to nothing is worse than no link."""
+        assert self._listing(monkeypatch, [
+            {"key": "replay3d/films/race_649.mp4", "size_bytes": 0,
+             "last_modified": "2026-09-10T21:24:10.000Z"},
+        ]) == {}
+
+    def test_anything_not_shaped_like_a_film_is_ignored(self, monkeypatch):
+        """The prefix is shared, and one day something else will be put there."""
+        assert self._listing(monkeypatch, [
+            {"key": "replay3d/films/race_649.mp4.part", "size_bytes": 10, "last_modified": ""},
+            {"key": "replay3d/films/notes.txt", "size_bytes": 10, "last_modified": ""},
+            {"key": "replay3d/films/race_.mp4", "size_bytes": 10, "last_modified": ""},
+        ]) == {}
+
+    def test_an_unreadable_bucket_costs_the_links_and_nothing_else(self, monkeypatch):
+        from core import r2, replay3d
+
+        def boom(*a, **k):
+            raise RuntimeError("R2 is having a day")
+
+        monkeypatch.setattr(replay3d, "bucket_config", lambda: dict(self.BUCKET))
+        monkeypatch.setattr(r2, "list_objects", boom)
+        replay3d.forget_published_films()
+        assert replay3d.published_films() == {}
+
+    def test_no_bucket_configured_is_not_an_error(self, monkeypatch):
+        from core import replay3d
+        monkeypatch.setattr(replay3d, "bucket_config", dict)
+        replay3d.forget_published_films()
+        assert replay3d.published_films() == {}
