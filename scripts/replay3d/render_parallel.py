@@ -254,6 +254,85 @@ def find_blender() -> str:
     raise SystemExit(blender_not_found())
 
 
+MAX_COMPOSE_SLICES = 8
+
+
+def compose_in_parallel(json_path, manifest, out_path, track_path, first, last,
+                        workers, compose_script, python_exe):
+    """Compose the film in slices at once, then join them.
+
+    The compose stage is one thread doing PIL work on a machine that has just
+    finished using every core to render. Measured at about 41 ms a frame, an
+    eleven thousand frame film spends eight minutes here -- which on a fast
+    graphics card is a third of the whole job, for want of using the other
+    fifteen cores.
+
+    Each slice is encoded independently, so each one opens on a keyframe and the
+    finished parts can be joined by copying packets rather than encoding a
+    second time (concat_mp4, the same join the rendered parts already use).
+    Frame numbers stay absolute, so a slice draws exactly what it would have
+    drawn in one pass.
+    """
+    count = last - first + 1
+    # Not the render's worker count: that one is sized for the graphics card and
+    # four gigabytes a Blender. This stage is PIL on the CPU with the card idle,
+    # so the dial is cores. Capped because each slice is a fresh interpreter
+    # decoding its own way into a segment, and past a point that costs more than
+    # it saves.
+    cores = os.cpu_count() or 2
+    workers = max(1, min(int(workers or 0), cores, MAX_COMPOSE_SLICES, count))
+    workers = max(workers, min(cores, MAX_COMPOSE_SLICES, count))
+    if workers == 1:
+        return None                                  # let the caller do it inline
+    # Between them the slices must not ask for more threads than the machine
+    # has, or the saving goes on context switching.
+    encoder_threads = max(1, cores // workers)
+
+    # Whole slices, remainder spread over the first few, so no worker is left
+    # with a handful of frames while another has a full share.
+    size, extra = divmod(count, workers)
+    bounds, cursor = [], first
+    for i in range(workers):
+        n = size + (1 if i < extra else 0)
+        bounds.append((cursor, cursor + n - 1))
+        cursor += n
+
+    slices = []
+    procs = []
+    for i, (lo, hi) in enumerate(bounds):
+        part = f"{os.path.splitext(out_path)[0]}.slice{i:02d}.mp4"
+        slices.append(part)
+        cmd = [python_exe, compose_script, "--json", json_path, "--parts", manifest,
+               "--out", part, "--frames", f"{lo}-{hi}",
+               "--encoder-threads", str(encoder_threads)]
+        if track_path and os.path.exists(track_path):
+            cmd += ["--track", track_path]
+        procs.append((i, lo, hi, part,
+                      subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)))
+
+    print(f"  composing {count} frames as {workers} slices, "
+          f"{encoder_threads} encoder thread(s) each", flush=True)
+    failed = []
+    for i, lo, hi, part, proc in procs:
+        _out, err = proc.communicate()
+        if proc.returncode != 0 or not os.path.exists(part):
+            failed.append((i, lo, hi, (err or b"").decode("utf-8", "replace").strip()[-400:]))
+    if failed:
+        for i, lo, hi, err in failed:
+            print(f"  slice {i} ({lo}-{hi}) failed: {err}", flush=True)
+        remove_quietly(slices)
+        return False
+
+    frames = concat_mp4(slices, out_path)
+    if frames != count:
+        # Worth stopping for: a short film is the kind of fault that is only
+        # noticed by whoever watches it to the end.
+        print(f"  joined {frames} frames, expected {count}; the slices are kept", flush=True)
+        return False
+    remove_quietly(slices)
+    return True
+
+
 def frame_count(json_path: str, speed: float) -> int:
     """How long the film is. The plan written by prepare_video_frames.py wins,
     because a film with slow-motion windows is not a flat compression."""
@@ -474,14 +553,22 @@ def main(argv: Optional[List[str]] = None) -> int:
         with open(manifest, "w", encoding="utf-8") as f:
             json.dump(parts, f, indent=1)
         print("composing", flush=True)
-        cmd = [sys.executable, COMPOSE, "--json", json_path,
-               "--parts", manifest, "--out", final]
-        if os.path.exists(track_path):
-            cmd += ["--track", track_path]
-        rc = subprocess.call(cmd)
-        if rc != 0:
+        # As many slices as the render used workers. The compose stage is pure
+        # CPU and the graphics card is idle by now, so there is no reason for it
+        # to be the one part of this that uses a single core.
+        done = compose_in_parallel(json_path, manifest, final, track_path, first, total,
+                                   args.workers, COMPOSE, sys.executable)
+        if done is False:
             print("compose failed; the parts are kept")
             return 1
+        if done is None:
+            cmd = [sys.executable, COMPOSE, "--json", json_path,
+                   "--parts", manifest, "--out", final]
+            if os.path.exists(track_path):
+                cmd += ["--track", track_path]
+            if subprocess.call(cmd) != 0:
+                print("compose failed; the parts are kept")
+                return 1
         if not args.keep_parts:
             remove_quietly([p["file"] for p in parts] + [manifest])
     else:

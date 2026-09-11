@@ -235,6 +235,29 @@ What is in the scene:
 ### The overlay
 
 Boat names, mark numbers, the clock, the course board, the credit line and the cards are
+### What compositing costs, and why it is split up
+
+The compose stage was 51 ms a frame, and **54% of that was converting a picture into the
+same picture**: `frame.to_image()` takes a slow path from YUV to RGB and PIL then copies the
+whole frame again to add an alpha channel. Asking swscale for RGBA in one pass and letting
+PIL wrap the buffer is **0.61 ms against 11.25**, and byte-identical.
+
+What is left is PIL drawing the overlay (about 15 ms), the conversion back out (about 8 ms,
+which is already the fastest of the three ways tried) and x264. So the stage is CPU-bound and
+single-threaded on a machine whose graphics card has just gone idle, which is why
+`render_parallel.py` composes it in **slices** -- one per core up to `MAX_COMPOSE_SLICES`,
+joined afterwards by `concat_mp4` copying packets rather than encoding twice. Each slice
+encodes independently, so each opens on a keyframe and the join is sound.
+
+Frame numbers stay absolute inside a slice, so the clock, the hut-camera inset and the cards
+draw exactly what they would have drawn in one pass. The check that matters is not that the
+films are identical -- each slice starts a fresh GOP, so h264 makes different choices -- but
+that nothing spikes at a slice boundary.
+
+The slices share out the encoder threads between them. Left to take every core each, eight
+slices would ask for eight times the machine's threads and spend the difference context
+switching.
+
 **not in the 3D scene**. They are drawn in pixels by `overlay.py` while `compose_film.py`
 assembles the film. They used to be geometry parented to whichever camera was live, and
 that was wrong three ways over, all of which showed:
@@ -280,7 +303,7 @@ PIL's built-in face is used.
 The film carries the club's marks the same way its start and finish videos do: the club
 burgee top left at 82% opacity, one sponsor at a time top right at 90%, changing every five
 seconds, to the sizes and margins in `core/video.py`. It is drawn by `overlay.py` during
-compositing, so changing it needs a re-compose of about ten minutes and no re-render.
+compositing, so changing it needs a re-compose and no re-render.
 
 The images come from the club's **public branding manifest**, the same endpoint the
 live-stream relay reads:

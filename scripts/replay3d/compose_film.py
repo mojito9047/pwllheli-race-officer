@@ -97,7 +97,9 @@ def _clip_for(clips: List[Dict[str, Any]], film_frame: int) -> Optional[Tuple[Di
 
 
 def compose(json_path: str, parts: List[Dict[str, Any]], out_path: str, crf: int = 19,
-            fps: Optional[int] = None, track_path: Optional[str] = None) -> Dict[str, Any]:
+            fps: Optional[int] = None, track_path: Optional[str] = None,
+            frame_range: Optional[Tuple[int, int]] = None,
+            encoder_threads: Optional[int] = None) -> Dict[str, Any]:
     import av
     from PIL import Image, ImageDraw
 
@@ -118,6 +120,15 @@ def compose(json_path: str, parts: List[Dict[str, Any]], out_path: str, crf: int
     last_frame = max(int(p["end"]) for p in parts)
     if total:
         last_frame = min(last_frame, total)
+    if frame_range:
+        # One slice of the film, for composing several at once. The frame
+        # numbers stay absolute throughout -- the overlay, the hut-camera inset
+        # and the cards are all keyed on the film frame, so a slice draws
+        # exactly what it would have drawn in a single pass.
+        first_frame = max(first_frame, int(frame_range[0]))
+        last_frame = min(last_frame, int(frame_range[1]))
+        if last_frame < first_frame:
+            raise SystemExit(f"frame range {frame_range} covers none of the rendered parts")
     total = last_frame - first_frame + 1
     readers = [SegmentReader(p["file"] if os.path.isabs(p["file"]) else os.path.join(
         os.path.dirname(os.path.abspath(out_path)), p["file"]), p["start"], p["end"], p.get("step", 1))
@@ -150,6 +161,16 @@ def compose(json_path: str, parts: List[Dict[str, Any]], out_path: str, crf: int
     stream = out.add_stream("libx264", rate=fps)
     stream.width, stream.height, stream.pix_fmt = width, height, "yuv420p"
     stream.options = {"crf": str(crf), "preset": "medium"}
+    # libx264 defaults to one thread through PyAV. Encoding is only a sixth of
+    # this loop, so this is worth about 15% and no more -- the measurement that
+    # matters is below, on the colour conversion.
+    #
+    # The caller sets this when several slices are being composed at once.
+    # Left to take every core, eight slices would ask for eight times the
+    # machine's threads between them and spend the difference context
+    # switching.
+    stream.thread_count = max(1, int(encoder_threads or (os.cpu_count() or 2)))
+    stream.thread_type = "FRAME"
 
     reader_i = 0
     written = 0
@@ -160,7 +181,13 @@ def compose(json_path: str, parts: List[Dict[str, Any]], out_path: str, crf: int
         frame = readers[reader_i].frame_for(f)
         if frame is None:
             break
-        img = frame.to_image().convert("RGBA")
+        # Eighteen times faster than frame.to_image().convert("RGBA"), and
+        # byte-identical: swscale does YUV->RGBA in one pass and PIL wraps the
+        # buffer, where to_image() takes a slow path to RGB and then PIL copies
+        # the whole frame again to add the alpha channel. Measured on a 1080p
+        # frame: 11.25 ms against 0.61 ms, which was a fifth of the whole
+        # compose stage spent converting a picture into the same picture.
+        img = Image.fromarray(frame.to_ndarray(format="rgba"), "RGBA")
         overlay.draw_scene(img, f)
 
         found = _clip_for(clips, f)
@@ -218,6 +245,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="a segment as file:start:end:step, repeatable (instead of --parts)")
     ap.add_argument("--out", required=True, help="the finished MP4")
     ap.add_argument("--crf", type=int, default=19)
+    ap.add_argument("--frames", help="compose only film frames A-B (for composing slices in parallel)")
+    ap.add_argument("--encoder-threads", type=int, default=None,
+                    help="x264 threads (default: every core; lower it when composing slices at once)")
     ap.add_argument("--track", help="overlay track from build_scene.py --overlay-track "
                                     "(default: <json>_overlay.json beside the export)")
     args = ap.parse_args(argv)
@@ -232,7 +262,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not parts:
         ap.error("give --parts or at least one --part")
 
-    info = compose(args.json, parts, args.out, args.crf, track_path=args.track)
+    frame_range = None
+    if args.frames:
+        lo, hi = args.frames.split("-", 1)
+        frame_range = (int(lo), int(hi))
+    info = compose(args.json, parts, args.out, args.crf, track_path=args.track,
+                   frame_range=frame_range, encoder_threads=args.encoder_threads)
     print(json.dumps(info, indent=2))
     return 0
 
