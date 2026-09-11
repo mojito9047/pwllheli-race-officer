@@ -67,7 +67,14 @@ EXCLUDE_FILES = {
 # anywhere in its name is a database, whatever has been appended to it, and no
 # database ships. Every such file in this repo is one.
 EXCLUDE_NAME_CONTAINS = (".db",)
-EXCLUDE_FILE_SUFFIXES = (".pyc", ".pyo", ".zip")
+# ".env" is here because a filled-in one shipped in the v1.002 release: the
+# render machine's renderer.env, with live R2 keys and a Mapbox token in it.
+# It was in .gitignore, which was the mistake -- this script walks the working
+# tree and has never consulted git, so "not committed" and "not published" are
+# different questions and only the rules in this file answer the second.
+# ".env.example" is deliberately not caught: it ends ".example" and is meant to
+# ship. Anything holding real credentials must end ".env".
+EXCLUDE_FILE_SUFFIXES = (".pyc", ".pyo", ".zip", ".env")
 EXCLUDE_FILENAMES = {".DS_Store", "Thumbs.db"}
 
 included = []

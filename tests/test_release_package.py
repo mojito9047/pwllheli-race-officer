@@ -182,3 +182,65 @@ class TestTheRendererShips:
         source = _SCRIPT.read_text(encoding="utf-8")
         after = source.split("EXCLUDE_REL_DIRS", 1)[1].split("EXCLUDE_FILES", 1)[0]
         assert '"dem"' in after, "data/dem is no longer excluded from the release"
+
+
+class TestNoCredentialsShip:
+    """v1.002 went out with deploy/render_machine/renderer.env inside it.
+
+    Live R2 keys and a Mapbox token, in a public GitHub release asset. The file
+    was in .gitignore, and that was the whole mistake: this packager walks the
+    working tree and has never consulted git, so "not committed" and "not
+    published" are different questions and only the rules in the script answer
+    the second one.
+    """
+
+    def test_dot_env_is_excluded_by_suffix(self):
+        assert ".env" in _rules()["EXCLUDE_FILE_SUFFIXES"], (
+            "a filled-in .env in the working tree would be packaged again")
+
+    def test_the_example_files_still_ship(self):
+        """They end .example, so the suffix rule must not catch them."""
+        for path in ("deploy/render_machine/renderer.env.example",
+                     "deploy/live_stream/lxc/relay.env.example"):
+            p = _ROOT / path
+            if not p.exists():
+                continue
+            assert not p.name.endswith(tuple(_rules()["EXCLUDE_FILE_SUFFIXES"])), (
+                f"{path} would be left out of the release, and it is meant to ship")
+
+    def test_nothing_the_packager_would_include_holds_a_secret(self):
+        """Walk the tree under the packager's own rules and read what survives.
+
+        The suffix rule is the fix; this is the check that it worked, and it
+        would catch a credential file that happens not to be called .env.
+
+        Deliberately narrow: a bare KEY=value assignment whose value looks like
+        a real credential. Code reading a key out of the environment, and the
+        placeholders in the guides, are not findings -- a check that cries wolf
+        on ``os.environ.get`` is one somebody switches off.
+        """
+        import re
+
+        rules = _rules()
+        names = ("R2_SECRET_ACCESS_KEY", "R2_ACCESS_KEY_ID", "R2_ACCOUNT_ID",
+                 "MAPBOX_TOKEN", "TUNNEL_TOKEN", "HUT_ACCESS_SECRET", "HUT_ACCESS_ID")
+        secret = re.compile(r"^(" + "|".join(names) + r")=([A-Za-z0-9_.-]{20,})$", re.M)
+        skip_suffix = (".png", ".jpg", ".jpeg", ".pdf", ".woff2", ".ico", ".mp4",
+                       ".tif", ".tiff", ".zip", ".gz", ".example")
+        found = []
+        for path in _ROOT.rglob("*"):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(_ROOT)
+            if set(rel.parts[:-1]) & set(rules["EXCLUDE_DIRS"]):
+                continue
+            if rel.name.endswith(tuple(rules["EXCLUDE_FILE_SUFFIXES"]) + skip_suffix):
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, OSError):
+                continue
+            for match in secret.finditer(text):
+                found.append(str(rel) + ": " + match.group(1) + "=...")
+        assert not found, ("the release would carry credentials:" + chr(10)
+                           + chr(10).join(found))
