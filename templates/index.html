@@ -247,19 +247,6 @@
     {% endif %}
     <a class="button small secondary" href="{{ url_for('settings_page') }}#offsite-backup">Off-site backup settings</a>
   </article>
-
-  <article class="card">
-    <h3>Start line</h3>
-    <p>{{ start_finish.start_line.description }}</p>
-  </article>
-  <article class="card">
-    <h3>Finish line</h3>
-    <p>{{ start_finish.finish_line.description }}</p>
-  </article>
-  <article class="card">
-    <h3>Radio / limits</h3>
-    <p>VHF {{ start_finish.vhf_channel }}. Normal time limit {{ start_finish.normal_time_limit_hours }} hours. DNF window {{ start_finish.dnf_after_first_finisher_minutes }} minutes after first finisher.</p>
-  </article>
 </section>
 
 {# The postponement wording, and the rule for whether AP is still up. #}

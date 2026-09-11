@@ -77,7 +77,6 @@ def index():
     latest_wind = weather_status.get("sample") or weather_status.get("latest") or latest_weather_sample()
     return render_template(
         "index.html",
-        start_finish=appstate.START_FINISH,
         current_race_status=race_status,
         weather=weather_config(),
         weather_status=weather_status,

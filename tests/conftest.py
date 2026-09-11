@@ -246,7 +246,7 @@ def reset_module_state(sandbox_data_dir, tmp_path, monkeypatch):
     them afterwards. The backup-restore route calls reload_course_mark_data(),
     which overwrites these module globals in place; without this guard a restore
     test leaves them polluted for every later test in the session (e.g. the
-    dashboard render then fails on the missing start_line key).
+    race page render then fails on the missing start_line key).
     """
     # DB_PATH now lives in core.appstate (single source shared with core.db);
     # the data-layout guard lives in core.db. The rest stay on the app module.
