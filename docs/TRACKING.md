@@ -620,6 +620,27 @@ drains a phone battery quickly at race-day reporting rates, and it needs a mobil
 same places the trackers do. `scripts/simulate_trackers.py` speaks the same protocol, which is
 how a simulated fleet can be sailed through the real relay.
 
+## One boat, one tracker
+
+A boat carries one tracker, and from **v1.002** the app holds you to it:
+assigning a tracker to a boat that already has one takes the boat off the other
+and tells you which, so you can put it back the other way round if that was not
+what you meant. The displaced tracker is unassigned, never deleted, and the
+fixes it already recorded keep the boat they were recorded against &mdash; that
+track happened and belongs to that boat.
+
+Before that the table let two devices point at one boat, and every fix from both
+was stamped with it, so the boat's track became the two interleaved. It cost one
+club race: a spare tracker aboard *Mojito* was also paired to *Crackajack*, and
+the replay drew Crackajack flipping between the two boats several times a
+minute. Repairing it is in
+[`TROUBLESHOOTING.md`](TROUBLESHOOTING.md#a-boats-track-jumps-to-another-boats-position).
+
+What the app still cannot see is a tracker paired to the right boat and carried
+onto the wrong one. It reports from a plausible place at a plausible speed, so
+nothing looks wrong until somebody watches the replay. **When a tracker moves
+boat, change it on the Trackers page at the same time.**
+
 ## When a mark moves
 
 A mark that has dragged is a mark the app is looking for boats to round in the

@@ -20,9 +20,13 @@ deliberately *not* re-pointed at Mojito -- Mojito has its own tracker and 24,000
 fixes of its own that day, and a pairing that never existed should not be
 invented after the fact to tidy a chart.
 
-    python scripts/fix_track_misattribution.py                      # dry run
-    python scripts/fix_track_misattribution.py --apply              # do it
-    python scripts/fix_track_misattribution.py --device X --boat N  # another pair
+    python scripts/fix_track_misattribution.py --device 8648... --boat 21
+    python scripts/fix_track_misattribution.py --device 8648... --boat 21 --apply
+
+Finding the two numbers: the IMEI is on the Trackers page, and the boat id is
+in the Boats page URL. If you are not sure which device is the wrong one, run
+it against either -- the dry run names the boat each device was really sitting
+on, day by day, and changes nothing.
 
 Run it against the hut's own data directory. Take a backup first: Backup /
 restore in the app, or copy data/track_positions.db aside.
@@ -39,11 +43,6 @@ from datetime import datetime
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
 sys.path.insert(0, _ROOT)
-
-# The one this was written for. Both are overridable.
-DEFAULT_DEVICE = "864032050547569"
-DEFAULT_BOAT = 21
-
 
 def haversine_m(lat1, lon1, lat2, lon2):
     p = math.pi / 180.0
@@ -109,8 +108,12 @@ def co_location_by_day(db, device, boat_id):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--device", default=DEFAULT_DEVICE, help="the tracker's unique id (IMEI)")
-    ap.add_argument("--boat", type=int, default=DEFAULT_BOAT, help="the boat it is wrongly attributed to")
+    # Required, with no default. This was written for one device on one boat,
+    # and leaving those as defaults would have somebody repair a pairing that
+    # stopped existing the day it was repaired.
+    ap.add_argument("--device", required=True, help="the tracker's unique id (IMEI)")
+    ap.add_argument("--boat", type=int, required=True,
+                    help="the boat its fixes are wrongly attributed to")
     ap.add_argument("--db", default=None, help="track database (default: this checkout's)")
     ap.add_argument("--apply", action="store_true", help="write the change; without this it only reports")
     args = ap.parse_args(argv)

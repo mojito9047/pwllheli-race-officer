@@ -50,6 +50,7 @@ fresh clone. Run them from the repo root, e.g. `python scripts/build_release_zip
 | `verify_leaderboard.py` | Measure how good the predicted leaderboard is. See [Measuring the predicted leaderboard](#measuring-the-predicted-leaderboard). |
 | `compare_rounding_tests.py` | Compare ways of deciding a boat has rounded a mark, over recorded tracks. See [Re-examining how a rounding is decided](#re-examining-how-a-rounding-is-decided). |
 | `tracker_latency.py` | How late each tracker's fixes reach Traccar, and whether a change to one of them helped. See [Measuring tracker delay](#measuring-tracker-delay). |
+| `fix_track_misattribution.py` | Detach one tracker's fixes from a boat they were never that boat's fixes &mdash; a device paired to one boat while physically aboard another. Dry run by default; it reports day by day which boat the device was really sitting on, measured against that boat's own tracker. Symptom and worked example: [`docs/TROUBLESHOOTING.md`](../docs/TROUBLESHOOTING.md). |
 
 ### 3D replay
 

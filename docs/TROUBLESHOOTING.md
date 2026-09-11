@@ -184,6 +184,46 @@ table, so deleting the row made it say no and the chart, the progress list and
 the replay all stopped looking. Re-adding the tracker with the **same unique id**
 and the same boat restores it on any version.
 
+## A boat's track jumps to another boat's position
+
+Two things cause a boat's stored fixes to be somebody else's, and they look
+different on the chart.
+
+**The track flips back and forth between two boats**, several times a minute,
+drawing a fan of long straight lines. That is **two trackers paired to the same
+boat**, one of them aboard a different one, so the boat's track is the two
+devices interleaved. From **v1.002** the app will not let that happen: assigning
+a tracker to a boat takes the boat off any other tracker and says so. Data
+already recorded this way needs repairing (below).
+
+**The track is simply the wrong boat's**, smoothly, with no jumping. That is one
+tracker paired to boat A while physically aboard boat B &mdash; a spare carried
+onto the wrong boat, or a pairing left over from last season. Nothing detects
+this, because a tracker reporting from a plausible place while racing looks
+entirely healthy. Check the Trackers page against what is actually aboard.
+
+Either way the fixes themselves are fine; it is who they are attributed to that
+is wrong, and that is repairable. **The repair is in the source repository, not
+in a release install** &mdash; `scripts/` is deliberately left out of the release
+ZIP &mdash; so this is a job for whoever maintains the app, run on the hut's own
+data directory after a backup:
+
+```
+python scripts/fix_track_misattribution.py --device <IMEI> --boat <boat id>
+```
+
+It changes nothing without `--apply`. The dry run reports, day by day, which
+boat that device was really sitting on &mdash; measured by how close it was to
+that boat's own tracker &mdash; so you can see the mistake before repairing it,
+and it refuses if the boat has no other tracker to fall back on. The wrongly
+attributed fixes are detached rather than deleted, and are not re-pointed at the
+boat the device was really on: that boat has its own tracker, and a pairing that
+never existed should not be invented after the fact.
+
+**Re-render any 3D replay film of an affected race.** The film is made from the
+tracks as they were when it was rendered, so an old one still has the jumps in
+it.
+
 ## The replay stops part-way, or the chart will not run past twelve hours
 
 The replay window is capped at **twelve hours** from the warning signal
