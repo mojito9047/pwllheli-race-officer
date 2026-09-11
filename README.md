@@ -22,7 +22,7 @@ Race-office support software. It does not decide anything: official race decisio
 - **The dashboard lost the start line, finish line and radio/limits cards.** They never changed.
   That is Sailing Instructions, not a dashboard, and they were taking room on the page the race
   office leaves open all day.
-- **A release is 14 MB again.** `data/dem` &mdash; 30 MB of map scratch, untracked, and present
+- **A release is 17 MB, not 44.** `data/dem` &mdash; 30 MB of map scratch, untracked, and present
   only on a machine that had fetched it &mdash; was being swept into the ZIP.
 
 ### v1.001 update

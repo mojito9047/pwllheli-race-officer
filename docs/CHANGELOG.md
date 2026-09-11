@@ -46,7 +46,7 @@ in the bucket bought nothing and cost a cache to keep in step.
 That is Sailing Instructions, not a dashboard, and three cards of standing text were taking room on
 the page the race office leaves open all day, above the things that do change.
 
-**A release is 14 MB again.** `data/dem` — 30 MB of map scratch, untracked, and present only on a
+**A release is 17 MB, not 44.** `data/dem` — 30 MB of map scratch, untracked, and present only on a
 machine that had once run the fetch scripts — was being swept into the ZIP. Nothing installed reads
 it. A release built on the wrong machine went out at 44 MB over the hut's 4G link.
 
