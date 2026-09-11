@@ -3356,6 +3356,10 @@ def competitor_race_context(race: sqlite3.Row, mobile_view: bool = False,
         "course_analysis": course_analysis,
         "legs": course_analysis["legs_analysis"],
         "dual_results": compute_dual_results(race, entries) if race_finished else None,
+        # The 3D replay film, if one has been rendered. A bucket address, so
+        # it plays whether or not the hut is switched on, and empty until the
+        # film exists -- which is days after the race, not on the water.
+        "film_url": replay3d.film_url_for(int(race["id"])),
         "start_video_clip": video_maps["start_clip"],
         "finish_video_by_entry": video_maps["by_entry"],
         "video_clip_link_text": video_clip_link_text,

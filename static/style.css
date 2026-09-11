@@ -384,6 +384,10 @@ button.danger, .button.danger { background: #b3261e; color: white; }
 .panel-strip.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 4px 28px; }
 .panel-strip.split > * { min-width: 0; }
 
+/* The 3D replay link in the public race header. Its own line under the
+   counts, with the margin the summary grid does not give it. */
+.film-link { margin: 10px 0 0; }
+
 /* A tab's own heading sits right at the top of the pane. */
 h3.tab-heading { margin: 0 0 12px; }
 .checkbox-inline { display: flex; flex-direction: row; align-items: center; gap: 8px; min-width: 180px; }

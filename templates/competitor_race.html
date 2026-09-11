@@ -78,6 +78,15 @@
       <span><strong>{{ racing_count }}</strong> racing</span>
       <span>Predicted: <strong id="publicPredictedTime">{% if course_shown %}{{ course_analysis.predicted_display }}{% else %}&mdash;{% endif %}</strong></span>
     </div>
+    {% if film_url %}
+    {# In the header rather than beside the start video in the Results tab,
+       because that line only exists once there are results and a pursuit race
+       puts its videos in a per-boat column instead. The film is one thing for
+       the whole race, and it is what somebody arriving from a shared link has
+       come for. Nothing shows here until a film has been rendered, which is
+       days after the racing, not on the water. #}
+    <p class="film-link"><a class="button small secondary" href="{{ film_url }}" target="_blank" rel="noopener">Watch the 3D replay</a></p>
+    {% endif %}
   </div>
   <div class="flag-status-panel race-header-flags" data-start="{{ first_start_time }}" data-race-finished="{{ 1 if race_finished else 0 }}" data-course-shortened="{{ 1 if course_shortened else 0 }}" data-postponed="{{ postponed_flag or '' }}" data-postponement-ends-at="{{ postponement_ends_at or '' }}">
     <div class="flag-row" aria-label="Current race signals"></div>
