@@ -137,8 +137,14 @@ saw that stretch of water. It caches them afterwards, so this is a one-off per a
 public address — see *Before it will work*, item 2.
 
 **A re-rendered film still looks like the old one.** It should not: each film's link carries
-its own version. If you have an old link saved from before this was fixed, take a fresh one
-from the race page.
+its own version, and the app notices a render landing and reissues the link. If you have an
+old link saved from before this was fixed, take a fresh one from the race page.
+
+**A boat is missing from the film altogether.** The film draws the boats that have a track,
+so this is the race's GPS data rather than the render &mdash; check the boat on the race's own
+chart first, and if it is missing there too, see *A boat's track jumps to another boat's
+position* in [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md). The results card is built from finish
+times instead, so a boat can be in the final placings and absent from the water.
 
 **Nothing happens for hours and the dashboard card looks fine.** Check the card says a render
 machine is *ready* or *working*, not just that the job is queued.

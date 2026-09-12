@@ -296,3 +296,95 @@ class TestWhichRacesHaveAFilm:
         monkeypatch.setattr(replay3d, "bucket_config", dict)
         replay3d.forget_published_films()
         assert replay3d.published_films() == {}
+
+
+class TestAReRenderDoesNotLeaveTheOldLinkUp:
+    """Re-rendering a race replaces a film whose key never changes.
+
+    Which races have a film is a ten-minute memo over one bucket listing, and
+    each link carries the object's modification time so a new cut cannot sit
+    behind the old one in a cache. Both are right on their own and wrong
+    together: for ten minutes after a render lands, every page still offers the
+    previous cut's token -- and those links are served with a day of cache, so
+    a competitor clicking inside that window is pinned to yesterday's film
+    until tomorrow. The race office sees it first, having just watched the
+    render finish and pressed Watch the film.
+    """
+
+    BUCKET = {"account_id": "acc", "bucket": "buck", "access_key": "id",
+              "secret_key": "secret", "public_base_url": "https://films.example"}
+    OLD = "2026-09-10T21:24:10.000Z"        # v=1789075450
+    NEW = "2026-09-12T13:38:51.000Z"        # v=1789220331
+
+    def _wire(self, monkeypatch, in_bucket, state, finished_ago):
+        """A bucket holding one film, and a renderer saying what it just did.
+
+        ``in_bucket`` is a one-item list so a test can replace the film under
+        the memo, which is what a re-render does. Times are offsets from now,
+        because the memo's own freshness is measured against the real clock.
+        """
+        from core import r2, replay3d
+        listed = {"n": 0}
+
+        def list_objects(*a, **k):
+            listed["n"] += 1
+            return [{"key": "replay3d/films/race_69.mp4", "size_bytes": 108272940,
+                     "last_modified": in_bucket[0]}]
+
+        status = {"state": state, "updated_at": time.time() - finished_ago}
+        monkeypatch.setattr(replay3d, "bucket_config", lambda: dict(self.BUCKET))
+        monkeypatch.setattr(r2, "list_objects", list_objects)
+        monkeypatch.setattr(replay3d, "read_heartbeat", lambda: {"renderer": "RENDERBOX"})
+        monkeypatch.setattr(replay3d, "renderer_is_up", lambda *a, **k: True)
+        monkeypatch.setattr(replay3d, "status_is_stale", lambda *a, **k: False)
+        monkeypatch.setattr(replay3d, "read_status", lambda race_id: dict(status))
+        replay3d.forget_published_films()
+        return listed
+
+    @staticmethod
+    def _listed_ago(seconds):
+        """Pretend the memo was filled this long ago, rather than just now."""
+        from core import replay3d
+        replay3d._FILM_INDEX["at"] = time.time() - seconds
+
+    def test_the_new_film_is_offered_as_soon_as_the_render_is_done(self, monkeypatch):
+        from core import replay3d
+        in_bucket = [self.OLD]
+        self._wire(monkeypatch, in_bucket, "done", finished_ago=60)
+
+        assert replay3d.film_url_for(69).endswith("?v=1789075450")
+        self._listed_ago(300)       # the listing is older than the render
+        in_bucket[0] = self.NEW     # which has since landed in the bucket
+
+        assert replay3d.dashboard_status(69)["state"] == "done"
+        assert replay3d.film_url_for(69).endswith("?v=1789220331"), \
+            "the page is still offering the film the re-render replaced"
+
+    def test_a_render_older_than_the_listing_does_not_re_list_the_bucket(self, monkeypatch):
+        """Otherwise the memo is no memo: the card polls this every few seconds.
+
+        A finished render stays "done" in the bucket for ever, so the common
+        case by far is a status describing a film the listing already has.
+        """
+        from core import replay3d
+        listed = self._wire(monkeypatch, [self.NEW], "done", finished_ago=300)
+
+        replay3d.published_films()
+        self._listed_ago(60)        # listed after that render landed
+        assert listed["n"] == 1
+        for _ in range(5):
+            replay3d.dashboard_status(69)
+            replay3d.film_url_for(69)
+        assert listed["n"] == 1, "the film index is being re-listed on every poll"
+
+    def test_a_render_still_running_leaves_the_index_alone(self, monkeypatch):
+        """Nothing has replaced the film yet, so the current link is the right one."""
+        from core import replay3d
+        listed = self._wire(monkeypatch, [self.OLD], "rendering", finished_ago=60)
+
+        replay3d.published_films()
+        self._listed_ago(300)
+        assert listed["n"] == 1
+        replay3d.dashboard_status(69)
+        replay3d.film_url_for(69)
+        assert listed["n"] == 1

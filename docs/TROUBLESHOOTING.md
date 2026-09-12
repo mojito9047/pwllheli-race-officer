@@ -220,6 +220,24 @@ attributed fixes are detached rather than deleted, and are not re-pointed at the
 boat the device was really on: that boat has its own tracker, and a pairing that
 never existed should not be invented after the fact.
 
+**Say which days.** These trackers are club loaners that move from boat to boat
+between races, so a device that was on the wrong boat one weekend is genuinely
+that boat's the next. Read the day-by-day report, then repair only the days it
+shows the device somewhere else:
+
+```
+python scripts/fix_track_misattribution.py --device <IMEI> --boat <boat id> --from 2026-08-08 --until 2026-08-09T06:00 --apply
+```
+
+Check the hours at each end: an overnight race crosses midnight, and a boat is
+boarded before the start. Without a window the repair takes every fix that
+device ever recorded for that boat, and `--apply` refuses to do that when the
+report shows good days mixed in with the bad. If one already has, `--reattach`
+with the same two bounds gives those days back.
+
+**Re-run the dry run afterwards for every other device paired to that boat.**
+One boat carrying two trackers on one day is a good reason to check the others.
+
 **Re-render any 3D replay film of an affected race.** The film is made from the
 tracks as they were when it was rendered, so an old one still has the jumps in
 it.

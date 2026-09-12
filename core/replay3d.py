@@ -1026,6 +1026,16 @@ def dashboard_status(race_id: Optional[int] = None, now: Optional[float] = None)
                 "message": "The renderer stopped reporting part way through.",
                 "status": status, "heartbeat": beat}
     if status and status.get("state") == "done":
+        # A re-render replaces an object whose key never changes, and the index
+        # of which races have a film is a ten-minute memo over a bucket
+        # listing. If this render finished after that listing, every film link
+        # the app is handing out for this race still carries the previous cut's
+        # version token -- and those links are served with a day of cache, so a
+        # competitor who clicks inside those ten minutes is pinned to the old
+        # film until tomorrow. Cheap to notice here: the page that says "the
+        # film is ready" is the one about to offer the link.
+        if float(_FILM_INDEX["at"]) < float(status.get("updated_at") or 0.0):
+            forget_published_films()
         return {"configured": True, "ok": True, "renderer_up": up, "state": "done",
                 "message": "The film is ready.", "status": status, "heartbeat": beat}
     if status:
