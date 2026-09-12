@@ -63,6 +63,11 @@ of a three-boat race took two hours on a modest graphics card and about twenty m
 good one. The page shows a percentage and an estimate, both of which are honest but move in
 steps, because the work is divided into a handful of unequal pieces.
 
+The first of those pieces draws nothing, and the card says **placing names and marks** while
+it runs. That is the render working out where every boat and mark falls on screen for every
+frame, which has to happen before the first one is drawn. It shows a percentage of its own
+and leaves the main bar alone, because none of the film exists yet.
+
 ## On the dashboard
 
 The **3D replay** card is not really about progress. It is about whether there is a render

@@ -31,7 +31,7 @@ import re
 import subprocess
 import sys
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BUILD = os.path.join(HERE, "build_scene.py")
@@ -222,6 +222,33 @@ def _blender_candidates() -> List[str]:
             seen.add(key)
             unique.append(path)
     return unique
+
+
+def _run_reporting(cmd: List[str], keep: str) -> Tuple[int, List[str]]:
+    """Run Blender, echoing only the lines worth reading and keeping the last few.
+
+    Blender says a great deal on the way up, so this pass used to send both
+    streams to DEVNULL. That threw away the one thing worth having: the pass
+    renders nothing, so it holds a single core and leaves the GPU idle, and on
+    a full-length film that is minutes of complete silence after "writing the
+    overlay track" -- which reads as a hang, and was reported as one. It does
+    say where it has got to every couple of thousand frames.
+
+    The tail is kept so a failure can say why. Previously it could only say
+    that it had happened.
+    """
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            text=True, encoding="utf-8", errors="replace", bufsize=1)
+    tail: List[str] = []
+    for line in proc.stdout:
+        line = line.rstrip()
+        if not line:
+            continue
+        tail = (tail + [line])[-12:]
+        if keep in line:
+            print(line if line.startswith(" ") else f"  {line}", flush=True)
+    proc.wait()
+    return proc.returncode, tail
 
 
 def track_is_stale(track_path: str, json_path: str) -> bool:
@@ -476,12 +503,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     track_path = os.path.splitext(json_path)[0] + "_overlay.json"
     if args.overlay_track or track_is_stale(track_path, json_path):
         print("  writing the overlay track", flush=True)
-        rc = subprocess.call([blender, "-b", "--python", BUILD, "--", json_path,
-                              "--speed", str(args.speed), "--overlay-track", track_path]
-                             + passthrough,
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        rc, tail = _run_reporting(
+            [blender, "-b", "--python", BUILD, "--", json_path,
+             "--speed", str(args.speed), "--overlay-track", track_path] + passthrough,
+            keep="overlay track")
         if rc != 0 or not os.path.exists(track_path):
             print("  overlay track failed; names and marks will be missing from the film")
+            for line in tail:
+                print(f"    {line}")
 
     def launch(k: int, job: Dict[str, int]) -> subprocess.Popen:
         prefix = f"{out_prefix}part{k:02d}_"

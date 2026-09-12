@@ -145,8 +145,18 @@ renderer 'RENDERBOX' watching pwllheli-video/replay3d/jobs (blender: blender.exe
   $ prepare_video_frames.py --json race_649.json --speed 30.0
   NOTE: RENDER_FRAME_RANGE=1-120, this is a smoke test and not the whole film
   $ render_parallel.py race_649.json --workers 2 --slow-step 5 ...
+  writing the overlay track
+  overlay track 2000/11502 (17.4%)
 === done in 9 min -> https://videos.pwllhelisailingclub.org/replay3d/films/race_649.mp4
 ```
+
+**The overlay track is the one stage that looks like a hang.** Before any frame
+is drawn, one Blender process walks the whole film working out where every boat
+and mark lands on screen — only Blender knows where the camera was pointing.
+It renders nothing, so it holds a single core and leaves the graphics card
+idle, and on a full-length film that is minutes. It counts itself off every two
+thousand frames. It is kept between runs and only rewritten when the race's
+data has changed, so most re-renders skip it entirely.
 
 Two lines to read carefully, because both fail quietly and only show up in the
 finished film: **`branding:`** — "hut api unreachable" means no logos; and

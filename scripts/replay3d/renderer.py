@@ -167,6 +167,12 @@ class Progress:
 # different sizes, so the job tally is nearly useless as progress.
 _DONE_RE = re.compile(r"\]\s*(\d+)/(\d+)\s+frames")
 _COMPOSED_RE = re.compile(r"composed\s+(\d+)/(\d+)")
+# The pass that works out where every name and mark lands on screen. It runs
+# before a single frame is rendered, holds one core and no GPU, and on a
+# full-length film takes minutes -- during which the card said "rendering 5%"
+# and the machine looked asleep. It moves no bar, because none of the film is
+# made yet; it only says what is going on.
+_OVERLAY_RE = re.compile(r"overlay track\s+(\d+)/(\d+)")
 
 
 def _run(cmd: List[str], progress: Progress, stage: str, lo: float, hi: float) -> None:
@@ -184,6 +190,12 @@ def _run(cmd: List[str], progress: Progress, stage: str, lo: float, hi: float) -
             if b:
                 progress.set(stage, f"{stage} {a * 100 // b}%", lo + (hi - lo) * a / b,
                              frames_done=a, frames_total=b)
+            continue
+        m = _OVERLAY_RE.search(line)
+        if m and int(m.group(2)):
+            a, b = int(m.group(1)), int(m.group(2))
+            print(f"  {line.strip()}", flush=True)
+            progress.set(stage, f"placing names and marks {a * 100 // b}%")
     proc.wait()
     if proc.returncode != 0:
         raise RuntimeError(f"{os.path.basename(cmd[1] if len(cmd) > 1 else cmd[0])} "
