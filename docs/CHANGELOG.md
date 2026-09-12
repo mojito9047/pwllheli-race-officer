@@ -1,5 +1,54 @@
 # Change log
 
+## v1.003
+
+**Nothing in this release changes the race-office app.** It is all the 3D replay: the
+renderer, what the film looks like and how long it takes to make. The hut PC gains nothing
+by installing it; a render machine gains all of it.
+
+**The films had no titles.** The card at the front naming the race and the card at the end
+with the corrected times are drawn from the scene, and the renderer never asked for them — so
+every film made on a render machine has opened on the water and stopped dead at the last
+finish. They were built by the exporter, which is the developer's path, and nothing carried
+that across when rendering moved to another machine. The third thing to go that way, after
+the typefaces and the club branding, and like those it failed silently.
+
+**Boat names sat on the boats.** The name plate was placed a fixed distance above the hull,
+but a mast is fifteen metres and how tall that is on screen depends entirely on where the
+camera is: 2,507 of 32,029 boat-frames in one race had a rig taller than that fixed offset.
+The overlay now knows where each masthead is and the plate clears it, moving sideways rather
+than stacking into a column when boats overlap, and keeping off the club burgee.
+
+**Each boat's speed is on its name plate**, from the tracker's own reading — the same figure
+the race office sees, and the same samples the boat under it is animated from.
+
+**The coastline is four times sharper.** Satellite imagery was fetched at 1.44 m per pixel,
+mosaicked, stored — and then resampled down to 7.24 m per pixel in the last step before
+Blender saw it, so four fifths of it was thrown away. The cap is now 4096 pixels rather than
+2048, which costs nothing in downloads because the detail was already on disk.
+
+**Compositing is several times faster.** Over half of that stage was converting a picture
+into the same picture: PyAV's `to_image` takes a slow path from YUV to RGB and PIL then
+copies the whole frame again to add an alpha channel. Asking the scaler for RGBA in one pass
+is 0.61 ms against 11.25, and byte-identical. The stage is also split across cores now and
+the parts joined without a second encode, so the one part of a render that used a single core
+no longer does.
+
+**A re-render reused the old boat positions.** The overlay track — every boat's place on
+screen, frame by frame — was written only if the file was missing, so re-rendering a race
+after correcting its GPS tracks produced corrected boats with the name plates still following
+where the old fixes had been. It now carries a fingerprint of the scene it was made from and
+is rewritten when that no longer matches.
+
+**A boat carries one tracker, and the app now holds you to it.** Two trackers could be
+pointed at the same boat, and every fix from both was stamped with it, so the boat's track
+became the two devices interleaved. In one club race a spare aboard *Mojito* was also paired
+to *Crackajack*, and the replay drew Crackajack flipping between the two boats several times
+a minute. Assigning a tracker now takes the boat off any other and says which, in a warning
+that is finally amber — `.message.warning` had no style at all, so every warning in the app
+had been rendering in the green of a success. Data already recorded that way is repaired with
+`scripts/fix_track_misattribution.py`; the symptom and the cure are in `TROUBLESHOOTING.md`.
+
 ## v1.002
 
 **A race, as a film.** The app can now turn a sailed race into a 3D replay: the fleet on the water

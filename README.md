@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.002
+# Pwllheli Race Officer v1.003
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -6,6 +6,21 @@ Race-office support software. It does not decide anything: official race decisio
 
 
 ## Recent releases
+
+### v1.003 update
+
+- **The films had no titles.** The card naming the race and the closing results card were
+  drawn by the exporter and never by the renderer, so every film made on a render machine
+  opened on the water and stopped dead at the last finish.
+- **The results card keeps every rating.** It used to drop a whole table above five boats,
+  losing the YTC winner from a dual-scored race; a fleet that will not fit is now trimmed
+  with *and 12 more* instead.
+- **Boat names clear the rig**, carry each boat's **speed**, and move aside rather than
+  covering a cluster of boats.
+- **The coastline is four times sharper** &mdash; the imagery was always fetched at that
+  detail and thrown away in the last step before rendering.
+- **Compositing is several times faster**, and a re-render no longer reuses the old boat
+  positions for the name plates.
 
 ### v1.002 update
 
@@ -41,18 +56,6 @@ Race-office support software. It does not decide anything: official race decisio
 - **The MVP label comes off.** A season of the club's racing has run through it. What has not changed is that the race officer decides and the app records: results stay provisional until confirmed, and the caution in the sidebar stays.
 - **A release unpacks into `pwllheli_race_officer_v1_001`.** An existing install keeps working where it is. This also fixes a latent bug &mdash; the ZIP builder hardcoded `v0_`, so 1.000 would have produced a folder named `pwllheli_ro_mvp_v0_000`.
 - **Every screenshot in the guides re-shot** against 1.000.
-
-### v0.285 update
-
-- **A finish taken on the horn switch is a finish video.** The competitor page showed **View** for three boats and the published document said **No Video** for the same three: finishing on the physical horn leaves a `manual_horn` clip, and the published builder only looked for `finish` ones. On the club's database that was 10 finishes of 26 silently dropped. Both pages now use one rule &mdash; a clip attached to a boat is that boat's video &mdash; with a test holding them together.
-- **The published document only carries links that work away from the hut.** A clip not yet published to R2 used to get an address on the hut PC (43 of them in one measured document), dead for anyone reading the results on the club website. It now says *No Video* instead, and **Preview HTML** shows the same, so the preview tells the truth about what will be published.
-
-### v0.284 update
-
-- **The boat's Fleet / class field retires** &mdash; the last of three fields answering the same question and disagreeing. Nothing but that form ever wrote it, so *Add all &lt;fleet&gt; boats* and the Virtual Race Officer's *"enter the IRC 1 fleet"* go with it; *"add the fleet"* now means every active boat. Entry classes already recorded are untouched.
-- **The IRC and YTC listings download while you type.** Both start when the Add/Edit boat page opens, and the search joins that download instead of starting a second one: 0.13 s instead of 3.24 s once you have typed a boat name.
-- **A finished race stops walking fixes recorded after it finished.** One sailed in July was reading 98,362 of them, six weeks of later tracking, and gaining a day's worth a day &mdash; 518 ms to draw, now 15 ms. A race still being sailed is still followed to now, with room for a passage race.
-- **A camera that is not answering no longer costs every request 286 ms**, FFmpeg is killed when the app closes, and the recorder log is bounded at 8 MB instead of the 65 MB it had reached.
 
 ## Main features
 
