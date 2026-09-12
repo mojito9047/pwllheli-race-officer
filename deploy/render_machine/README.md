@@ -68,14 +68,19 @@ blender --version
 **The app.** Unzip the same release ZIP the clubhouse PC runs — the renderer
 ships inside it. No git, and no separate build for a render machine.
 
-On Windows, unzip `pwllheli_race_officer_v<version>.zip` and, in that folder:
+On **Windows**, unzip `pwllheli_race_officer_v<version>.zip` and run one script
+from that folder:
 
 ```bash
-py -m venv .venv
-.venv\Scripts\pip install -r deploy\render_machine\requirements.txt
+.\deploy\render_machine\setup_render_machine.cmd
 ```
 
-On Linux:
+It makes the virtual environment, installs what the renderer needs, puts a
+`renderer.env` in place from the example, and then tells you what is still
+missing. Safe to run again — it skips whatever is already done, so it is also
+how you pick up a new release's dependencies after an upgrade.
+
+On **Linux**, the same steps by hand:
 
 ```bash
 unzip pwllheli_race_officer_v<version>.zip -d /opt && cd /opt/pwllheli_race_officer_v*
@@ -167,10 +172,34 @@ sudo systemctl enable --now pwllheli-renderer
 journalctl -u pwllheli-renderer -f
 ```
 
-**Windows:** run `run_renderer.ps1` in a window and leave it, or register it with
-Task Scheduler the way the hut PC registers the app (see
-`deploy/windows/install_startup_task.ps1` for the pattern — trigger at logon,
-run whether logged on or not, restart on failure).
+**Windows:**
+
+```bash
+.\deploy\render_machine\install_render_task.cmd
+```
+
+That registers a Scheduled Task which starts the renderer at every logon and
+restarts it if it stops. It refuses to install if the check fails, because a
+task that cannot render only hides the problem.
+
+**At logon, as the signed-in user — not "whether logged on or not".** EEVEE is a
+realtime engine and wants a working graphics driver in a real desktop session; a
+task set to run without a logon gets a session with no GPU and fails at the
+first frame. It is the same reason the hut's own task runs in the signed-in
+session, there for its audio and serial hardware.
+
+```bash
+.\deploy\render_machine\status_render_task.cmd
+```
+
+```bash
+.\deploy\render_machine\uninstall_render_task.cmd
+```
+
+`status` reports the task **and** what the club's bucket says, which is the
+honest half: the task can be running perfectly while the renderer is pointed at
+the wrong bucket and seeing no work. It ages the heartbeat, so a machine that
+stopped mid-render says so rather than still claiming to be working on a race.
 
 Either way the dashboard card is the thing to look at, not the log: it says
 whether a render machine has checked in at all. A job queued against a machine
@@ -180,11 +209,19 @@ that is switched off looks exactly like one being worked on.
 
 ## The pieces (files in this folder)
 
+Each `.ps1` has a `.cmd` beside it, so they can be double-clicked as well as run
+from a prompt — the same pairing as `deploy/windows`.
+
 | File | What it is |
 | --- | --- |
+| `setup_render_machine.ps1` | One-time setup: virtual environment, packages, settings file, then what is still missing. Re-runnable, and how you pick up a new release's dependencies. |
+| `install_render_task.ps1` | Register the Scheduled Task that keeps the renderer running. Checks the machine first. |
+| `status_render_task.ps1` | What the task is doing, and what the bucket says about it. |
+| `uninstall_render_task.ps1` | Stop it and remove the task. Keeps the settings and the cached tiles. |
+| `run_renderer.ps1` | The runner the task calls. `-Check`, `-Once`, or the loop. |
+| `render_status.py` | The bucket half of `status`. A file rather than a one-liner, because python source passed through PowerShell to a native command loses its quotes. |
 | `renderer.env.example` | Every setting, commented. Copy to `renderer.env`. |
 | `requirements.txt` | The render side's Python packages, and why each is there. |
-| `run_renderer.ps1` | Windows: load the env file and run. `-Check`, `-Once`. |
 | `pwllheli-renderer.service` | Linux: the systemd unit. |
 
 The code is in `scripts/replay3d/`: `renderer.py` is the loop, `assets.py` the
