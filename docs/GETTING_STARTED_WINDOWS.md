@@ -32,7 +32,7 @@ C:\RaceOfficer
 After extraction you should have a folder like:
 
 ```text
-C:\RaceOfficer\pwllheli_race_officer_v1_003
+C:\RaceOfficer\pwllheli_race_officer_v1_004
 ```
 
 The exact version number may be different.
@@ -97,7 +97,7 @@ If `py` is not recognised, close Command Prompt and open it again. If it still d
 In Command Prompt, change into the app folder. For example:
 
 ```cmd
-cd /d C:\RaceOfficer\pwllheli_race_officer_v1_003
+cd /d C:\RaceOfficer\pwllheli_race_officer_v1_004
 ```
 
 Use your actual folder name if the version number is different.
@@ -206,7 +206,7 @@ Ctrl + C
 To start it again later:
 
 ```cmd
-cd /d C:\RaceOfficer\pwllheli_race_officer_v1_003
+cd /d C:\RaceOfficer\pwllheli_race_officer_v1_004
 .venv\Scripts\activate.bat
 python app.py
 ```
@@ -403,7 +403,7 @@ C:\ffmpeg\bin\ffmpeg.exe
 Do not start it by double-clicking `app.py`. Start it from Command Prompt using:
 
 ```cmd
-cd /d C:\RaceOfficer\pwllheli_race_officer_v1_003
+cd /d C:\RaceOfficer\pwllheli_race_officer_v1_004
 .venv\Scripts\activate.bat
 python app.py
 ```
@@ -519,7 +519,7 @@ See [`DEPLOYMENT_WINDOWS.md`](DEPLOYMENT_WINDOWS.md) for the full hut-PC deploym
 For a normal first install after Python is installed:
 
 ```cmd
-cd /d C:\RaceOfficer\pwllheli_race_officer_v1_003
+cd /d C:\RaceOfficer\pwllheli_race_officer_v1_004
 py -m venv .venv
 .venv\Scripts\activate.bat
 python -m pip install --upgrade pip
@@ -530,7 +530,7 @@ python app.py
 For later starts:
 
 ```cmd
-cd /d C:\RaceOfficer\pwllheli_race_officer_v1_003
+cd /d C:\RaceOfficer\pwllheli_race_officer_v1_004
 .venv\Scripts\activate.bat
 python app.py
 ```

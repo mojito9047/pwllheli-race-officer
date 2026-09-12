@@ -1,5 +1,54 @@
 # Change log
 
+## v1.004
+
+**A race that lost a boat, and the tool that lost it.** A repair written for one bad day took
+ten good ones with it, and CRACKAJACK vanished from a race she had sailed. Everything here
+follows from that, plus two things about the 3D replay that the same afternoon turned up.
+Nothing in the race-office app behaves differently on the water.
+
+**The track repair now has to say which days.** `fix_track_misattribution.py` detaches one
+tracker's fixes from a boat they were never that boat's — written after a device paired to
+Crackajack spent a whole race aboard Mojito. It matched on the pairing alone, with no bound in
+time, so repairing that one race detached every fix the device had ever recorded for her:
+30,154 of them across twelve days. These are club loaners that move from boat to boat between
+races, and by the following weekend that same device really was aboard Crackajack — so she
+disappeared from the chart and from the film of a race she had sailed with it. She stayed in
+the results, which are built from finish times rather than tracks, which is what made it look
+like a fault in the renderer.
+
+The evidence was on screen the whole time: the dry run reports, day by day, which boat the
+device was really sitting on, and only one day of twelve showed it on another boat. So
+`--apply` now refuses an unbounded repair when the report has good days mixed in with the bad,
+and prints the window to use. `--from` and `--until` bound what is touched, and `--reattach`
+is the way back for a repair that has already taken too much — insisting on both bounds,
+because handing a device's whole history to a boat is the same mistake in the other direction.
+
+**A new film now reaches the pages that link to it.** Which races have a film is a ten-minute
+memo over one bucket listing, and each link carries the film's own modification time so a new
+cut cannot sit behind the old one in a cache. Both are right on their own and wrong together:
+for ten minutes after a render landed, every page still offered the previous cut — and those
+links go out with a day of cache, so a competitor clicking inside that window was pinned to
+yesterday's film until tomorrow. The race office met it first, having just watched a render
+finish and pressed *Watch the film*.
+
+**The quiet stage at the front of a render says what it is doing.** Before a frame is drawn,
+one pass works out where every boat and mark lands on screen for every frame of the film —
+only the 3D scene knows where the camera was pointing. It renders nothing, so it uses one
+processor core and no graphics card at all, and on a full-length film that is minutes of
+apparent silence; it was reported as a hang. It had been counting itself off all along, into a
+log nobody was reading. The dashboard card now says **placing names and marks**, with a
+percentage of its own, and deliberately leaves the main progress bar alone — no part of the
+film exists yet. A render that fails there can also now say why.
+
+This one shows up rarely: the pass is kept between runs and repeated only when the race's data
+has changed — which is exactly what repairing a boat's tracks does.
+
+**Also in this release**, from after v1.003 was cut: a **setup script for a render machine**,
+so one is built the way the hut PC is, with `setup_render_machine`, `install_render_task` and
+`status_render_task` beside the runner — and a correction to the v1.003 notes, which opened by
+claiming nothing in that release changed the race-office app when three of its files did.
+
 ## v1.003
 
 **Mostly the 3D replay, but not only.** Most of what follows is the renderer -- what a film

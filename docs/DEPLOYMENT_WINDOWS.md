@@ -18,7 +18,7 @@ The manual script `deploy\windows\start_race_officer.cmd` still opens a visible 
 If a command window remains open after login, reinstall the task from the new scripts:
 
 ```cmd
-cd /d C:\RaceOfficer\pwllheli_race_officer_v1_003\deploy\windows
+cd /d C:\RaceOfficer\pwllheli_race_officer_v1_004\deploy\windows
 uninstall_startup_task.cmd
 install_startup_task.cmd
 ```
@@ -30,7 +30,7 @@ Running inside the signed-in user session is deliberate. The app uses desktop au
 Use a simple folder such as:
 
 ```text
-C:\RaceOfficer\pwllheli_race_officer_v1_003
+C:\RaceOfficer\pwllheli_race_officer_v1_004
 ```
 
 Avoid running the live app directly from Downloads, OneDrive sync folders or a ZIP viewer.

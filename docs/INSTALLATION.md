@@ -29,7 +29,7 @@ The normal deployment is a Windows Scheduled Task called **Pwllheli Race Officer
 From the unzipped project folder:
 
 ```bash
-cd pwllheli_race_officer_v1_003
+cd pwllheli_race_officer_v1_004
 python -m venv .venv
 ```
 
