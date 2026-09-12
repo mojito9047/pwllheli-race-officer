@@ -21,6 +21,10 @@ Race-office support software. It does not decide anything: official race decisio
   detail and thrown away in the last step before rendering.
 - **Compositing is several times faster**, and a re-render no longer reuses the old boat
   positions for the name plates.
+- **In the app itself:** a boat can no longer have two trackers pointed at it &mdash; which
+  is what made one race's replay draw a boat jumping between two positions &mdash; and
+  **warnings are now amber**. `.message.warning` had no style at all, so every warning in the
+  app had been rendering in the green of a success.
 
 ### v1.002 update
 

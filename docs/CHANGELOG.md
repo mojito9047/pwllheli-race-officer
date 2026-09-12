@@ -2,9 +2,11 @@
 
 ## v1.003
 
-**Nothing in this release changes the race-office app.** It is all the 3D replay: the
-renderer, what the film looks like and how long it takes to make. The hut PC gains nothing
-by installing it; a render machine gains all of it.
+**Mostly the 3D replay, but not only.** Most of what follows is the renderer -- what a film
+looks like and how long it takes to make -- and a render machine gains all of that. Two
+changes reach the race-office app itself and are worth the hut having: a boat can no longer
+have two trackers pointed at it, and warnings are no longer drawn in the green of a success.
+Both are at the end of this list.
 
 **The films had no titles.** The card at the front naming the race and the card at the end
 with the corrected times are drawn from the scene, and the renderer never asked for them — so
