@@ -13,6 +13,14 @@ finish. They were built by the exporter, which is the developer's path, and noth
 that across when rendering moved to another machine. The third thing to go that way, after
 the typefaces and the club branding, and like those it failed silently.
 
+**The results card lost a whole rating above five boats.** It dropped tables that would not
+fit, so a club scoring IRC and YTC together lost the YTC winner from the film with nothing on
+the card to say so; above about sixteen boats it then began to overlap itself. Both came from
+type shrinking more slowly than the bands holding it, so below a point it outgrew them. Each
+font is now measured against its own band, the rating headings have a floor of their own
+because a heading is per-table overhead rather than per-boat, and a fleet too big for the card
+is trimmed with *and 12 more* rather than a whole rating being dropped.
+
 **Boat names sat on the boats.** The name plate was placed a fixed distance above the hull,
 but a mast is fifteen metres and how tall that is on screen depends entirely on where the
 camera is: 2,507 of 32,029 boat-frames in one race had a rig taller than that fixed offset.
