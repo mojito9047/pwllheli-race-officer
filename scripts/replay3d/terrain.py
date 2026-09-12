@@ -102,8 +102,23 @@ def imagery_credit_for(image_path: str, override: Optional[str] = None) -> str:
     return desc.strip()
 
 
+# How many pixels across the satellite drape may be. Measured on the Pwllheli
+# bay scene, which is 14.8 km across:
+#
+#   2048   7.24 m/px    4.3 MB   the harbour is a smear
+#   4096   3.62 m/px   14.1 MB   breakwater, road and buildings resolve
+#   8192   1.81 m/px   42.8 MB   sharper again, but well past the knee
+#  16384   1.44 m/px            the source runs out first, at 10,281 px
+#
+# 4096 is the step that matters; the one above it costs three times the disk in
+# every job folder for a good deal less. Only beyond 16384 would fetching the
+# tiles at a higher zoom mean anything, and that is 4x the tiles for a mosaic
+# nobody wants to hold in memory.
+DRAPE_MAX_PX = 4096
+
+
 def imagery_for_terrain(image_path: str, terrain: Dict[str, Any], lat0: float, lon0: float,
-                        out_png: str, max_px: int = 2048) -> Dict[str, Any]:
+                        out_png: str, max_px: int = DRAPE_MAX_PX) -> Dict[str, Any]:
     """Crop a georeferenced lat/lon RGB GeoTIFF to the terrain grid's footprint and save a PNG.
 
     The PNG is resampled onto the terrain's own metre frame, so pixel (u, v) in
@@ -129,7 +144,11 @@ def imagery_for_terrain(image_path: str, terrain: Dict[str, Any], lat0: float, l
     height = (int(terrain["ny"]) - 1) * float(terrain["cell_m"])
     m_per_deg_lat = 111_320.0
     m_per_deg_lon = 111_320.0 * math.cos(math.radians(lat0))
-    # Output resolution: the source's, capped.
+    # Output resolution: the source's, capped. The cap is what decides how
+    # sharp the coastline is, not the zoom the tiles were fetched at -- at 2048
+    # the drape was 7.2 m/px over a 14.8 km square while the z15 mosaic under
+    # it held 1.44, so four fifths of what had been downloaded, mosaicked and
+    # stored was thrown away in this one line.
     src_px_m = min(abs(dlon) * m_per_deg_lon, abs(dlat) * m_per_deg_lat)
     n = int(min(max_px, max(256, round(width / src_px_m))))
     xs = x0 + np.linspace(0.0, width, n)

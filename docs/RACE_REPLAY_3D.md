@@ -99,11 +99,16 @@ put a large download through the hut's 4G connection.
   line, and the film uses both.
 - **The hut camera**, cut in at the start and at each finish, locked to the same clock as the
   3D view so the picture and the boats agree.
-- **A race clock, the course board, the true wind, and boat names**, drawn in the app's own
-  typefaces.
+- **A race clock, the course board and the true wind**, drawn in the app's own typefaces.
+- **Each boat's name and its speed over the ground**, on a plate that sits above the rig with
+  a line down to the boat. When boats overlap the plates move rather than cover them.
 - **The club burgee and the sponsors**, exactly as on the club's start and finish videos and
   from the same source, so changing a sponsor in Settings changes the films too with nothing
   to copy anywhere.
+
+- **A title card** naming the race and the day it was sailed, and a **results card** at the
+  end with the corrected times in both rating systems — so the film is a record on its own,
+  without the page it came from.
 
 The replay runs at 30× real time, dropping to real time at the start and at each finish so
 those can be watched properly.

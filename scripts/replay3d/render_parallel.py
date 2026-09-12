@@ -224,6 +224,42 @@ def _blender_candidates() -> List[str]:
     return unique
 
 
+def track_is_stale(track_path: str, json_path: str) -> bool:
+    """Does the overlay track need writing again for this scene?
+
+    Existence used to be the whole test, and that is wrong the moment a race is
+    re-exported. Every screen position in the track belongs to one scene: after
+    the Crackajack tracks were repaired and the race re-rendered in the same
+    folder, the boats came out right and the name plates carried on following
+    where the old fixes had put them, because the track was left over from the
+    previous run.
+
+    A track written before this change carries no fingerprint, so it is treated
+    as stale and rewritten once. That costs one Blender pass and is the safe way
+    round: reusing it is the failure that is hard to see.
+    """
+    if not os.path.exists(track_path):
+        return True
+    try:
+        with open(track_path, "r", encoding="utf-8") as f:
+            stamped = json.load(f).get("scene_sha")
+    except (OSError, ValueError):
+        return True
+    if not stamped:
+        print("  the overlay track predates this check; writing it again", flush=True)
+        return True
+    import hashlib
+
+    h = hashlib.sha256()
+    with open(json_path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    if stamped == h.hexdigest():
+        return False
+    print("  the scene has changed since the overlay track was written", flush=True)
+    return True
+
+
 def blender_path() -> Optional[str]:
     """The first candidate that actually starts Blender, or None."""
     for path in _blender_candidates():
@@ -438,7 +474,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Blender knows where each camera was pointing, so one short pass writes
     # the screen position of every boat and mark, frame by frame, up front.
     track_path = os.path.splitext(json_path)[0] + "_overlay.json"
-    if args.overlay_track or not os.path.exists(track_path):
+    if args.overlay_track or track_is_stale(track_path, json_path):
         print("  writing the overlay track", flush=True)
         rc = subprocess.call([blender, "-b", "--python", BUILD, "--", json_path,
                               "--speed", str(args.speed), "--overlay-track", track_path]

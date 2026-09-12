@@ -2364,9 +2364,13 @@ story.append(bullets([
     "and the film uses both.",
     "<b>The hut camera</b>, cut in at the start and at each finish, locked to the same clock as the 3D "
     "view so the picture and the boats agree.",
-    "<b>A race clock, the course board, the true wind and boat names</b>, in the app's own typefaces.",
+    "<b>A race clock, the course board and the true wind</b>, in the app's own typefaces.",
+    "<b>Each boat's name and its speed over the ground</b> on a plate above the rig, with a line "
+    "down to the boat. The speed is the tracker's own, the same figure the race office sees.",
     "<b>The club burgee and the sponsors</b>, from the same source as the club's start and finish videos, "
     "so changing a sponsor in Settings changes the films too.",
+    "<b>A title card and a results card</b>, at the front and the end. The results card carries the "
+    "corrected times in both rating systems, so the film stands on its own away from the app.",
 ]))
 story.append(Paragraph(
     "The replay runs at 30&#215; real time, dropping to real time at the start and at each finish so those "

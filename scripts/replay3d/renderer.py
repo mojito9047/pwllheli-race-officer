@@ -267,6 +267,29 @@ def run_job(store: Store, job: Dict[str, Any], who: str, blender: str) -> str:
     clips = fetch_clips(scene, work)
     print(f"  {clips} clip(s) downloaded", flush=True)
 
+    # The title card at the front and the results card at the end. Drawn here
+    # because the overlay only shows what the scene names, and a scene that
+    # names no cards gets a film that opens on the water and stops dead at the
+    # last finish. They were built by the exporter and nothing carried that
+    # across when the renderer moved to another machine -- the same gap as the
+    # typefaces and the branding before them, and like those it fails silently:
+    # every film since has simply had no titles.
+    from cards import build_cards
+
+    brand = scene.get("branding") or {}
+    logos = [os.path.join(work, brand["club"])] if brand.get("club") else []
+    # Shipped with the app, so a render machine that could not reach the club's
+    # manifest still gets a mark on the card rather than a blank corner.
+    logos.append(os.path.join(_ROOT, "static", "img", "pwllheli_sailing_club_logo_white.png"))
+    try:
+        scene["cards"] = build_cards(scene, work, os.path.join(work, "fonts"), logos, race_id)
+        drawn = [k for k, v in (scene["cards"] or {}).items() if v]
+        print(f"  cards: {', '.join(drawn) if drawn else 'none drawn'}", flush=True)
+    except Exception as exc:
+        # A film without titles is still a film.
+        scene["cards"] = {}
+        print(f"  cards: skipped ({type(exc).__name__}: {exc})", flush=True)
+
     scene_path = os.path.join(work, f"race_{race_id}.json")
     with open(scene_path, "w", encoding="utf-8") as f:
         json.dump(scene, f, separators=(",", ":"))

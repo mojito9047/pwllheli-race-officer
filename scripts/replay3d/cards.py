@@ -143,6 +143,18 @@ def _gradient(size: Tuple[int, int], top: Tuple[int, int, int], bottom: Tuple[in
     return column.resize(size, Image.BILINEAR)
 
 
+# The smallest the results card will shrink itself. Below this the fonts, which
+# shrink more slowly than the bands they sit in, start to overlap the headers.
+MIN_CARD_SCALE = 0.42
+# However tight it gets, show at least a podium.
+MIN_CARD_ROWS = 3
+# A table header is per-table overhead, not per-boat, so shrinking it with the
+# rows is a false economy: on a twenty-boat card it bought two more rows and
+# cost the ratings their names, "IRC OVERALL" ending up at 12px beside 20px
+# boats. It gets a floor.
+MIN_HEAD_FRACTION = 0.040
+
+
 def results_card(data: Dict[str, Any], out_path: str, fonts_dir: str, branding: Sequence[str],
                  size: Tuple[int, int] = (1920, 1080)) -> Optional[str]:
     """The closing card: a broadcast leaderboard, not a results sheet.
@@ -173,36 +185,71 @@ def results_card(data: Dict[str, Any], out_path: str, fonts_dir: str, branding: 
     _tracked(draw, (head_x + 3, round(h * 0.142)), _race_date(data).upper(),
              _font(fonts_dir, "ArchivoNarrow.ttf", round(h * 0.024)), PANEL_LABEL, 5.0)
 
-    # Every table the scorer produced, shrunk to fit rather than dropped: a DUAL
-    # race is scored twice and both answers matter to somebody in the bar.
+    # Every table the scorer produced, and a fleet that will not fit is cut
+    # short rather than a whole rating being dropped.
+    #
+    # It used to drop tables, and the threshold was six boats: a club scoring
+    # IRC and YTC together lost the YTC winner from the film entirely, with
+    # nothing on the card to say so. Below about sixteen boats it then began to
+    # overlap itself, because the row heights shrank with the fit while the
+    # fonts shrank on a gentler curve, so the text outgrew the bands holding it
+    # -- the headers first, being the shallowest.
+    #
+    # So the scale has a floor. Above it everything fits and everything shows;
+    # at it, the fleets are trimmed to what the card can hold and each says how
+    # many more there were. A closing card is the highlight, not the results
+    # sheet, and the full order is a click away on the race page.
     shown = tables[:4]
     y = round(h * 0.225)
     budget = h - y - round(h * 0.075)
     head_h, note_h, gap_between = h * 0.062, h * 0.040, h * 0.025
-    nominal = sum(head_h + h * 0.082 * len(t["rows"]) + (note_h if t.get("note") else 0) + gap_between
-                  for t in shown)
+    row_nominal = h * 0.082
+
+    def head_at(sc: float) -> float:
+        return max(h * MIN_HEAD_FRACTION, head_h * sc)
+
+    def fixed_at(n_tables: int, sc: float) -> float:
+        return n_tables * (head_at(sc) + (note_h + gap_between) * sc)
+
+    nominal = fixed_at(len(shown), 1.0) + row_nominal * sum(len(t["rows"]) for t in shown)
     scale = min(1.0, budget / nominal) if nominal else 1.0
-    while scale < 0.62 and len(shown) > 1:
-        shown = shown[:-1]                      # too cramped to read: drop the last table instead
-        nominal = sum(head_h + h * 0.082 * len(t["rows"]) + (note_h if t.get("note") else 0) + gap_between
-                      for t in shown)
-        scale = min(1.0, budget / nominal) if nominal else 1.0
-
-    def size(fraction: float) -> int:
-        return max(9, round(h * fraction * (0.55 + 0.45 * scale)))
-
-    label_font = _font(fonts_dir, "ArchivoNarrow.ttf", size(0.021))
-    head_font = _font(fonts_dir, "ArchivoNarrow.ttf", size(0.030))
-    name_font = _font(fonts_dir, "Archivo.ttf", size(0.042))
-    win_font = _font(fonts_dir, "Archivo.ttf", size(0.050))
-    pos_font = _font(fonts_dir, "Archivo.ttf", size(0.046))
-    win_pos_font = _font(fonts_dir, "Archivo.ttf", size(0.056))
-    mono_font = _font(fonts_dir, "PlexMono500.ttf", size(0.040))
-    win_mono = _font(fonts_dir, "PlexMono500.ttf", size(0.048))
-    small_mono = _font(fonts_dir, "PlexMono500.ttf", size(0.024))
+    if scale < MIN_CARD_SCALE:
+        scale = MIN_CARD_SCALE
+        room = budget - fixed_at(len(shown), scale)
+        per_table = int(room / (row_nominal * scale) / max(1, len(shown)))
+        keep = max(MIN_CARD_ROWS, per_table)
+        # The count travels in the copy, not in a lookup keyed on the original
+        # table: replacing the dict and then asking for the old one's id finds
+        # nothing, silently, and the card loses the line that says it was cut.
+        shown = [{**t, "rows": t["rows"][:keep], "_cut": max(0, len(t["rows"]) - keep)}
+                 for t in shown]
 
     row_h = round(h * 0.082 * scale)
-    head_h, note_h, gap_between = round(head_h * scale), round(note_h * scale), round(gap_between * scale)
+    head_h = round(head_at(scale))
+    note_h, gap_between = round(note_h * scale), round(gap_between * scale)
+    gap_h = round(h * 0.012 * min(1.0, scale * 1.4))
+
+    # Type shrinks more slowly than the bands holding it -- deliberately, so a
+    # tight card stays readable -- which means below a point it outgrows them.
+    # That was the overlap: at twenty boats the headers ended up printed through
+    # the first row. Capping each font against the band it sits in is the fix,
+    # and it is what lets the card go on shrinking to fit a real fleet instead
+    # of stopping early with four names on it.
+    row_cap = max(9, int((row_h - gap_h) * 0.72))
+    head_cap = max(8, int(head_h * 0.46))
+
+    def size(fraction: float, cap: int) -> int:
+        return max(9, min(cap, round(h * fraction * (0.55 + 0.45 * scale))))
+
+    label_font = _font(fonts_dir, "ArchivoNarrow.ttf", size(0.021, head_cap))
+    head_font = _font(fonts_dir, "ArchivoNarrow.ttf", size(0.030, head_cap))
+    name_font = _font(fonts_dir, "Archivo.ttf", size(0.042, row_cap))
+    win_font = _font(fonts_dir, "Archivo.ttf", size(0.050, row_cap))
+    pos_font = _font(fonts_dir, "Archivo.ttf", size(0.046, row_cap))
+    win_pos_font = _font(fonts_dir, "Archivo.ttf", size(0.056, row_cap))
+    mono_font = _font(fonts_dir, "PlexMono500.ttf", size(0.040, row_cap))
+    win_mono = _font(fonts_dir, "PlexMono500.ttf", size(0.048, row_cap))
+    small_mono = _font(fonts_dir, "PlexMono500.ttf", size(0.024, row_cap))
     col_boat = margin + round(w * 0.075)
     col_sail = margin + round(w * 0.400)
     col_elapsed = w - margin - round(w * 0.175)
@@ -222,7 +269,6 @@ def results_card(data: Dict[str, Any], out_path: str, fonts_dir: str, branding: 
         # A timing tower: each boat on its own slab, the place in a box, the hull
         # colour as the stripe, and everyone behind the winner shown as a gap.
         leader_s = next((r.get("corrected_s") for r in table["rows"] if r.get("pos") == 1), None)
-        gap_h = round(h * 0.012)
         box_w = round(w * 0.042)
         for row in table["rows"]:
             first = row.get("pos") == 1
@@ -252,9 +298,13 @@ def results_card(data: Dict[str, Any], out_path: str, fonts_dir: str, branding: 
                           _gap_text(float(row["corrected_s"]) - float(leader_s)),
                           font=mono_font, fill=(235, 235, 235), anchor="rs")
             y += row_h
-        if table.get("note"):
-            _tracked(draw, (col_boat, y + round(note_h * 0.55)), str(table["note"]).upper(),
-                     label_font, (110, 110, 110), 2.5)
+        extra = int(table.get("_cut") or 0)
+        # One line. Drawing the two separately put them on top of each other,
+        # because the note is positioned from y and nothing had moved y on.
+        parts = ([f"AND {extra} MORE"] if extra else []) +                 ([str(table["note"]).upper()] if table.get("note") else [])
+        if parts:
+            _tracked(draw, (col_boat, y + round(note_h * 0.55)), "   ".join(parts),
+                     label_font, PANEL_LABEL if extra else (110, 110, 110), 2.5)
             y += note_h
         y += gap_between
 

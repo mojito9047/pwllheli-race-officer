@@ -172,26 +172,59 @@ class Overlay:
         pad = self.px(PAD * 0.7)
         lead = self.px(TAG_LEADER)
 
-        placed: List[Tuple[float, float, float, float]] = []
+        # The branding is drawn after the tags, so a plate pushed to the top of
+        # the frame ends up behind the burgee. Seeding the collision list with
+        # those two boxes makes the placement avoid them for free, rather than
+        # reserving a band across the whole width that would shove every plate
+        # back down onto the boats.
+        placed: List[Tuple[float, float, float, float]] = list(self._branding_boxes())
         drawn: List[Tuple[Any, ...]] = []
+        t_rel = self._t_rel(frame)
         # Nearest first: a close boat keeps the spot it wants, the far ones move.
-        for index, sx, sy, depth in sorted(entries, key=lambda e: e[3]):
+        for entry in sorted(entries, key=lambda e: e[3]):
+            index, sx, sy, depth = entry[0], entry[1], entry[2], entry[3]
             name = self._boat_name(index)
+            speed = self._speed_kn(index, t_rel)
+            label = f"{name}  {speed:.1f} kn" if speed is not None else name
             x = sx * self.width
             y = (1.0 - sy) * self.height
-            w = int(draw.textlength(name, font=self.f_tag) + stripe + 3 * pad)
+            # Above the masthead when the track knows where that is. The rig is
+            # fifteen metres and fills the frame when the camera comes in, so a
+            # fixed offset from the hull put the plate straight through it.
+            mast_y = ((1.0 - entry[4]) * self.height) if len(entry) > 4 else y
+            w = int(draw.textlength(label, font=self.f_tag) + stripe + 3 * pad)
             x0 = max(0.0, min(self.width - w, x - w / 2.0))
-            y0 = y - lead - plate_h
-            for _ in range(len(placed) + 1):
+            # Clamped into the frame before the clash search, not after: doing
+            # it afterwards put a plate that had been moved up and out of the
+            # picture straight back down onto whatever it had just avoided --
+            # which on a close shot is the club burgee.
+            home = max(0.0, min(y - lead, mast_y - gap) - plate_h)
+            y0 = home
+            # Up first, then out to the side. Boats overlapping at the start
+            # would otherwise stack into one column directly over the fleet,
+            # which is the moment there is most to look at and least room.
+            for _ in range(len(placed) * 2 + 2):
                 clash = next((r for r in placed
                               if x0 < r[2] and x0 + w > r[0] and y0 < r[3] and y0 + plate_h > r[1]),
                              None)
                 if clash is None:
                     break
-                y0 = clash[1] - plate_h - gap
-            y0 = max(0.0, y0)
+                above = clash[1] - plate_h - gap
+                if above >= 0.0:
+                    y0 = above
+                else:
+                    # No room above it, so go beside it -- to whichever side of
+                    # the blocker still fits on screen, nearest the boat first.
+                    # Stepping a fixed distance instead walked a plate into the
+                    # left edge and left it stuck there, on top of its neighbour.
+                    options = [c for c in (clash[0] - w - gap, clash[2] + gap)
+                               if 0.0 <= c <= self.width - w]
+                    if not options:
+                        break                    # nowhere left to go; leave it
+                    x0 = min(options, key=lambda c: abs(c + w / 2.0 - x))
+                    y0 = home
             placed.append((x0, y0, x0 + w, y0 + plate_h))
-            drawn.append((name, self.colours.get(name, (255, 255, 255)), x, y, x0, y0, w))
+            drawn.append((label, self.colours.get(name, (255, 255, 255)), x, y, x0, y0, w))
 
         for name, colour, x, y, x0, y0, w in drawn:
             draw.line([(x, y), (x0 + w / 2.0, y0 + plate_h)],
@@ -224,6 +257,40 @@ class Overlay:
             draw.text((x + 1, y + 1), label, font=self.f_mark, fill=(0, 0, 0, 120), anchor="mm")
             draw.text((x, y), label, font=self.f_mark, fill=_rgba("white", 235), anchor="mm")
         img.alpha_composite(layer)
+
+    def _branding_boxes(self) -> List[Tuple[float, float, float, float]]:
+        """Where the club mark and the sponsor sit, as rectangles to keep clear of."""
+        boxes: List[Tuple[float, float, float, float]] = []
+        margin = max(12, self.px(BRAND_MARGIN))
+        cap_h = max(32, self.px(BRAND_CAP_H))
+        if self._brand_club:
+            w = int(self.width * BRAND_CLUB_W)
+            boxes.append((0.0, 0.0, margin + w, margin + cap_h))
+        if self._brand_sponsors:
+            w = int(self.width * BRAND_SPONSOR_W)
+            boxes.append((self.width - margin - w, 0.0, float(self.width), margin + cap_h))
+        return boxes
+
+    def _speed_kn(self, index: int, t_rel: float) -> Optional[float]:
+        """The boat's speed over the ground at this moment, or None.
+
+        Read from the scene's own samples -- the ones build_scene animates the
+        boat from -- rather than from the overlay track, so the number on the
+        plate is the speed of the boat under it. The samples are on a regular
+        clock, so this is an index rather than a search.
+        """
+        boats = self.data.get("boats") or []
+        if not (0 <= index < len(boats)):
+            return None
+        samples = boats[index].get("samples") or []
+        if len(samples) < 2:
+            return None
+        step = (samples[1][0] - samples[0][0]) or 1.0
+        i = int(round((t_rel - samples[0][0]) / step))
+        if not (0 <= i < len(samples)):
+            return None
+        speed = samples[i][4] if len(samples[i]) > 4 else None
+        return float(speed) if speed is not None else None
 
     def _t_rel(self, frame: int) -> float:
         """Seconds into the race this frame shows. The film's clock is not the

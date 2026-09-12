@@ -2516,6 +2516,17 @@ def build(json_path: str, *, overlays_3d: bool = False,
     }
 
 
+def scene_digest(json_path: str) -> str:
+    """A fingerprint of the scene file, for spotting work made from an older one."""
+    import hashlib
+
+    h = hashlib.sha256()
+    with open(json_path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
 def write_overlay_track(result: Dict[str, Any], json_path: str, out_path: str) -> Dict[str, Any]:
     """Where every boat and mark lands on screen, frame by frame, as fractions.
 
@@ -2533,9 +2544,21 @@ def write_overlay_track(result: Dict[str, Any], json_path: str, out_path: str) -
 
     boat_names = [b["name"] or f"Boat {i + 1}" for i, b in enumerate(data["boats"])]
     roots = [scene.objects.get(f"Boat {n}") for n in boat_names]
-    # The hull itself: the overlay draws its own leader line up from there, so
-    # an anchor above the masthead would leave the dot floating in the sky.
+    # Two points per boat, not one. The dot and the leader line start at the
+    # hull -- anchoring those above the masthead would leave a marker floating
+    # in the sky -- but the name plate has to clear the rig, and how tall a rig
+    # is on screen depends entirely on how close the camera is. A fixed offset
+    # above the hull put the plates straight through the masts whenever the
+    # camera came in, which is exactly when the boats are worth seeing.
+    #
+    # Taken from each boat's own Rig empty rather than computed here: the rig
+    # carries the boat's heel, so the masthead leans with it, and asking the
+    # object where its own masthead is cannot drift from how the boat is built.
+    # Working it out by hand got it wrong by a factor of four the first time --
+    # the rig is drawn at BOAT_SCALE, so MAST_M is 60 world metres, not 15.
     lift = 0.0
+    masthead_local = Vector((0.0, 0.0, MAST_M * BOAT_SCALE * 1.04))
+    rigs = [bpy.data.objects.get(f"Rig {n}") for n in boat_names]
 
     marks = [m for m in data["marks"]
              if m.get("in_course") or math.hypot(m["xy"][0], m["xy"][1]) <= reach]
@@ -2559,7 +2582,12 @@ def write_overlay_track(result: Dict[str, Any], json_path: str, out_path: str) -
             co = world_to_camera_view(scene, cam, world)
             if co.z <= 0.0 or not (-0.05 <= co.x <= 1.05) or not (-0.05 <= co.y <= 1.05):
                 continue
-            seen.append([i, round(co.x, 4), round(co.y, 4), round(co.z, 1)])
+            rig = rigs[i]
+            if rig is None:
+                seen.append([i, round(co.x, 4), round(co.y, 4), round(co.z, 1)])
+                continue
+            top = world_to_camera_view(scene, cam, rig.matrix_world @ masthead_local)
+            seen.append([i, round(co.x, 4), round(co.y, 4), round(co.z, 1), round(top.y, 4)])
         if seen:
             entry["boats"] = seen
         seen = []
@@ -2576,7 +2604,13 @@ def write_overlay_track(result: Dict[str, Any], json_path: str, out_path: str) -
             done = (frame - scene.frame_start + 1) / total
             print(f"  overlay track {frame}/{scene.frame_end} ({done:5.1%})", flush=True)
 
+    # Stamped with the scene it describes. A track is only valid for one scene:
+    # re-export a race after fixing its tracks and every screen position in here
+    # is of the old ones, so the film draws corrected boats with the names still
+    # following where they used to be. That is exactly what happened after the
+    # Crackajack repair -- the boats stopped jumping and the labels did not.
     track = {"fps": scene.render.fps, "size": [scene.render.resolution_x, scene.render.resolution_y],
+             "scene_sha": scene_digest(json_path),
              "boats": boat_names, "marks": mark_names, "frames": frames}
     os.makedirs(os.path.dirname(os.path.abspath(out_path)) or ".", exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
