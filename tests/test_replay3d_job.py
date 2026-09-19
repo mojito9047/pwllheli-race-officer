@@ -388,3 +388,56 @@ class TestAReRenderDoesNotLeaveTheOldLinkUp:
         replay3d.dashboard_status(69)
         replay3d.film_url_for(69)
         assert listed["n"] == 1
+
+
+class TestAFinishTakenOnTheHornSwitchIsStillAFinish:
+    """The films had a start and then nothing, all season, with no error anywhere.
+
+    A finish taken on the physical horn switch is recorded as a ``manual_horn``
+    clip. Assigning that horn time to a boat stamps the entry onto the clip and
+    leaves the type alone -- the clip really is a recording of a horn. Asking
+    the database for ``clip_type IN ('start','finish')`` therefore found the
+    start and none of the finishes.
+
+    The app had already learned this once: the race page and the competitor page
+    disagreed about the same three boats until both were made to use the rule
+    that **any clip carrying an entry_id is that boat's finish video**. The
+    replay export was written later and asked the old question, so a club that
+    finishes on the horn switch -- this one, every race -- got films with the
+    start cut in and nothing at either end of the fleet.
+    """
+
+    def _row(self, clip_type, entry_id):
+        return {"id": 355, "clip_type": clip_type, "entry_id": entry_id,
+                "event_time": "2026-09-19T14:25:18", "public_url": "https://x/y.mp4"}
+
+    def test_a_horn_clip_assigned_to_a_boat_reads_as_a_finish(self):
+        assert replay3d.clip_kind(self._row("manual_horn", 443)) == "finish"
+
+    def test_a_clip_already_typed_finish_still_does(self):
+        assert replay3d.clip_kind(self._row("finish", 443)) == "finish"
+
+    def test_the_start_is_still_the_start(self):
+        """It is the one clip with no boat on it, which is what distinguishes it."""
+        assert replay3d.clip_kind(self._row("start", None)) == "start"
+
+    def test_the_film_does_not_burn_the_word_manual_horn_over_a_finish(self):
+        """The inset's corner label is this string, upper-cased."""
+        assert "MANUAL_HORN" not in replay3d.clip_kind(self._row("manual_horn", 443)).upper()
+
+    def test_the_query_asks_for_boats_not_just_types(self):
+        """Guards the fix itself: the old filter cannot come back unnoticed."""
+        assert "entry_id IS NOT NULL" in replay3d.FINISH_OR_START_CLIP
+        assert "clip_type = 'start'" in replay3d.FINISH_OR_START_CLIP
+
+    def test_horn_finishes_group_with_finishes_when_windows_are_trimmed(self):
+        """Two boats seconds apart must still collapse to one window.
+
+        The trimmer groups on ``kind``, so leaving horn clips as their own kind
+        would have stopped a close finish being de-duplicated.
+        """
+        clips = [{"kind": replay3d.clip_kind(self._row("manual_horn", 443)),
+                  "t_start": 100, "t_end": 220, "t_event": 160},
+                 {"kind": replay3d.clip_kind(self._row("finish", 441)),
+                  "t_start": 102, "t_end": 222, "t_event": 162}]
+        assert len(replay3d.trim_video_windows(clips)) == 1

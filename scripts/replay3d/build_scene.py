@@ -1729,21 +1729,30 @@ def build_cameras(scene: bpy.types.Scene, coll: bpy.types.Collection, data: Dict
         fcon.use_offset = True
         focus.location = (0.0, 0.0, 5.0 * BOAT_SCALE)
 
-        # Chase camera: an anchor keyframed behind and above the leader along its
-        # smoothed direction of travel, so the camera follows without inheriting heel.
-        anchor = _link(scene, coll, _empty("Chase anchor"))
         live = _live_samples(leader)
-        back, up = 60.0 * BOAT_SCALE, 7.0 * BOAT_SCALE
-        for idx, (t_rel, x, y, _h, _s) in enumerate(live):
-            h = math.radians(_smoothed_heading(live, idx))
-            anchor.location = (x - math.sin(h) * back, y - math.cos(h) * back, up)
-            anchor.keyframe_insert("location", frame=frame_of(t_rel))
-        _set_interpolation(anchor, "LINEAR")
-        chase = _new_camera(scene, coll, "chase", 40.0, extent)
-        chase.parent = anchor
-        _track_to(chase, focus)
 
         if shots == "follow":
+            # Chase camera: an anchor keyframed behind and above the leader along
+            # its smoothed direction of travel, so the camera follows without
+            # inheriting heel.
+            #
+            # Only for --shots follow, which asks for one boat. The film used to
+            # cut to this for 150 s after every mark rounding -- five times and
+            # 14% of a club race -- and it is the wrong shot for a race: it holds
+            # on the leader's transom while the boats it is racing are behind the
+            # camera. What the fleet is doing is the film. Mark roundings keep
+            # their own cameras, which is where following the leader earns its
+            # place, because there the rest of the fleet is arriving too.
+            anchor = _link(scene, coll, _empty("Chase anchor"))
+            back, up = 60.0 * BOAT_SCALE, 7.0 * BOAT_SCALE
+            for idx, (t_rel, x, y, _h, _s) in enumerate(live):
+                h = math.radians(_smoothed_heading(live, idx))
+                anchor.location = (x - math.sin(h) * back, y - math.cos(h) * back, up)
+                anchor.keyframe_insert("location", frame=frame_of(t_rel))
+            _set_interpolation(anchor, "LINEAR")
+            chase = _new_camera(scene, coll, "chase", 40.0, extent)
+            chase.parent = anchor
+            _track_to(chase, focus)
             plan = [{"name": "chase", "camera": chase, "t0": 0.0}]
         else:
             course = data.get("course") or []
@@ -1820,10 +1829,15 @@ def build_cameras(scene: bpy.types.Scene, coll: bpy.types.Collection, data: Dict
                     plan.append({"name": "overview", "camera": overview, "t0": chase_from + 150.0})
                 plan.append({"name": label, "camera": markcam, "t0": t_round - cut_in})
                 chase_from = t_round + cut_out
+                # Cut away from the mark camera once the leader is past it: that
+                # camera is planted beside the mark and the fleet sails out of it.
+                # This used to be the chase; it is the overview, which is
+                # keyframed to hold the leg being sailed and so is looking at the
+                # boats still to round.
                 if chase_from < last_cut - 30.0:
-                    plan.append({"name": "chase", "camera": chase, "t0": chase_from})
+                    plan.append({"name": "overview", "camera": overview, "t0": chase_from})
             if not any(s["name"].startswith("mark") for s in plan):
-                plan.append({"name": "chase", "camera": chase, "t0": chase_from})
+                plan.append({"name": "overview", "camera": overview, "t0": chase_from})
             # A long last leg gets the overview for its middle too.
             if last_cut - chase_from > 330.0:
                 plan.append({"name": "overview", "camera": overview, "t0": chase_from + 150.0})

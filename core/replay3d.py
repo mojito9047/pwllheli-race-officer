@@ -502,6 +502,30 @@ def race_results(race: Any, colour_by_boat: Optional[Dict[str, Any]] = None) -> 
             tables.append({"title": "Finishing order", "rating_label": "", "rows": rows})
     return tables
 
+# Which clips are the race's start and finishes.
+#
+# **Any clip carrying an entry_id is that boat's finish video, whatever its
+# clip_type.** That is the app's own rule (see app.py, where the race page and
+# the competitor page were made to agree on it) and this is the third place to
+# need it. A finish taken on the physical horn switch is recorded as a
+# ``manual_horn`` clip; assigning that horn time to a boat stamps the entry onto
+# the clip and leaves the type alone, because the clip really is a recording of
+# a horn. Asking for clip_type == 'finish' therefore missed every finish taken
+# that way -- and this club has been taking them that way all season, so its
+# films had a start and then nothing, with no error anywhere to say why.
+FINISH_OR_START_CLIP = "clip_type = 'start' OR entry_id IS NOT NULL"
+
+
+def clip_kind(row: Any) -> str:
+    """'start' or 'finish', whatever the clip_type happens to say.
+
+    Normalised here so nothing downstream has to know about horn switches: the
+    window trimmer groups on it, and the film burns it into the corner of the
+    inset -- which would otherwise have read MANUAL_HORN over every finish.
+    """
+    return "finish" if row_get(row, "entry_id") is not None else "start"
+
+
 def race_videos(race_id: int, t_win0: float, t_win1: float) -> List[Dict[str, Any]]:
     """The race's start and finish clips as windows on the replay clock, plus a URL.
 
@@ -526,9 +550,9 @@ def race_videos(race_id: int, t_win0: float, t_win1: float) -> List[Dict[str, An
     try:
         with get_db() as db:
             rows = db.execute(
-                "SELECT id, clip_type, event_time, pre_seconds, post_seconds, status, label, "
-                "public_status, public_url, footage_started_at FROM video_clips "
-                "WHERE race_id = ? AND clip_type IN ('start', 'finish') ORDER BY event_time",
+                "SELECT id, clip_type, entry_id, event_time, pre_seconds, post_seconds, status, "
+                "label, public_status, public_url, footage_started_at FROM video_clips "
+                f"WHERE race_id = ? AND ({FINISH_OR_START_CLIP}) ORDER BY event_time",
                 (race_id,),
             ).fetchall()
     except Exception:
@@ -553,7 +577,7 @@ def race_videos(race_id: int, t_win0: float, t_win1: float) -> List[Dict[str, An
         footage_start = footage_start_ts(row, event, int(pre))
         out.append({
             "id": int(row_get(row, "id", 0) or 0),
-            "kind": str(row_get(row, "clip_type", "") or ""),
+            "kind": clip_kind(row),
             "label": str(row_get(row, "label", "") or ""),
             "url": url,
             "t_start": round(start_ts - t_win0, 2),
@@ -1110,7 +1134,7 @@ def clips_pending(race_id: int) -> Dict[str, int]:
         with get_db() as db:
             rows = db.execute(
                 "SELECT public_status, public_url FROM video_clips "
-                "WHERE race_id = ? AND clip_type IN ('start', 'finish')",
+                f"WHERE race_id = ? AND ({FINISH_OR_START_CLIP})",
                 (race_id,),
             ).fetchall()
     except Exception:

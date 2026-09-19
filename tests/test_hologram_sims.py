@@ -850,6 +850,12 @@ class TestWhatPeriodTheFiguresCover:
     the newest SIMs had barely started accruing.
     """
 
+    # The same pinned clock its sibling classes use. Without it the four-week
+    # window is measured from the real today while the stubbed daily usage is
+    # dated 2026-08-20, so the figures fell out of the window on 17 September
+    # 2026 and the test began failing on a calendar rather than on a change.
+    NOW = 1787313600.0
+
     def _fleet(self, monkeypatch, ends):
         from core import horn
         horn.save_hardware_config({"hologram_enabled": "1", "hologram_api_key": "abc"})
@@ -878,6 +884,7 @@ class TestWhatPeriodTheFiguresCover:
             return {"data": []}
 
         monkeypatch.setattr(hologram, "_get", fake)
+        monkeypatch.setattr(hologram, "_weeks_back", lambda now=None: _orig_weeks(self.NOW))
         hologram.sim_status(blocking=True)
         return hologram.account()
 

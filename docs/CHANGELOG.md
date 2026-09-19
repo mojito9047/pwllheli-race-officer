@@ -1,5 +1,53 @@
 # Change log
 
+## v1.005
+
+**The films were missing their finishes, and watching the leader instead.** Both
+found on the same race day, along with a way to put right a fleet finished
+against the wrong race.
+
+**Every finish was missing from every film.** A finish taken on the **physical
+horn switch** is recorded as a `manual_horn` clip; assigning that horn time to a
+boat stamps the boat onto the clip and quite reasonably leaves its type alone,
+because the clip really is a recording of a horn. The replay export asked the
+database for clips of type `start` or `finish`, so it found the start and none
+of the finishes — no error anywhere, just a film with nothing cut in at the end.
+The club has been finishing on the horn switch all season: six races lost their
+finish videos that way and one lost its video entirely. The app had already
+learned this rule once, when the race page and the competitor page disagreed
+about the same three boats — **any clip carrying a boat is that boat's finish
+video, whatever its type** — and the replay was written later and asked the old
+question. The render button's "videos not published yet" warning was counting
+the same way and is fixed with it.
+
+**The film no longer follows the leader down the leg.** After every mark
+rounding it cut to a camera locked behind the leading boat for 150 seconds —
+five times in an eighty-minute club race, 14% of the film. It is the wrong shot
+for a race: it holds on one transom while the boats that boat is racing are
+behind the camera, and at thirty times speed there is nothing in the wake to
+watch. Those cuts now go to the overview, which is keyframed to hold the leg
+being sailed and is therefore pointed at the fleet. Mark roundings keep their
+own cameras, which is where following the leader earns its place, because the
+rest of the fleet is arriving into the same frame. Following one boat is still
+available deliberately, as `--shots follow`.
+
+**A fleet finished against the wrong race can be put back.** The race officer
+finishes boats from a race page, and the list offers every race the club has
+sailed; pick one from last season with a similar name and the whole afternoon is
+recorded there — finish times, horn events, and the evidence clips, which are
+then published to that race's folder. Nothing on the water says so. The new
+`scripts/refile_race_finishes.py` moves the day's rows onto the race actually
+sailed, looking each clip's boat up again in the destination and renaming its
+files and bucket key to the names the app would have given them, and can restore
+the race that was scribbled over from a backup taken before it. It refuses when
+both races are on the same day, when a boat has no entry in the destination, and
+when the backup offered is one taken after the mistake.
+
+**Also:** a repair tool that reads a backup now says so plainly when the file is
+not there, instead of opening an empty database and failing several screens
+later on a missing table — and it checks that before it writes anything, so a
+wrong path can no longer leave half a repair behind.
+
 ## v1.004
 
 **A race that lost a boat, and the tool that lost it.** A repair written for one bad day took

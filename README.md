@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.004
+# Pwllheli Race Officer v1.005
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -6,6 +6,19 @@ Race-office support software. It does not decide anything: official race decisio
 
 
 ## Recent releases
+
+### v1.005 update
+
+- **Films had no finish videos at all.** A finish taken on the physical horn switch is
+  recorded as a different kind of clip, and the replay export was not looking for it &mdash;
+  so the hut camera was cut in at the start and never again. Six races were affected.
+- **The film no longer follows the leading boat down the leg.** It used to cut behind the
+  leader for 150 seconds after every rounding &mdash; 14% of a club race spent watching one
+  transom while the fleet was off-camera. Those cuts go to the wide shot, which holds the leg
+  being sailed. Mark roundings keep their own cameras.
+- **A fleet finished against the wrong race can be put right**, videos included, with
+  `scripts/refile_race_finishes.py` &mdash; and the race that was scribbled over restored from
+  an earlier backup.
 
 ### v1.004 update
 
@@ -70,12 +83,6 @@ Race-office support software. It does not decide anything: official race decisio
   addresses the live stream fetches &mdash; pointed at an internal name over plain http. Set the
   club's address here and every external address follows it. Empty keeps today's behaviour, which
   is what the hut network wants.
-
-### v1.000 update
-
-- **The MVP label comes off.** A season of the club's racing has run through it. What has not changed is that the race officer decides and the app records: results stay provisional until confirmed, and the caution in the sidebar stays.
-- **A release unpacks into `pwllheli_race_officer_v1_001`.** An existing install keeps working where it is. This also fixes a latent bug &mdash; the ZIP builder hardcoded `v0_`, so 1.000 would have produced a folder named `pwllheli_ro_mvp_v0_000`.
-- **Every screenshot in the guides re-shot** against 1.000.
 
 ## Main features
 
