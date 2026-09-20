@@ -1,5 +1,32 @@
 # Change log
 
+## v1.006
+
+**The film watches the fleet between finishes.** A club fleet finishes over
+twenty minutes or more, and the replay used to cut to the finish line as the
+leader came in and stay there to the end. Once a boat was across there was
+nothing on screen but an empty stretch of water while the boats still racing
+were somewhere else entirely — measured on the club's own races, twenty seconds
+of it in one and forty-three in another.
+
+Now every boat gets the line for its run-in and its crossing, and the fleet has
+the screen in between. On race 4 of 20 September that turns thirty-four seconds
+of empty line into sixty-four seconds of the boats still racing.
+
+Two things decide the cuts. The film holds each boat for **fifteen seconds after
+it crosses** — half the real-time window around a finish, so the cut lands while
+the picture is still at natural speed and the fleet is picked up at a pace the
+eye can follow before the film winds back to thirty times. And the wait for the
+next boat is judged in **seconds of film rather than seconds of racing**, which
+are not the same thing at all: twenty seconds of racing is two thirds of a
+second on screen on a beat and twenty seconds of it beside the finish line. Two
+boats finishing seconds apart therefore share one shot instead of getting a cut
+away and straight back.
+
+The timing moved into the film's clock module on the way, where it can be tested
+without starting Blender — which it now is, against the real clock rather than a
+straight-line stand-in that would have agreed with anything.
+
 ## v1.005
 
 **The films were missing their finishes, and watching the leader instead.** Both

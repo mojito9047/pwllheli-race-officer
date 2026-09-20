@@ -14,7 +14,7 @@ both sides construct it from the same parameters stored in the race JSON.
 from __future__ import annotations
 
 import bisect
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 FPS = 24
 DEFAULT_SPEED = 30.0
@@ -55,6 +55,67 @@ def slow_windows_for(data: Dict[str, Any], slow_start: float = DEFAULT_SLOW_STAR
                 windows.append([float(t) - slow_finish, float(t) + slow_finish])
     clamped = [[max(0.0, a), min(duration, b)] for a, b in windows if b > 0 and a < duration]
     return merge_windows(clamped)
+
+
+# The finish, per boat. A club fleet finishes over twenty minutes or more, so
+# these bracket each crossing rather than the leader's alone: on the line from
+# CUT_IN race seconds before a boat crosses until CUT_OUT after.
+#
+# The hold after a crossing is half the real-time window, not all of it. The
+# film runs at 1x for thirty seconds either side of a finish, and staying for
+# all of it meant half a minute of screen time on a boat that had already
+# crossed and a line with nothing else on it. Leaving at fifteen gives that
+# time back to the boats still racing, and the cut lands while the film is
+# still at real time, so the fleet is picked up at a speed the eye can follow
+# before it winds back up to 30x.
+FINISH_CUT_IN = 140.0
+FINISH_CUT_OUT = 15.0
+# How long the wait for the next boat has to be **on screen** before it is worth
+# leaving the line for.
+MIN_AWAY_FILM_S = 10.0
+
+
+def film_seconds(frame_of: Callable[[float], int], t0: float, t1: float) -> float:
+    """How long a stretch of race time lasts on screen.
+
+    The film runs at 30x between finishes and at real time around them, so race
+    seconds say nothing about how long something is actually watched for. Any
+    decision about whether a cut is worth making has to be taken in this unit --
+    twenty race seconds is two thirds of a second of film on a beat and twenty
+    seconds of it inside a slow window.
+    """
+    return max(0.0, (frame_of(t1) - frame_of(t0)) / float(FPS))
+
+
+def finish_shot_times(finishes: Sequence[float],
+                      frame_of: Callable[[float], int]) -> List[Tuple[str, float]]:
+    """When to be on the finish line, and when to go back to the fleet.
+
+    The film used to cut to the line as the leader came in and stay there to the
+    end. A club fleet finishes over twenty minutes, so after each boat crossed
+    there was nothing on screen but an empty line -- twenty seconds of it in one
+    race here, forty-three in another -- while the boats still racing were
+    somewhere else entirely.
+
+    So: the line for each boat's run-in and crossing, the fleet in between, and
+    the line again as the next one approaches. Going back is only worth a pair
+    of cuts if there is something to watch in between, which is why the gap is
+    measured in film seconds; and the last boat holds the line to the end,
+    because that is where the film finishes.
+
+    Returns ``(shot name, race seconds)`` in order. A name is "finish" or
+    "overview"; the caller owns the cameras.
+    """
+    out: List[Tuple[str, float]] = []
+    ordered = sorted(float(t) for t in finishes)
+    for i, t in enumerate(ordered):
+        out.append(("finish", t - FINISH_CUT_IN))
+        if i + 1 >= len(ordered):
+            break
+        away, back = t + FINISH_CUT_OUT, ordered[i + 1] - FINISH_CUT_IN
+        if film_seconds(frame_of, away, back) >= MIN_AWAY_FILM_S:
+            out.append(("overview", away))
+    return out
 
 
 class TimeWarp:

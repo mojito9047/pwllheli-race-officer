@@ -118,9 +118,19 @@ class TestTheFilmDoesNotFollowTheLeader:
 
 
 class TestWhatTheFilmStillCutsTo:
-    def test_the_shots_that_show_the_fleet_are_all_there(self, plan):
-        """A mark rounding, the start, the finish and the overview between them."""
-        assert {"overview", "start", "finish"} <= plan["outside"]
+    def test_the_shots_it_still_names_for_itself(self, plan):
+        """The opening wide shot, the start line, and the cuts back to the fleet."""
+        assert {"overview", "start"} <= plan["outside"]
+
+    def test_the_finish_is_planned_by_the_clock_module(self):
+        """Its timing depends on how long a gap *lasts on screen*, which is the
+        film clock's business and is testable without Blender -- see
+        tests/test_finish_shots.py. build_cameras owns the cameras, not the cut
+        times, so what is checked here is only that it still asks."""
+        source = _SOURCE.read_text(encoding="utf-8")
+        assert "from replay_time import TimeWarp, finish_shot_times" in source
+        assert "finish_shot_times(finishes, frame_of)" in source
+        assert '"finish": finishcam' in source
 
     def test_the_mark_cameras_are_named_per_rounding(self):
         """`mark 6 #2` -- the same mark rounded twice is two shots, not one."""

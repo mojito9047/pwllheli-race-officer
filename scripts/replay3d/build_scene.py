@@ -55,7 +55,7 @@ from mathutils import Vector
 _HERE = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else os.getcwd()
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
-from replay_time import TimeWarp  # noqa: E402
+from replay_time import TimeWarp, finish_shot_times  # noqa: E402
 from replay_style import BOAT_COLOURS, to_linear  # noqa: E402
 from wind import Wind  # noqa: E402
 
@@ -1852,7 +1852,18 @@ def build_cameras(scene: bpy.types.Scene, coll: bpy.types.Collection, data: Dict
                 finishcam = _line_camera(scene, coll, "finish", line, ends + approach_pts,
                                          Vector((approach[1], approach[2], 0.0)),
                                          data, extent, lens=28.0)
-                plan.append({"name": "finish", "camera": finishcam, "t0": finish_t - 140.0})
+                # One shot per finish, with the fleet in between.
+                #
+                # The film used to cut to the line at the leader's approach and
+                # stay there to the end. A club fleet finishes over twenty
+                # minutes, so after each boat crossed there was nothing on
+                # screen but an empty line -- 43 seconds of it in one race here
+                # -- while the boats still racing were somewhere else entirely.
+                finishes = [float(b["finish_t"]) for b in (data.get("boats") or [])
+                            if b.get("finish_t") is not None] or [finish_t]
+                cams = {"finish": finishcam, "overview": overview}
+                for name, t0 in finish_shot_times(finishes, frame_of):
+                    plan.append({"name": name, "camera": cams[name], "t0": t0})
 
     # Keep the plan sane: sorted, strictly increasing, inside the film.
     plan.sort(key=lambda s: s["t0"])

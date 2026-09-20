@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.005
+# Pwllheli Race Officer v1.006
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -6,6 +6,16 @@ Race-office support software. It does not decide anything: official race decisio
 
 
 ## Recent releases
+
+### v1.006 update
+
+- **Between finishes the film now watches the fleet**, not an empty finish line. A club fleet
+  finishes over twenty minutes; the replay used to cut to the line for the leader and stay
+  there. Each boat now gets the line for its run-in and crossing, and the boats still racing
+  get the screen in between &mdash; on one of this weekend's races, sixty-four seconds of fleet
+  where there had been thirty-four seconds of empty water.
+- **Two boats finishing seconds apart share one shot**, rather than cutting away and straight
+  back, because the wait is judged in seconds of film rather than seconds of racing.
 
 ### v1.005 update
 
@@ -72,17 +82,6 @@ Race-office support software. It does not decide anything: official race decisio
   office leaves open all day.
 - **A release is 17 MB, not 44.** `data/dem` &mdash; 30 MB of map scratch, untracked, and present
   only on a machine that had fetched it &mdash; was being swept into the ZIP.
-
-### v1.001 update
-
-- **The relay is the only way to the app.** Caddy now authenticates its hop to the hut with a
-  Cloudflare Access service token, so the tunnel hostname answers the relay and nothing else and
-  the rules scoped to the club's address cover everything.
-- **Settings &rarr; Web server &rarr; Public address.** Behind the tunnel the app only saw the
-  tunnel's own hostname, so the addresses it built for the outside world &mdash; today, the logo
-  addresses the live stream fetches &mdash; pointed at an internal name over plain http. Set the
-  club's address here and every external address follows it. Empty keeps today's behaviour, which
-  is what the hut network wants.
 
 ## Main features
 
