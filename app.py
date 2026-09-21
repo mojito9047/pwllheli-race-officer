@@ -381,6 +381,7 @@ from core.video import (
     r2_s3_endpoint_host,
     race_delete_summary,
     read_branding_manifest,
+    safe_sponsor_url,
     read_r2_test_result,
     repair_mojibake,
     reset_ptz_runtime_state,
@@ -1602,12 +1603,12 @@ def published_branding_logos() -> List[Dict[str, str]]:
     assets = branding_assets()
     logos: List[Dict[str, str]] = []
 
-    def add_logo(kind: str, name: str, path: Optional[Path]) -> None:
+    def add_logo(kind: str, name: str, path: Optional[Path], website: str = "") -> None:
         if not path:
             return
         data_uri = thumbnail_data_uri(path)
         if data_uri:
-            logos.append({"kind": kind, "name": name, "data_uri": data_uri})
+            logos.append({"kind": kind, "name": name, "data_uri": data_uri, "website": website})
 
     if assets.get("enabled"):
         if assets.get("club_logo_enabled"):
@@ -1615,7 +1616,13 @@ def published_branding_logos() -> List[Dict[str, str]]:
             add_logo("club", "Pwllheli Sailing Club", club_path if isinstance(club_path, Path) else None)
         for sponsor in assets.get("sponsors") or []:
             raw_path = sponsor.get("path")
-            add_logo("sponsor", str(sponsor.get("name") or "Sponsor"), raw_path if isinstance(raw_path, Path) else None)
+            # "label" is what branding_assets() calls it. Asking for "name"
+            # never matched, so every sponsor on the published page was
+            # captioned "Sponsor" -- which is also what a screen reader read
+            # out, and now what the link is announced as.
+            add_logo("sponsor", str(sponsor.get("label") or "Sponsor"),
+                     raw_path if isinstance(raw_path, Path) else None,
+                     str(sponsor.get("website") or ""))
 
     # Preserve the previous behaviour of showing the PSC logo even when no
     # upload/manifest branding has been configured yet.

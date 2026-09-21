@@ -783,9 +783,10 @@ The evidence clips and any public copies are kept — only publishing is given u
     </div>
     <div>
       <h4>Add sponsor logo</h4>
-      <p class="small muted">Sponsor logos rotate one at a time on public videos and the public live-camera JPEG. The standalone published results page still shows all sponsor logos in its grey banner.</p>
+      <p class="small muted">Sponsor logos rotate one at a time on public videos and the public live-camera JPEG. The standalone published results page still shows all sponsor logos in its grey banner, and a sponsor with a website there becomes a link to it. Videos and the 3D films cannot be clicked, so the website only affects the results page.</p>
       <form method="post" action="{{ url_for('settings_branding_sponsor_upload') }}" enctype="multipart/form-data" class="form-row">
         <label>Sponsor / mark label <input name="sponsor_label" placeholder="e.g. Abersoch Mark sponsor"></label>
+        <label>Website (optional) <input name="sponsor_url" placeholder="e.g. partingtonmarine.co.uk"></label>
         <label>Logo file <input type="file" name="sponsor_logo_upload" accept=".png,.jpg,.jpeg,image/png,image/jpeg" required></label>
         <button type="submit" class="secondary">Upload sponsor logo</button>
       </form>
@@ -795,12 +796,20 @@ The evidence clips and any public copies are kept — only publishing is given u
   {% if public_branding.sponsors %}
   <h4>Sponsor logos</h4>
   <table class="compact branding-assets-table">
-    <thead><tr><th>Logo</th><th>Label</th><th>File</th><th>Delete</th></tr></thead>
+    <thead><tr><th>Logo</th><th>Label</th><th>Website</th><th>File</th><th>Delete</th></tr></thead>
     <tbody>
     {% for sponsor in public_branding.sponsors %}
       <tr>
         <td><img class="branding-sponsor-thumb" src="{{ sponsor.url }}?v={{ app_version }}" alt="{{ sponsor.label }}"></td>
         <td>{{ sponsor.label }}</td>
+        <td>
+          {# On the published results the logo becomes a link to this. Blank it to unlink. #}
+          <form method="post" action="{{ url_for('settings_branding_sponsor_website') }}" class="inline">
+            <input type="hidden" name="sponsor_id" value="{{ sponsor.id }}">
+            <input name="sponsor_url" value="{{ sponsor.website }}" placeholder="not linked" size="24">
+            <button type="submit" class="small secondary">Save</button>
+          </form>
+        </td>
         <td>{{ sponsor.filename }}</td>
         <td>
           <form method="post" action="{{ url_for('settings_branding_sponsor_delete') }}" class="inline" onsubmit="return confirm('Delete sponsor logo {{ sponsor.label }}?')">

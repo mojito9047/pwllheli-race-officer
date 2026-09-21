@@ -17,7 +17,7 @@
        tables' width put the last one on a line of its own -- and widening the
        browser did nothing at all, because the cap was the limit rather than
        the screen. That reads as broken rather than responsive. */
-    .publish-branding { display: grid; grid-template-columns: minmax(90px, 150px) 1fr; align-items: center; gap: 20px; max-width: 1700px; margin: 0 auto; min-height: 70px; }
+    .publish-branding { display: grid; grid-template-columns: minmax(90px, 150px) 1fr; align-items: center; gap: 6px 20px; max-width: 1700px; margin: 0 auto; min-height: 70px; }
     .publish-club-logo-wrap { text-align: left; }
     .publish-club-logo { max-width: 140px; max-height: 86px; width: auto; height: auto; display: block; object-fit: contain; }
     /* One line above phone width, shrinking to share what room there is rather
@@ -26,7 +26,30 @@
        does. Wrapping is kept for phones (below), where seven across 390px
        would be seven smudges. */
     .publish-sponsor-strip { display: flex; align-items: center; justify-content: space-evenly; gap: 12px 18px; min-width: 0; flex-wrap: nowrap; }
-    .publish-sponsor-logo { max-height: 70px; max-width: 160px; min-width: 0; flex: 0 1 auto; width: auto; height: auto; object-fit: contain; }
+    /* A sponsor with a website is wrapped in a link, so the flex item is the
+       anchor for some logos and the image for others; both have to shrink the
+       same way or the linked ones would refuse to and push the strip wide. */
+    .publish-sponsor-logo, .publish-sponsor-link { min-width: 0; flex: 0 1 auto; }
+    /* The anchor carries the same cap as a bare logo, and the image fills it.
+       Capping only the image left the anchor sizing itself from content that
+       was sizing itself from the anchor, and linked sponsors came out at 78px
+       beside unlinked ones at 160. */
+    .publish-sponsor-link { display: inline-flex; align-items: center; line-height: 0;
+                            max-width: 160px; }
+    .publish-sponsor-logo { max-height: 70px; max-width: 160px; width: auto; height: auto; object-fit: contain; }
+    /* Width relative so the logo shrinks with the strip; height left to the
+       absolute cap above. A percentage max-height resolves against the
+       containing block, and an inline-flex anchor has no definite height, so
+       "max-height: 100%" there means *no limit* -- which let a linked Plas
+       Heli render 126px tall and hang out of the banner. */
+    .publish-sponsor-link .publish-sponsor-logo { max-width: 100%; }
+    /* Nothing about a logo says it can be clicked, so the banner says it:
+       bottom right of the grey, under the strip and out of its way. Drawn
+       only when a sponsor actually has an address saved, so the page never
+       invites a click that does nothing. White on #6b6b6b is 5.3:1, which
+       carries small text. */
+    .publish-sponsor-hint { grid-column: 1 / -1; margin: 0; text-align: right;
+                            color: #fff; font-size: 0.72em; }
     .publish-header { max-width: 1200px; margin: 0 auto 12px auto; }
     .publish-title { text-align: center; }
     h1 { font-size: 1.7em; margin-bottom: 0.2em; }
@@ -100,7 +123,11 @@
       .publish-club-logo-wrap { text-align: center; }
       .publish-club-logo { margin: 0 auto; max-height: 52px; }
       .publish-sponsor-strip { flex-wrap: wrap; gap: 10px 14px; justify-content: center; }
-      .publish-sponsor-logo { max-height: 32px; max-width: 92px; }
+      /* The link carries the cap too: the nested rule above is more specific
+         than a bare .publish-sponsor-logo, so a phone-sized cap set only on
+         the image loses to it and linked sponsors stayed full size. */
+      .publish-sponsor-logo, .publish-sponsor-link { max-height: 32px; max-width: 92px; }
+      .publish-sponsor-hint { text-align: center; }
       body { padding: 12px; }
       .publish-branding-banner { margin: -12px -12px 14px -12px; }
       h1 { font-size: 1.35em; }
@@ -116,7 +143,7 @@
          click on paper. Outlined, so the printed sheet still says the film is
          there. */
       .racebtn { background: #fff; color: #000; border: 1px solid #666; padding: 4px 10px; font-weight: normal; }
-      .toolbar, .print-note { display: none; }
+      .toolbar, .print-note, .publish-sponsor-hint { display: none; }
       .series-section, .race-section { display: block !important; page-break-after: always; }
     }
   </style>
@@ -156,10 +183,23 @@
     </div>
     {% if sponsor_logos %}
     <div class="publish-sponsor-strip">
+      {# A sponsor with a website becomes a link to it. The address is checked
+         to be http or https where it is saved, because this document is
+         published to the club's public bucket and opened by competitors. #}
       {% for logo in sponsor_logos %}
-      <img class="publish-sponsor-logo" src="{{ logo.data_uri }}" alt="{{ logo.name }} logo">
+        {% if logo.website %}
+        <a class="publish-sponsor-link" href="{{ logo.website }}" target="_blank" rel="noopener noreferrer"
+           title="{{ logo.name }}">
+          <img class="publish-sponsor-logo" src="{{ logo.data_uri }}" alt="{{ logo.name }} logo">
+        </a>
+        {% else %}
+        <img class="publish-sponsor-logo" src="{{ logo.data_uri }}" alt="{{ logo.name }} logo">
+        {% endif %}
       {% endfor %}
     </div>
+    {% endif %}
+    {% if sponsor_logos|selectattr('website')|list %}
+    <p class="publish-sponsor-hint">Click logos for sponsors' websites</p>
     {% endif %}
   </div>
   </div>

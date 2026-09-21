@@ -1370,7 +1370,10 @@ story.append(Paragraph(
     "sponsor logos top-right, rotating every 5 seconds, capped at about 15% of media height so the finish "
     "line stays visible); the full-quality local evidence clip is never branded. The standalone published "
     "results page instead shows the full club-plus-all-sponsors strip in its banner (Chapter 12), since "
-    "it's a static page with nothing to rotate.", styles["Body"]))
+    "it's a static page with nothing to rotate. Each sponsor can carry a <b>Website</b>, and on that "
+    "published page its logo becomes a link to it; the banner says so in small print wherever any "
+    "sponsor has one. Only http and https addresses are accepted, because a published page is served "
+    "from the club's own domain, and a bare domain is taken as https.", styles["Body"]))
 story.append(figure("s_branding.png", "Settings → Public branding: club logo and sponsor logos.",
                      max_h=11 * cm))
 

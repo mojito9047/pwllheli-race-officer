@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.007
+# Pwllheli Race Officer v1.008
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -6,6 +6,18 @@ Race-office support software. It does not decide anything: official race decisio
 
 
 ## Recent releases
+
+### v1.008 update
+
+- **The sponsors' logos on the published results are links.** Record a **Website** against
+  a sponsor in Settings &rarr; Public branding and its logo opens the sponsor's site in a
+  new tab. Only http and https addresses are accepted, and a bare domain is taken as https.
+- **The banner says so**, in small white text in its bottom right corner &mdash; and only
+  when a sponsor actually has an address saved.
+- **Every sponsor was captioned "Sponsor"** on the published page, which is also what a
+  screen reader read out. They are named now.
+- **One sponsor's logo hung out of the banner.** Wrapping a logo in a link lost its height
+  cap, so a near-square logo grew to 143px. Nothing was wrong with the file.
 
 ### v1.007 update
 
@@ -62,25 +74,6 @@ Race-office support software. It does not decide anything: official race decisio
   uses one core and no graphics card, and on a long film that was minutes of nothing in the
   log. The dashboard says **placing names and marks**; a failure there can say why.
 - **A render machine has a setup script**, the way the hut PC does.
-
-### v1.003 update
-
-- **The films had no titles.** The card naming the race and the closing results card were
-  drawn by the exporter and never by the renderer, so every film made on a render machine
-  opened on the water and stopped dead at the last finish.
-- **The results card keeps every rating.** It used to drop a whole table above five boats,
-  losing the YTC winner from a dual-scored race; a fleet that will not fit is now trimmed
-  with *and 12 more* instead.
-- **Boat names clear the rig**, carry each boat's **speed**, and move aside rather than
-  covering a cluster of boats.
-- **The coastline is four times sharper** &mdash; the imagery was always fetched at that
-  detail and thrown away in the last step before rendering.
-- **Compositing is several times faster**, and a re-render no longer reuses the old boat
-  positions for the name plates.
-- **In the app itself:** a boat can no longer have two trackers pointed at it &mdash; which
-  is what made one race's replay draw a boat jumping between two positions &mdash; and
-  **warnings are now amber**. `.message.warning` had no style at all, so every warning in the
-  app had been rendering in the green of a success.
 
 ## Main features
 

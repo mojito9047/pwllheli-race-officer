@@ -8,7 +8,7 @@ There is also a **CSV** export on both the race and series pages, and it is a di
 
 The export is a standalone HTML file containing:
 
-- the Pwllheli Sailing Club logo and any configured sponsor logos in a grey banner at the top of the page;
+- the Pwllheli Sailing Club logo and any configured sponsor logos in a grey banner at the top of the page, each sponsor logo linking to that sponsor's website where one is recorded in Settings;
 - the series title and generation time;
 - a matrix of result links, with one row per IRC/YTC class result table;
 - an **Overall** link for each class table;

@@ -1,5 +1,44 @@
 # Change log
 
+## v1.008
+
+**The sponsors' logos on the published results are links now.**
+
+The club's sponsors pay for the banner across the top of every published
+results document, and until now the logos were pictures. A **Website** can be
+recorded against each sponsor in Settings → Public branding, and the logo
+becomes a link to it, opening in a new tab.
+
+The address is checked rather than trusted. The published document is written
+to the club's public bucket and opened by competitors, so an address typed in
+Settings is an `href` served from the club's own domain: a `javascript:` entry
+there would be script rather than a bad link. Only http and https get through,
+and a sponsor typed in as "partingtonmarine.co.uk" — which is what somebody
+will type — gets https rather than a refusal. An address that cannot be made
+into one is refused with a message saying so, rather than saved and served.
+
+**The banner says the logos can be clicked.** Nothing about a logo says it is
+a link, so a line of small white text sits in the bottom right of the grey,
+under the strip. It is drawn only when a sponsor actually has an address
+saved, because inviting a click that does nothing is worse than saying
+nothing. It is not printed — there is nothing to click on a sheet of paper.
+
+**Every sponsor was captioned "Sponsor".** The published page asked each
+sponsor for its `name`; the branding store calls it `label`, so nothing ever
+matched and all of them fell back to the same word. That was the alt text, so
+it was also what a screen reader read out, and it is now what the link is
+announced as.
+
+**And one logo grew.** Reported from a published page: a sponsor's logo hung
+out of the banner. Nothing was wrong with the file. A near-square logo —
+Firmhelm is 729×651 — wants to be 143px tall at the 160px width cap, and the
+70px height cap is what normally stops it; wrapping it in a link removed that
+cap, because a percentage `max-height` resolves against the containing block
+and an inline-flex anchor has no definite height, so the limit was none at
+all. Wide logos were unaffected, which is why one of them changed and it
+looked like that file had grown. Measured afterwards with every logo linked,
+at 1440, 1100, 820 and 390: tallest 70, 70, 70, 32, and no overflow anywhere.
+
 ## v1.007
 
 **What the film says about the race, and what the results page looks like.**

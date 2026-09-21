@@ -4,27 +4,32 @@
     {
       "filename": "sponsor_89dfe558bbf0.png",
       "id": "89dfe558bbf0",
-      "label": "S&S"
+      "label": "S&S",
+      "website": ""
     },
     {
       "filename": "sponsor_6a1006cbc2fa.png",
       "id": "6a1006cbc2fa",
-      "label": "Firmhelm"
+      "label": "Firmhelm",
+      "website": "https://firmhelm.com/"
     },
     {
       "filename": "sponsor_83cabdcaa753.png",
       "id": "83cabdcaa753",
-      "label": "Partington"
+      "label": "Partington",
+      "website": "https://www.partington-marine.co.uk/"
     },
     {
       "filename": "sponsor_9c07742dbeba.png",
       "id": "9c07742dbeba",
-      "label": "Free1"
+      "label": "Free1",
+      "website": ""
     },
     {
       "filename": "sponsor_d45bd4c7dde8.png",
       "id": "d45bd4c7dde8",
-      "label": "Plas Heli"
+      "label": "Plas Heli",
+      "website": ""
     }
   ]
 }

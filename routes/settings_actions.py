@@ -37,6 +37,7 @@ queue_central_audio = _app.queue_central_audio
 r2_s3_endpoint_host = _app.r2_s3_endpoint_host
 race_console_config = _app.race_console_config
 read_branding_manifest = _app.read_branding_manifest
+safe_sponsor_url = _app.safe_sponsor_url
 audit = _app.audit
 read_settings_form = _app.read_settings_form
 redirect = _app.redirect
@@ -254,19 +255,57 @@ def settings_branding_sponsor_upload():
     """Upload a sponsor logo for public videos and public camera overlays."""
     upload = request.files.get("sponsor_logo_upload")
     label = (request.form.get("sponsor_label") or "").strip()
+    typed = (request.form.get("sponsor_url") or "").strip()
+    website = safe_sponsor_url(typed)
     try:
         sponsor_id = secrets.token_hex(6)
         filename = save_uploaded_branding_image(upload, f"sponsor_{sponsor_id}")
         manifest = read_branding_manifest()
         sponsors = manifest.get("sponsors") if isinstance(manifest.get("sponsors"), list) else []
-        sponsors.append({"id": sponsor_id, "label": label or Path(filename).stem, "filename": filename})
+        sponsors.append({"id": sponsor_id, "label": label or Path(filename).stem,
+                         "filename": filename, "website": website})
         manifest["sponsors"] = sponsors
         write_branding_manifest(manifest)
         start_video_background_recorder()
         audit("sponsor logo added", label or filename)
         flash(f"Saved sponsor logo {label or filename}.", "success")
+        if typed and not website:
+            # Said rather than swallowed: a sponsor whose logo silently does
+            # not link is the sort of thing nobody notices until they ask why.
+            flash(f"That website address was not saved: {typed}. "
+                  "It has to be an http or https address.", "warning")
     except ValueError as exc:
         flash(str(exc), "error")
+    return redirect(url_for("settings_page") + "#branding")
+
+
+@app.route("/settings/branding/sponsor/website", methods=["POST"])
+@app.route("/admin/settings/branding/sponsor/website", methods=["POST"])
+def settings_branding_sponsor_website():
+    """Set or clear the website a sponsor's logo links to on published results."""
+    sponsor_id = str(request.form.get("sponsor_id") or "").strip()
+    typed = (request.form.get("sponsor_url") or "").strip()
+    website = safe_sponsor_url(typed)
+    if typed and not website:
+        flash(f"That website address was not saved: {typed}. "
+              "It has to be an http or https address.", "warning")
+        return redirect(url_for("settings_page") + "#branding")
+    manifest = read_branding_manifest()
+    sponsors = manifest.get("sponsors") if isinstance(manifest.get("sponsors"), list) else []
+    found = None
+    for sponsor in sponsors:
+        if str(sponsor.get("id") or "") == sponsor_id:
+            sponsor["website"] = website
+            found = sponsor
+    if found is None:
+        flash("Sponsor logo not found.", "error")
+        return redirect(url_for("settings_page") + "#branding")
+    manifest["sponsors"] = sponsors
+    write_branding_manifest(manifest)
+    label = str(found.get("label") or sponsor_id)
+    audit("sponsor website set" if website else "sponsor website cleared", f"{label} {website}".strip())
+    flash(f"{label} now links to {website}." if website
+          else f"{label} no longer links anywhere.", "success")
     return redirect(url_for("settings_page") + "#branding")
 
 

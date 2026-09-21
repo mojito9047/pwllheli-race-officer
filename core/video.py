@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import secrets
+import urllib.parse
 from urllib.parse import quote, urlparse
 
 from werkzeug.utils import secure_filename
@@ -319,6 +320,41 @@ def safe_branding_filename(name: str) -> str:
     return filename
 
 
+def safe_sponsor_url(value: str) -> str:
+    """A sponsor's website, or "" if it is not one we will put in an href.
+
+    Only http and https. This ends up as a link in the published results
+    document, which is written to the club's public bucket and opened by
+    competitors, so a ``javascript:`` or ``data:`` URL typed into Settings
+    would be script running on the club's own domain. A scheme-less entry --
+    "partingtonmarine.co.uk", which is what somebody will type -- is read as
+    https rather than rejected.
+    """
+    raw = str(value or "").strip()
+    if not raw or len(raw) > 300 or any(c in raw for c in " \t\r\n<>\"'"):
+        return ""
+    # A scheme is anything up to the first colon, with or without the slashes:
+    # "javascript:alert(1)" has one. Testing for "://" and prepending https to
+    # whatever lacked it turned that into https://javascript:alert(1) -- a dead
+    # link rather than a dangerous one, but silently mangling input that should
+    # have been refused.
+    scheme = re.match(r"^([A-Za-z][A-Za-z0-9+.\-]*):", raw)
+    if scheme:
+        if scheme.group(1).lower() not in ("http", "https"):
+            return ""
+    elif raw.startswith("/"):
+        return ""                      # including "//host", which inherits a scheme
+    else:
+        raw = "https://" + raw         # what somebody actually types
+    try:
+        parsed = urllib.parse.urlparse(raw)
+    except ValueError:
+        return ""
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return ""
+    return urllib.parse.urlunparse(parsed)
+
+
 def read_branding_manifest() -> Dict[str, Any]:
     """Load the optional public-camera/video branding manifest from data/branding."""
     try:
@@ -351,6 +387,7 @@ def write_branding_manifest(manifest: Dict[str, Any]) -> None:
             "id": str(item.get("id") or secrets.token_hex(6)),
             "label": str(item.get("label") or Path(filename).stem).strip()[:80],
             "filename": filename,
+            "website": safe_sponsor_url(str(item.get("website") or "")),
         })
     appstate.BRANDING_MANIFEST_PATH.write_text(json.dumps(safe_manifest, indent=2, sort_keys=True), encoding="utf-8")
 
@@ -390,6 +427,7 @@ def branding_assets() -> Dict[str, Any]:
             "label": str(item.get("label") or path.stem),
             "filename": path.name,
             "path": path,
+            "website": safe_sponsor_url(str(item.get("website") or "")),
         })
     return {
         "enabled": text_to_bool(cfg.get("public_branding_enabled"), True),

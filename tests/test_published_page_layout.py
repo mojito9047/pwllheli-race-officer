@@ -92,10 +92,11 @@ class TestTheBannerLeavesRoomForTheResults:
     def test_a_logo_shrinks_instead_of_hanging_over_the_edge(self):
         """What stops the 62px tablet overflow coming back. An image is a flex
         item with an automatic minimum of its own width, so min-width: 0 is the
-        whole trick."""
-        logo = TPL.split(".publish-sponsor-logo {")[1].split("}")[0]
-        assert "min-width: 0" in logo
-        assert "flex: 0 1 auto" in logo
+        whole trick -- and it has to reach the anchor too, because a sponsor
+        with a website is wrapped in one and that becomes the flex item."""
+        rule = TPL.split(".publish-sponsor-logo, .publish-sponsor-link {")[1].split("}")[0]
+        assert "min-width: 0" in rule
+        assert "flex: 0 1 auto" in rule
 
     def test_it_wraps_where_one_line_would_be_too_small_to_read(self):
         """Eight logos on one line at 820px come out 23px tall."""
