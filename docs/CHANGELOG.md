@@ -1,5 +1,75 @@
 # Change log
 
+## v1.007
+
+**What the film says about the race, and what the results page looks like.**
+Four things, all reported from looking at the finished article.
+
+**The films name their series.** "Race 4" says nothing a season later, and
+these films are kept and shared, so the title card and the closing results card
+now carry the series under the race name — on the title card set with the day
+and the course, under the rule. A race that belongs to no series loses the line
+and its spacing, so those cards are exactly as they were. Long names are shrunk
+to fit rather than run off the side, because a club series is called things
+like "Autumn Series - Pwllheli Challenge Cup 2026".
+
+**A made-up course is no longer given a number.** Setting one leaves the race's
+course number at whatever it happened to be — 1, on the race this was reported
+from — so the title card announced "COURSE 1" over a mark sequence that was not
+course 1's, for a course somebody had built that morning. It now says **made up
+course**, which is what the race page, the competitor page and the bar display
+have always called it.
+
+**Every boat's finish is filmed from its own camera.** The finish shot was
+framed on the leader's run-in and used for the whole fleet, and a club fleet
+comes to the line from wherever the last leg left it. On race 4 of 20 September
+the leader was fully in shot, the third boat a third in it, and the fourth not
+in the picture at all — reported as boats arriving out of frame. Each finisher
+now gets a camera framed on its own last leg, and the three measured again are
+fully in shot.
+
+A boat whose run-in would begin before the boat ahead had crossed does not get
+its own shot: the two are in the same water — twenty seconds apart on that race
+— and cutting away would have taken the first boat's finish off screen to show
+one still two minutes out.
+
+**The finish is shot down each boat's own track.** The camera stood square to
+the line and aimed at the middle of it, and a club line is 350 m of water that
+boats finish at whichever end suits them — so it framed the rope and put the
+boat in the corner, with SGRECH BACH half outside the right-hand edge. It now
+stands beyond the line on the extension of the boat's own last leg and looks
+back down it, so the boat sails at the lens with the line across the frame
+behind it. Where that lands on the shore — which it does for a boat finishing
+towards the beach — the camera stands above the ground rather than inside it.
+
+**The finish shot drops the course.** Every leg the fleet has sailed is drawn
+as a line through the marks, which is what makes the wide shot readable while
+the race is on — and clutter once it is being decided, because from a camera a
+couple of hundred metres from the line those legs radiate out of the mark and
+cross the frame around the boat that is finishing. They come off for the finish
+shots and are back for everything else.
+
+**The line is red until the gun and green on it.** It said nothing about
+whether the race had started. The club starts and finishes on the same line, so
+that line goes back to red once the fleet is away — green afterwards would say
+it was still open, and it is the finish line for the rest of the film. A race
+with a separate start line, which an ISORA passage race has, now gets that line
+drawn at all; before, only the finish line was.
+
+**The sponsors fit on one line.** The banner on the published results was held
+to the same width as the tables, so eight logos — which need about 1230px —
+put the last one on a line of its own, and opening the browser wider changed
+nothing at all. The banner now gets the window. Between a phone and a small
+laptop it still wraps, because one line there means logos too small to make out;
+above that it is one line at full size. Measured at six widths afterwards, with
+no horizontal overflow at any of them, which is what the wrapping had been
+there to prevent.
+
+**The film and the start videos are buttons, side by side.** They were two
+stacked rows of ordinary blue text, each behind a bold caption — small print,
+for the two things most people open the page to find. One row now, and buttons,
+printed as outlines rather than a slab of ink.
+
 ## v1.006
 
 **The film watches the fleet between finishes.** A club fleet finishes over

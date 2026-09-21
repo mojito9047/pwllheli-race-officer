@@ -88,7 +88,7 @@ def film_seconds(frame_of: Callable[[float], int], t0: float, t1: float) -> floa
 
 
 def finish_shot_times(finishes: Sequence[float],
-                      frame_of: Callable[[float], int]) -> List[Tuple[str, float]]:
+                      frame_of: Callable[[float], int]) -> List[Tuple[str, float, Optional[int]]]:
     """When to be on the finish line, and when to go back to the fleet.
 
     The film used to cut to the line as the leader came in and stay there to the
@@ -103,18 +103,32 @@ def finish_shot_times(finishes: Sequence[float],
     measured in film seconds; and the last boat holds the line to the end,
     because that is where the film finishes.
 
-    Returns ``(shot name, race seconds)`` in order. A name is "finish" or
-    "overview"; the caller owns the cameras.
+    Returns ``(shot name, race seconds, which finisher)`` in finishing order. A
+    name is "finish" or "overview"; the caller owns the cameras. The index is
+    the boat's place in ``finishes`` sorted, and None for the fleet shots --
+    each finish wants a camera framed on *that* boat's run-in, and on race 4 of
+    20 September one camera framed on the leader's left the third boat entirely
+    out of shot and the fourth 33% in it.
     """
-    out: List[Tuple[str, float]] = []
-    ordered = sorted(float(t) for t in finishes)
-    for i, t in enumerate(ordered):
-        out.append(("finish", t - FINISH_CUT_IN))
-        if i + 1 >= len(ordered):
+    out: List[Tuple[str, float, Optional[int]]] = []
+    order = sorted(range(len(finishes)), key=lambda i: float(finishes[i]))
+    times = [float(finishes[i]) for i in order]
+    live: Optional[float] = None            # finish time of the boat now on screen
+    for n, t in enumerate(times):
+        start = t - FINISH_CUT_IN
+        if live is not None and start < live:
+            # This boat's run-in would begin before the last one had crossed,
+            # so cutting to it would take the previous boat's finish off screen
+            # to show a boat that is two minutes away. They are in the same
+            # water -- twenty seconds apart on race 4 -- so stay where we are.
+            continue
+        out.append(("finish", start, order[n]))
+        live = t
+        if n + 1 >= len(times):
             break
-        away, back = t + FINISH_CUT_OUT, ordered[i + 1] - FINISH_CUT_IN
+        away, back = t + FINISH_CUT_OUT, times[n + 1] - FINISH_CUT_IN
         if film_seconds(frame_of, away, back) >= MIN_AWAY_FILM_S:
-            out.append(("overview", away))
+            out.append(("overview", away, None))
     return out
 
 

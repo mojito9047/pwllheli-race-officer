@@ -129,8 +129,18 @@ class TestWhatTheFilmStillCutsTo:
         times, so what is checked here is only that it still asks."""
         source = _SOURCE.read_text(encoding="utf-8")
         assert "from replay_time import TimeWarp, finish_shot_times" in source
-        assert "finish_shot_times(finishes, frame_of)" in source
-        assert '"finish": finishcam' in source
+        assert "finish_shot_times(times, frame_of)" in source
+
+    def test_every_finisher_gets_a_camera_on_its_own_run_in(self):
+        """One camera framed on the leader left the fourth boat out of shot."""
+        source = _SOURCE.read_text(encoding="utf-8")
+        assert "def _finish_camera(" in source
+        assert "_finish_camera(scene, coll, data, line, b, extent, n)" in source
+
+    def test_the_finish_cameras_are_numbered_in_finishing_order(self):
+        """So "finish 1" is the first boat home, not whichever the export
+        listed first -- the shot list is read by people."""
+        source = _SOURCE.read_text(encoding="utf-8")
 
     def test_the_mark_cameras_are_named_per_rounding(self):
         """`mark 6 #2` -- the same mark rounded twice is two shots, not one."""
@@ -147,3 +157,120 @@ class TestWhatTheFilmStillCutsTo:
         after_mark = fn_source.split('"t0": t_round - cut_in')[1]
         assert '"name": "overview"' in after_mark.split("if not any")[0], \
             "nothing cuts away from the mark camera once the leader is past it"
+
+
+class TestTheFinishIsShotDownTheBoatsOwnTrack:
+    """Square to the line put the boat in the corner of the frame.
+
+    The line is a fixed 350 m of water and boats finish at whichever end suits
+    them, so a camera on the line's perpendicular aimed at its middle framed
+    350 m of rope: SGRECH BACH came in half out of the right-hand edge. The
+    camera now stands beyond the line on the extension of the boat's own track
+    and looks back down it, so the boat sails at the lens.
+
+    Read from the source: build_scene needs Blender. The framing itself was
+    checked by rendering race 90's four finishes and looking at them.
+    """
+
+    SRC = _SOURCE.read_text(encoding="utf-8")
+
+    def _body(self):
+        fn = _function("_finish_camera")
+        return ast.get_source_segment(self.SRC, fn) or ""
+
+    def test_there_is_a_finish_camera_per_boat(self):
+        assert "def _finish_camera(" in self.SRC
+
+    def test_it_aims_at_where_this_boat_crosses(self):
+        body = self._body()
+        assert "at_line" in body
+        assert "focus.location = at_line" in body
+
+    def test_it_stands_down_the_boats_own_heading(self):
+        """Not on the line's perpendicular, which is what put it in the corner."""
+        body = self._body()
+        assert "heading" in body
+        assert "cam_pos = at_line + u * d" in body
+
+    def test_the_heading_comes_from_a_fix_far_enough_back(self):
+        """SGRECH BACH reported 176 times in ninety minutes, so her last two
+        minutes can be one fix and a windowed heading is a direction of
+        nothing -- which dropped her back to the square-on shot."""
+        body = self._body()
+        assert "HEADING_FROM_M" in body
+        assert "for s in reversed(live)" in body
+
+    def test_a_boat_with_no_usable_track_falls_back_rather_than_failing(self):
+        body = self._body()
+        assert body.count("_line_camera(") >= 2, "no square-on fallback left"
+
+    def test_low_land_beyond_the_line_is_stood_on_not_avoided(self):
+        """Following the boat's track can put the camera on the beach -- it does
+        for CRACKAJACK on race 90 -- and dropping the shot there would put the
+        camera behind the fleet again."""
+        body = self._body()
+        assert "LAND_CAMERA_CLEARANCE_M" in body
+        assert "LAND_CAMERA_MAX_M" in body
+
+    def test_a_hill_is_still_too_much_to_stand_on(self):
+        body = self._body()
+        assert "if ground > LAND_CAMERA_MAX_M:" in body
+
+
+class TestWhatIsDrawnOnTheWater:
+    """Two things reported from watching a finished film.
+
+    The course path is every leg the fleet has sailed, drawn as a tube through
+    the marks. It belongs on the race and not on the finish: from a camera a
+    couple of hundred metres from the line those legs radiate out of the mark
+    and cross the frame around the boat that is finishing.
+
+    And the line itself said nothing about whether the race had started. It is
+    red now until the gun and green on it -- and back to red once the fleet is
+    away, because at this club the same line is the finish line and green
+    afterwards would say it was still open.
+    """
+
+    SRC = _SOURCE.read_text(encoding="utf-8")
+
+    def _body(self):
+        return ast.get_source_segment(self.SRC, _function("build_course")) or ""
+
+    def test_the_course_legs_come_off_for_the_finish(self):
+        body = self._body()
+        assert "_step_visibility(" in body
+        assert 'n.startswith("finish")' in body
+
+    def test_they_are_still_there_for_the_race(self):
+        """Hidden per shot, not switched off for the whole film: the legs are
+        what makes the overview readable while the race is being sailed."""
+        fn = ast.get_source_segment(self.SRC, _function("_step_visibility")) or ""
+        assert "for shot in sorted(shots" in fn, "visibility is not decided per shot"
+        assert "hide_on(" in fn
+
+    def test_hiding_steps_rather_than_fades(self):
+        fn = ast.get_source_segment(self.SRC, _function("_step_visibility")) or ""
+        assert '"CONSTANT"' in fn and 'only_prefix="hide_"' in fn
+
+    def test_the_line_is_red_before_the_gun_and_green_on_it(self):
+        body = self._body()
+        assert "LINE_SHUT" in body and "LINE_OPEN" in body
+        assert "frame_of(first_start)" in body
+
+    def test_and_red_again_once_the_fleet_is_away(self):
+        """Only where the start and the finish are the same line, which is the
+        club's normal case; a race with two lines keeps its start line green."""
+        body = self._body()
+        assert "frame_of(first_start + START_CUT_OUT)" in body
+        assert "if not (start and not same):" in body
+
+    def test_a_separate_start_line_is_drawn_when_there_is_one(self):
+        """An ISORA passage race does not start and finish on the same line,
+        and only the finish line was ever drawn."""
+        body = self._body()
+        assert '"Start line"' in body
+
+    def test_the_colour_change_steps_rather_than_fades(self):
+        fn = ast.get_source_segment(self.SRC, _function("_step_colour")) or ""
+        assert '"CONSTANT"' in fn
+        assert "_fcurves(mat.node_tree)" in fn, "Blender 5 actions have no .fcurves"

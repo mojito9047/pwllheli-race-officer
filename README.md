@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.006
+# Pwllheli Race Officer v1.007
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -6,6 +6,23 @@ Race-office support software. It does not decide anything: official race decisio
 
 
 ## Recent releases
+
+### v1.007 update
+
+- **The films name their series**, on the opening title card and the closing results card,
+  so a film still says what it is a season later.
+- **A made-up course is called one.** The title card was announcing "Course 1" for a course
+  built on the day, because setting a made-up course leaves the number untouched.
+- **Every boat's finish is filmed from its own camera.** One camera framed on the
+  leader left the third boat a third in shot and the fourth out of the picture.
+- **The finish is filmed down each boat's own track**, not square to the line, so the
+  boat sails at the camera instead of sitting in the corner of the frame.
+- **The start line is red until the gun and green on it**, and the finish shot no longer
+  draws every leg the fleet has sailed across the boat that is finishing.
+- **The sponsor logos fit on one line** on the published results. The banner was capped at the
+  width of the tables, so widening the browser could not help it.
+- **The 3D replay and the start video are buttons now**, side by side, instead of two stacked
+  rows of small blue text.
 
 ### v1.006 update
 
@@ -64,24 +81,6 @@ Race-office support software. It does not decide anything: official race decisio
   is what made one race's replay draw a boat jumping between two positions &mdash; and
   **warnings are now amber**. `.message.warning` had no style at all, so every warning in the
   app had been rendering in the green of a success.
-
-### v1.002 update
-
-- **3D replay films.** A sailed race as a film: the fleet in three dimensions over the real
-  coastline, sailing the course they actually sailed, trimmed to the wind of the moment, with
-  the hut camera cut in at the start and the finishes and the club's own branding on it. The
-  race-office PC cannot render one and does not try &mdash; **Render a 3D film** on the Results
-  tab queues a job in the club's R2 bucket and a render machine elsewhere makes it. Competitors
-  get a link by themselves on the public races list, the public race page and the published
-  results. See [`docs/RACE_REPLAY_3D.md`](docs/RACE_REPLAY_3D.md).
-- **A render machine is built from a release ZIP**, like everything else at this club: the
-  renderer now ships inside it, so there is no separate download and no git. Setting one up:
-  [`deploy/render_machine/README.md`](deploy/render_machine/README.md).
-- **The dashboard lost the start line, finish line and radio/limits cards.** They never changed.
-  That is Sailing Instructions, not a dashboard, and they were taking room on the page the race
-  office leaves open all day.
-- **A release is 17 MB, not 44.** `data/dem` &mdash; 30 MB of map scratch, untracked, and present
-  only on a machine that had fetched it &mdash; was being swept into the ZIP.
 
 ## Main features
 

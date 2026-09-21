@@ -34,7 +34,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from core import appstate
-from core.courses import apply_course_shortening, course_for_race, expand_course_points
+from core.courses import (apply_course_shortening, course_for_race,
+                          custom_course_from_race, expand_course_points)
 from core.db import get_db, row_get
 from core.races import get_entries, get_race, race_first_start_dt
 from core.track import (
@@ -105,6 +106,31 @@ BOAT_COLOURS: List[Tuple[int, int, int]] = [
 
 def boat_colour(index: int) -> Tuple[int, int, int]:
     return BOAT_COLOURS[index % len(BOAT_COLOURS)]
+
+
+def series_name_for(race: Any) -> str:
+    """The series this race belongs to, for the film's cards.
+
+    "Race 4" says nothing a season later, and the films are kept. The series is
+    what puts a race in a year and against a trophy, so the title and results
+    cards carry it under the race name.
+
+    Empty rather than raised when there is no series or the lookup fails: a
+    one-off race really has none, and an unnamed card is better than no film.
+    """
+    try:
+        series_id = row_get(race, "series_id", None)
+    except (KeyError, IndexError, TypeError):
+        return ""
+    if not series_id:
+        return ""
+    try:
+        with get_db() as db:
+            row = db.execute("SELECT name FROM race_series WHERE id = ?",
+                             (int(series_id),)).fetchone()
+    except Exception:
+        return ""
+    return str(row_get(row, "name", "") or "").strip() if row else ""
 
 
 
@@ -733,8 +759,14 @@ def build_scene(race_id: int, *, step_s: float = DEFAULT_STEP_S, lead_s: float =
         "race": {
             "id": int(race["id"]),
             "name": row_get(race, "name", ""),
+            "series": series_name_for(race),
             "class_name": row_get(race, "class_name", "") or "",
             "course_no": row_get(race, "course_no", None),
+            # A made-up course leaves course_no at whatever it happened to be
+            # -- 1, on the race this was reported from -- so the number names a
+            # club course that was not the one sailed. The app calls this a
+            # "made up course" everywhere else; the film says the same.
+            "course_is_custom": bool(custom_course_from_race(race)),
             "course_text": course.get("sequence_text", ""),
             "shortened_at_mark": row_get(race, "shortened_at_mark", "") or "",
             "race_type": row_get(race, "race_type", "standard"),

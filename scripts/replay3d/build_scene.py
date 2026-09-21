@@ -79,6 +79,10 @@ BUOY_HEIGHT_M = 8.0
 # 1.1 degrees tall, a comfortable caption).
 LABEL_PER_METRE = 0.020
 COURSE_LINE_RADIUS_M = 1.4
+# The line, shut and open. Signal-flag red and green rather than screen
+# primaries, so they sit with the rest of the club's colours.
+LINE_SHUT = (0.95, 0.05, 0.05)
+LINE_OPEN = (0.05, 0.72, 0.25)
 # Foam astern of each hull, in unscaled metres (BOAT_SCALE applies on top).
 WAKE_LENGTH_M = 18.0
 TERRAIN_Z_SCALE = 1.0
@@ -114,6 +118,19 @@ TRAIL_FADE_FAR_M = 320.0
 # The start shot: cut to the line this many race seconds before the gun, and
 # back to the wide shot this many after it. The film is running at real time
 # through all of that, so these are seconds of screen time too.
+# The finish shot: how far back down the boat's own track the camera sits,
+# how much of the run-in it frames, and how high it rides. Standing on low
+# land beyond the line is a vantage point rather than an obstacle -- a boat
+# finishing towards the beach can only be filmed from it -- but a hill past
+# LAND_CAMERA_MAX_M is a map, not a shot, and falls back to square-on.
+RUN_IN_S = 150.0
+# How far back along the track to look for the boat's heading. Far enough
+# that GPS scatter on a slow boat is not mistaken for a direction.
+HEADING_FROM_M = 60.0
+FINISH_CAM_RISE = 0.30
+FINISH_CAM_MIN_M = 220.0
+LAND_CAMERA_MAX_M = 60.0
+LAND_CAMERA_CLEARANCE_M = 25.0
 START_CUT_IN = 50.0
 START_CUT_OUT = 30.0
 
@@ -415,8 +432,12 @@ def _unwrap(prev: Optional[float], value: float) -> float:
     return value
 
 
-def _fcurves(obj: bpy.types.Object) -> List[bpy.types.FCurve]:
-    """Every F-curve animating ``obj``, across Blender's layered-action layout (4.4+) or the legacy one."""
+def _fcurves(obj: Any) -> List[bpy.types.FCurve]:
+    """Every F-curve animating ``obj``, across Blender's layered-action layout (4.4+) or the legacy one.
+
+    Anything carrying ``animation_data`` will do -- an object, or a
+    material's node tree, whose colour the start line steps through.
+    """
     ad = obj.animation_data
     if ad is None or ad.action is None:
         return []
@@ -883,7 +904,45 @@ def _polyline(name: str, pts: Sequence[Tuple[float, float, float]], radius: floa
     return bpy.data.objects.new(name, curve)
 
 
-def build_course(scene: bpy.types.Scene, coll: bpy.types.Collection, data: Dict[str, Any]) -> None:
+def _step_visibility(obj: bpy.types.Object, scene: bpy.types.Scene,
+                     shots: Sequence[Dict[str, Any]], hide_on) -> None:
+    """Hide an object for the shots ``hide_on`` picks out, stepping not fading."""
+    state: Optional[bool] = None
+    for shot in sorted(shots, key=lambda s: s["frame"]):
+        want = bool(hide_on(str(shot["name"])))
+        if want == state:
+            continue
+        frame = max(int(scene.frame_start), int(shot["frame"]))
+        obj.hide_render = obj.hide_viewport = want
+        obj.keyframe_insert("hide_render", frame=frame)
+        obj.keyframe_insert("hide_viewport", frame=frame)
+        state = want
+    if state is not None:
+        _set_interpolation(obj, "CONSTANT", only_prefix="hide_")
+
+
+def _step_colour(mat: bpy.types.Material, keys: Sequence[Tuple[int, Tuple[float, float, float]]]) -> None:
+    """Keyframe a line's colour so it changes on a frame rather than fading."""
+    bsdf = mat.node_tree.nodes.get("Principled BSDF")
+    if bsdf is None:
+        return
+    for frame, colour in keys:
+        for slot in ("Base Color", "Emission Color"):
+            if slot in bsdf.inputs:
+                bsdf.inputs[slot].default_value = (*colour, 1.0)
+                bsdf.inputs[slot].keyframe_insert("default_value", frame=int(frame))
+    # A node tree animates like an object, and Blender 5 keeps its curves in
+    # layered actions, so reuse the walker rather than reaching for .fcurves --
+    # which is what the first attempt did, and 5.2 has not had that attribute
+    # since actions gained layers.
+    for fc in _fcurves(mat.node_tree):
+        for kp in fc.keyframe_points:
+            kp.interpolation = "CONSTANT"
+
+
+def build_course(scene: bpy.types.Scene, coll: bpy.types.Collection, data: Dict[str, Any],
+                 shots: Optional[Sequence[Dict[str, Any]]] = None,
+                 frame_of: Optional[Callable[[float], int]] = None) -> None:
     # The course and finish lines are tubes of a fixed size in the world, so
     # they suffer exactly as the trails do when a camera passes close to one:
     # a fine line on the wide shot, a bar across the frame from a mark camera.
@@ -893,14 +952,46 @@ def build_course(scene: bpy.types.Scene, coll: bpy.types.Collection, data: Dict[
         _fade_near_camera(mat, TRAIL_FADE_NEAR_M, TRAIL_FADE_FAR_M)
         path = _polyline("Course path", pts, COURSE_LINE_RADIUS_M, mat)
         _link(scene, coll, path)
-    line = data.get("finish_line")
-    if line:
-        a, b = line["seaward_xy"], line["shore_xy"]
-        mat = _material("Finish line", (0.95, 0.05, 0.05), emission=0.6)
-        _fade_near_camera(mat, TRAIL_FADE_NEAR_M, TRAIL_FADE_FAR_M)
+        # Not on the finish shots. Every leg the fleet has sailed radiates out
+        # of the mark by the line, and from a camera a couple of hundred metres
+        # away those tubes cross the frame around the boat that is finishing.
+        # The legs are worth seeing while the race is being sailed and are only
+        # clutter once it is being decided.
+        if shots:
+            _step_visibility(path, scene, shots, lambda n: n.startswith("finish"))
+
+    finish, start = data.get("finish_line"), data.get("start_line")
+    same = bool(finish and start
+                and start.get("seaward_xy") == finish.get("seaward_xy")
+                and start.get("shore_xy") == finish.get("shore_xy"))
+
+    line_mat = None
+    if finish:
+        a, b = finish["seaward_xy"], finish["shore_xy"]
+        line_mat = _material("Finish line", (*LINE_SHUT, ), emission=0.6)
+        _fade_near_camera(line_mat, TRAIL_FADE_NEAR_M, TRAIL_FADE_FAR_M)
         fl = _polyline("Finish line", [(a[0], a[1], 1.5), (b[0], b[1], 1.5)],
-                       COURSE_LINE_RADIUS_M * 0.9, mat)
+                       COURSE_LINE_RADIUS_M * 0.9, line_mat)
         _link(scene, coll, fl)
+
+    if start and not same:
+        a, b = start["seaward_xy"], start["shore_xy"]
+        line_mat = _material("Start line", (*LINE_SHUT, ), emission=0.6)
+        _fade_near_camera(line_mat, TRAIL_FADE_NEAR_M, TRAIL_FADE_FAR_M)
+        sl = _polyline("Start line", [(a[0], a[1], 1.5), (b[0], b[1], 1.5)],
+                       COURSE_LINE_RADIUS_M * 0.9, line_mat)
+        _link(scene, coll, sl)
+
+    # Red until the gun, green on it. The club starts and finishes on the same
+    # line, so that one object carries both jobs and goes back to red once the
+    # fleet is away -- green afterwards would say the line was still open, and
+    # it is the finish line for the rest of the film.
+    if line_mat is not None and frame_of is not None:
+        first_start = float(data["time"]["first_start_rel"])
+        keys = [(scene.frame_start, LINE_SHUT), (frame_of(first_start), LINE_OPEN)]
+        if not (start and not same):
+            keys.append((frame_of(first_start + START_CUT_OUT), LINE_SHUT))
+        _step_colour(line_mat, keys)
 
 
 # ---------------------------------------------------------------------------
@@ -1696,6 +1787,82 @@ def _line_camera(scene: bpy.types.Scene, coll: bpy.types.Collection, name: str,
     return cam
 
 
+def _finish_camera(scene: bpy.types.Scene, coll: bpy.types.Collection, data: Dict[str, Any],
+                   line: Dict[str, Any], boat: Dict[str, Any], extent: float,
+                   n: int) -> bpy.types.Object:
+    """The finish line as this boat comes to it, down the line of its own run-in.
+
+    Not square to the line. The line is a fixed 350 m of water and the boats
+    finish at whichever end suits them, so a camera on the line's perpendicular
+    aimed at its middle framed 350 m of rope and put the boat in the corner --
+    SGRECH BACH came in half out of the right-hand edge of the frame.
+
+    This stands beyond the line on the **extension of the boat's own track**
+    and looks back down it, so the boat sails at the lens and is in the middle
+    of the shot, with the line across the frame behind it. Where that lands on
+    the shore -- which it does for a boat finishing towards the beach -- the
+    camera stands above the ground rather than inside it; a hill too big for
+    that falls back to a square-on shot, which is at least a shot.
+    """
+    live = _live_samples(boat)
+    t = float(boat["finish_t"])
+    approach = next((s for s in reversed(live) if s[0] <= t - 60.0),
+                    live[0] if live else (0.0, 0.0, 0.0, 0.0, 0.0))
+    name = f"finish {n + 1}"
+    if len(live) < 2:
+        ends = [Vector((*line["seaward_xy"], 0.0)), Vector((*line["shore_xy"], 0.0))]
+        return _line_camera(scene, coll, name, line, ends,
+                            Vector((approach[1], approach[2], 0.0)), data, extent, lens=28.0)
+
+    crossing = min(live, key=lambda s: abs(s[0] - t))
+    at_line = Vector((crossing[1], crossing[2], 0.0))
+    pts = [Vector((s[1], s[2], 0.0)) for s in live if t - RUN_IN_S <= s[0] <= t] or [at_line]
+
+    # The way the boat was going, from the last fix a useful distance back
+    # rather than from the run-in window. These are club trackers: SGRECH BACH
+    # reported 176 times in an hour and a half, so her last two minutes can be
+    # a single fix, and taking the heading from that window alone gave a
+    # direction of nothing and dropped her back to the square-on shot.
+    before = None
+    for s in reversed(live):
+        if s[0] >= t:
+            continue
+        p = Vector((s[1], s[2], 0.0))
+        if (at_line - p).length >= HEADING_FROM_M:
+            before = p
+            break
+    if before is None:
+        ends = [Vector((*line["seaward_xy"], 0.0)), Vector((*line["shore_xy"], 0.0))]
+        return _line_camera(scene, coll, name, line, ends + pts,
+                            Vector((approach[1], approach[2], 0.0)), data, extent, lens=28.0)
+    heading = (at_line - before)
+    heading.z = 0.0
+    heading.normalize()
+    if before not in pts:
+        pts = pts + [before]
+
+    lens = 28.0
+    u = (heading + Vector((0.0, 0.0, FINISH_CAM_RISE))).normalized()
+    d = _fit_distance(pts + [at_line], at_line, -u, lens,
+                      scene.render.resolution_x, scene.render.resolution_y, margin=1.25)
+    d = min(max(d, FINISH_CAM_MIN_M), extent * 2.0)
+    cam_pos = at_line + u * d
+    ground = _terrain_height_at(data.get("terrain"), cam_pos.x, cam_pos.y)
+    if ground >= 3.0:
+        if ground > LAND_CAMERA_MAX_M:
+            ends = [Vector((*line["seaward_xy"], 0.0)), Vector((*line["shore_xy"], 0.0))]
+            return _line_camera(scene, coll, name, line, ends + pts,
+                                Vector((approach[1], approach[2], 0.0)), data, extent, lens=lens)
+        cam_pos.z = max(cam_pos.z, ground * TERRAIN_Z_SCALE + LAND_CAMERA_CLEARANCE_M)
+
+    focus = _link(scene, coll, _empty(f"Focus {name}"))
+    focus.location = at_line
+    cam = _new_camera(scene, coll, name, lens, extent)
+    cam.location = cam_pos
+    _track_to(cam, focus)
+    return cam
+
+
 def build_cameras(scene: bpy.types.Scene, coll: bpy.types.Collection, data: Dict[str, Any],
                   boats: Dict[str, bpy.types.Object], extent: float,
                   frame_of: Callable[[float], int], shots: str, follow: Optional[str],
@@ -1859,11 +2026,27 @@ def build_cameras(scene: bpy.types.Scene, coll: bpy.types.Collection, data: Dict
                 # minutes, so after each boat crossed there was nothing on
                 # screen but an empty line -- 43 seconds of it in one race here
                 # -- while the boats still racing were somewhere else entirely.
-                finishes = [float(b["finish_t"]) for b in (data.get("boats") or [])
-                            if b.get("finish_t") is not None] or [finish_t]
-                cams = {"finish": finishcam, "overview": overview}
-                for name, t0 in finish_shot_times(finishes, frame_of):
-                    plan.append({"name": name, "camera": cams[name], "t0": t0})
+                # One camera per finisher, framed on that boat's own run-in.
+                #
+                # A single camera framed on the leader's approach is right for
+                # the leader and wrong for everybody else: a club fleet comes
+                # in from wherever the last leg put it, and on race 4 of
+                # 20 September the third boat was 33% in shot and the fourth
+                # not in it at all. They cost nothing -- a camera is an empty
+                # and a lens, and only one is live at a time.
+                # Sorted here, so "finish 1" is the first boat home rather than
+                # whichever the export happened to list first -- the shot list
+                # is read by people.
+                finishers = sorted((b for b in (data.get("boats") or [])
+                                    if b.get("finish_t") is not None),
+                                   key=lambda b: float(b["finish_t"]))
+                cams = [_finish_camera(scene, coll, data, line, b, extent, n)
+                        for n, b in enumerate(finishers)] or [finishcam]
+                times = [float(b["finish_t"]) for b in finishers] or [finish_t]
+                for name, t0, who in finish_shot_times(times, frame_of):
+                    camera = overview if who is None else cams[min(who, len(cams) - 1)]
+                    plan.append({"name": name if who is None else f"finish {who + 1}",
+                                 "camera": camera, "t0": t0})
 
     # Keep the plan sane: sorted, strictly increasing, inside the film.
     plan.sort(key=lambda s: s["t0"])
@@ -2490,7 +2673,7 @@ def build(json_path: str, *, overlays_3d: bool = False,
     # The sea plane reaches 2 x HAZE_FAR x extent; anything beyond would float in the sky.
     marks_drawn = build_marks(scene, c_marks, data, label_mat, eye, reach=extent * HAZE_FAR * 0.9,
                               with_labels=overlays_3d)
-    build_course(scene, c_marks, data)
+    build_course(scene, c_marks, data, shot_list, frame_of)
     # The overlay -- names, mark numbers, clock, course board, cards -- is drawn
     # in pixels by compose_film.py unless this is a one-off still. Geometry
     # parented to the camera sits 1.6 m from a lens focused hundreds of metres

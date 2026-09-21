@@ -27,6 +27,9 @@ PANEL_RULE = (51, 56, 49)
 PANEL_INK = (232, 230, 221)
 PANEL_LABEL = (141, 139, 128)
 AMBER = (255, 176, 0)
+# Nothing on a card is worth setting smaller than this; below it a line is
+# not read, it is just noise at the bottom of the frame.
+MIN_LINE_PX = 12
 FLAG_RED = (200, 16, 46)
 
 
@@ -50,6 +53,32 @@ def _tracked(draw, xy: Tuple[float, float], text: str, font, fill, tracking: flo
         draw.text((x, xy[1]), ch, font=font, fill=fill, anchor="ls")
         x += draw.textlength(ch, font=font) + tracking
     return width
+
+
+def _centred_to_fit(draw, text: str, fonts_dir: str, w: int, baseline: int,
+                    start: int, room: int, tracking: float = 4.0) -> int:
+    """Draw one centred tracked line, shrinking it until it fits. Returns its size.
+
+    Club series names are long -- "Autumn Series - Pwllheli Challenge Cup 2026"
+    -- and vary from club to club, so a size that suits one runs off the side
+    of the card for the next.
+    """
+    from PIL import Image, ImageDraw
+
+    probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    size = start
+    while size > MIN_LINE_PX:
+        font = _font(fonts_dir, "ArchivoNarrow.ttf", size)
+        width = _tracked(probe, (0, 0), text, font, PANEL_LABEL, tracking)
+        if width <= room:
+            break
+        # Clamped, not merely tested: stepping first and checking after let a
+        # pathological name settle one size below the floor.
+        size = max(MIN_LINE_PX, int(size * 0.92))
+    font = _font(fonts_dir, "ArchivoNarrow.ttf", size)
+    width = _tracked(probe, (0, 0), text, font, PANEL_LABEL, tracking)
+    _tracked(draw, (w / 2 - width / 2, baseline), text, font, PANEL_LABEL, tracking)
+    return size
 
 
 def _logo(branding: Sequence[str], height: int):
@@ -95,22 +124,40 @@ def title_card(data: Dict[str, Any], out_path: str, fonts_dir: str, branding: Se
              "PWLLHELI SAILING CLUB", _font(fonts_dir, "ArchivoNarrow.ttf", round(h * 0.026)), PANEL_LABEL, 5.0)
     y += round(h * 0.075)
 
+    name = str(race.get("name") or "Race")
     name_font = _font(fonts_dir, "Archivo.ttf", round(h * 0.085))
-    draw.text((w / 2, y), str(race.get("name") or "Race"), font=name_font, fill=PANEL_INK, anchor="ma")
+    draw.text((w / 2, y), name, font=name_font, fill=PANEL_INK, anchor="ma")
     y += round(h * 0.115)
 
     draw.line([(w * 0.42, y), (w * 0.58, y)], fill=AMBER, width=3)
     y += round(h * 0.045)
 
+    # Under the rule: the series, the day, the course. "Race 4" says nothing a
+    # season later and these films are kept, so the series belongs with the
+    # other things that place the race -- set like them rather than given a
+    # size of its own.
+    #
+    # Each line is shrunk to fit if it has to be. Club series names are long
+    # ("Autumn Series - Pwllheli Challenge Cup 2026") and vary from club to
+    # club, and so does a course with a dozen marks in it; a line that runs off
+    # the side of the card is worse than a smaller one.
     course = str(race.get("course_text") or "")
-    line = f"COURSE {race.get('course_no')}   {course}".strip() if race.get("course_no") is not None else course
-    sub_font = _font(fonts_dir, "ArchivoNarrow.ttf", round(h * 0.030))
-    for text in (_race_date(data).upper(), line.upper()):
+    if race.get("course_is_custom"):
+        # A made-up course leaves course_no at whatever it happened to be, so
+        # printing it named a club course nobody sailed. The app says "made up
+        # course" on the race page, the competitor page and the bar display.
+        line = f"MADE UP COURSE   {course}".strip()
+    elif race.get("course_no") is not None:
+        line = f"COURSE {race.get('course_no')}   {course}".strip()
+    else:
+        line = course
+    sub_size = round(h * 0.030)
+    room = w - 2 * round(w * 0.09)
+    for text in (str(race.get("series") or "").strip().upper(),
+                 _race_date(data).upper(), line.upper()):
         if not text:
             continue
-        probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
-        width = _tracked(probe, (0, 0), text, sub_font, PANEL_LABEL, 4.0)
-        _tracked(draw, (w / 2 - width / 2, y), text, sub_font, PANEL_LABEL, 4.0)
+        _centred_to_fit(draw, text, fonts_dir, w, y, start=sub_size, room=room)
         y += round(h * 0.048)
 
     wind = data.get("wind") or {}
@@ -182,8 +229,15 @@ def results_card(data: Dict[str, Any], out_path: str, fonts_dir: str, branding: 
     head_x = margin + (logo.width + round(w * 0.022) if logo is not None else 0)
     draw.text((head_x, round(h * 0.050)), str(race.get("name") or "Race"),
               font=_font(fonts_dir, "Archivo.ttf", round(h * 0.058)), fill=(255, 255, 255), anchor="la")
-    _tracked(draw, (head_x + 3, round(h * 0.142)), _race_date(data).upper(),
-             _font(fonts_dir, "ArchivoNarrow.ttf", round(h * 0.024)), PANEL_LABEL, 5.0)
+    # Series then day, under the race name. With no series the day sits exactly
+    # where it always did; the tables start at 0.225h, so the second line has
+    # room without disturbing them.
+    sub_font = _font(fonts_dir, "ArchivoNarrow.ttf", round(h * 0.024))
+    sub_y = round(h * 0.142)
+    for text in [t for t in (str(race.get("series") or "").strip().upper(),
+                             _race_date(data).upper()) if t]:
+        _tracked(draw, (head_x + 3, sub_y), text, sub_font, PANEL_LABEL, 5.0)
+        sub_y += round(h * 0.036)
 
     # Every table the scorer produced, and a fleet that will not fit is cut
     # short rather than a whole rating being dropped.

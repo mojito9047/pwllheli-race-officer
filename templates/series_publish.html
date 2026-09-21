@@ -12,15 +12,21 @@
     :root { --border:#999; --muted:#666; --head:#ddd; --gold:#ffd700; --silver:#6a91c5; --bronze:#da6841; --discard:#f2f2f2; }
     body { font: 100% Arial, Helvetica, sans-serif; margin: 0; padding: 24px; color: #111; text-align: center; background: #fff; }
     .publish-branding-banner { margin: -24px -24px 20px -24px; padding: 16px 24px; background: #6b6b6b; border-bottom: 1px solid #525252; }
-    .publish-branding { display: grid; grid-template-columns: minmax(90px, 150px) 1fr; align-items: center; gap: 20px; max-width: 1200px; margin: 0 auto; min-height: 70px; }
+    /* The banner gets the window, not the 1200px the tables are held to. Seven
+       sponsor logos at 160px need 1228px with their gaps, so sharing the
+       tables' width put the last one on a line of its own -- and widening the
+       browser did nothing at all, because the cap was the limit rather than
+       the screen. That reads as broken rather than responsive. */
+    .publish-branding { display: grid; grid-template-columns: minmax(90px, 150px) 1fr; align-items: center; gap: 20px; max-width: 1700px; margin: 0 auto; min-height: 70px; }
     .publish-club-logo-wrap { text-align: left; }
     .publish-club-logo { max-width: 140px; max-height: 86px; width: auto; height: auto; display: block; object-fit: contain; }
-    /* wrap at every width, not only on a phone. Seven sponsor logos at up to
-       160px do not fit an 820px tablet, and without wrapping the last one
-       simply hung 62px past the edge and took the whole page sideways with
-       it -- a banner overflow that looked like a table overflow. */
-    .publish-sponsor-strip { display: flex; align-items: center; justify-content: space-evenly; gap: 12px 18px; min-width: 0; flex-wrap: wrap; }
-    .publish-sponsor-logo { max-height: 70px; max-width: 160px; width: auto; height: auto; object-fit: contain; }
+    /* One line above phone width, shrinking to share what room there is rather
+       than wrapping: min-width 0 is what lets an image shrink past its own
+       width as a flex item, and height auto keeps it in proportion while it
+       does. Wrapping is kept for phones (below), where seven across 390px
+       would be seven smudges. */
+    .publish-sponsor-strip { display: flex; align-items: center; justify-content: space-evenly; gap: 12px 18px; min-width: 0; flex-wrap: nowrap; }
+    .publish-sponsor-logo { max-height: 70px; max-width: 160px; min-width: 0; flex: 0 1 auto; width: auto; height: auto; object-fit: contain; }
     .publish-header { max-width: 1200px; margin: 0 auto 12px auto; }
     .publish-title { text-align: center; }
     h1 { font-size: 1.7em; margin-bottom: 0.2em; }
@@ -64,14 +70,27 @@
     .active-section { display: block; }
     .nowrap { white-space: nowrap; }
     .summarytable th, .summarytable td, .racetable th, .racetable td { font-size: 0.92em; }
-    .video-links { max-width: 1200px; margin: 8px auto 14px auto; text-align: center; font-size: 0.92em; }
-    .video-links a, .video-links span { display: inline-block; margin: 3px 8px; }
-    .video-status { color: var(--muted); }
+    /* The film and the start videos, on one row and as buttons.
+       They were two stacked rows of ordinary blue text, which read as small
+       print under the heading rather than as the two things most people open
+       the page for. Square corners and a flat fill, like every other panel the
+       club prints. */
+    .race-links { max-width: 1200px; margin: 10px auto 16px auto; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; }
+    .racebtn { display: inline-block; padding: 9px 20px; background: #0645ad; border: 1px solid #0645ad; color: #fff; font-size: 0.92em; font-weight: bold; text-decoration: none; }
+    .racebtn:hover, .racebtn:focus { background: #03306e; border-color: #03306e; color: #fff; text-decoration: none; }
+    .video-status { color: var(--muted); font-size: 0.92em; }
     .empty { color: var(--muted); text-align: center; font-style: italic; }
     .small { font-size: 0.82em; }
     .print-note { margin-top: 30px; color: var(--muted); font-size: 0.85em; }
     a { color: #0645ad; text-decoration: none; }
     a:hover { text-decoration: underline; }
+    /* Between a phone and a small laptop there is width for one line only by
+       making the logos too small to read -- eight of them come out 23px tall
+       at 820px. Wrap instead, at a size worth printing a sponsor at. Above
+       this the strip is one line, which is what a wide window is for. */
+    @media (max-width: 1000px) {
+      .publish-sponsor-strip { flex-wrap: wrap; justify-content: center; }
+    }
     @media (max-width: 700px) {
       /* The banner was 249px on a 390px screen -- 30% of it, with the first
          table starting below the fold. Sponsors still get their strip, at a
@@ -93,6 +112,10 @@
       .publish-branding { grid-template-columns: 110px 1fr; min-height: 0; }
       .publish-club-logo { max-height: 64px; }
       .publish-sponsor-logo { max-height: 52px; }
+      /* A solid blue slab per race is a lot of ink for something you cannot
+         click on paper. Outlined, so the printed sheet still says the film is
+         there. */
+      .racebtn { background: #fff; color: #000; border: 1px solid #666; padding: 4px 10px; font-weight: normal; }
       .toolbar, .print-note { display: none; }
       .series-section, .race-section { display: block !important; page-break-after: always; }
     }
@@ -235,24 +258,22 @@
       <section id="{{ race_table.id }}" class="race-section">
         <h3 class="racetitle">{{ race_table.title }}</h3>
         <div class="caption racecaption">{{ race_table.caption }}</div>
-        {% if race_table.film_url %}
-        {# A bucket address, like every other link in this document: it is read
-           long after the hut has been switched off. The token on the URL is the
-           film's own modification time, so a re-rendered race is not served
-           from a day-old cache. #}
-        <div class="video-links">
-          <strong>3D replay:</strong>
-          <a href="{{ race_table.film_url }}" target="_blank" rel="noopener">Watch the film</a>
-        </div>
-        {% endif %}
-        {% if race_table.videos and race_table.videos.start_links %}
-        <div class="video-links">
-          <strong>Start video{% if race_table.videos.start_links|length > 1 %}s{% endif %}:</strong>
-          {% for video in race_table.videos.start_links %}
+        {# The film and the start videos on one row. Bucket addresses, like
+           every other link in this document: it is read long after the hut has
+           been switched off. The token on the film's URL is its own
+           modification time, so a re-rendered race is not served from a
+           day-old cache. #}
+        {% set start_links = (race_table.videos.start_links if race_table.videos else []) or [] %}
+        {% if race_table.film_url or start_links %}
+        <div class="race-links">
+          {% if race_table.film_url %}
+          <a class="racebtn" href="{{ race_table.film_url }}" target="_blank" rel="noopener">Watch the 3D replay</a>
+          {% endif %}
+          {% for video in start_links %}
             {% if video.url %}
-              <a href="{{ video.url }}" target="_blank" rel="noopener">{{ video.label }}</a>
+              <a class="racebtn" href="{{ video.url }}" target="_blank" rel="noopener">{{ video.label }}</a>
             {% else %}
-              <span class="video-status">{% if race_table.videos.start_links|length > 1 %}{{ video.label }}: {% endif %}No Video</span>
+              <span class="video-status">{{ video.label }}: no video</span>
             {% endif %}
           {% endfor %}
         </div>
