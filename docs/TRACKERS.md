@@ -221,18 +221,40 @@ five-minute hole at 6 kn hides a rounding completely.
 regardless of movement. That is the right behaviour for a boat that is out racing: there is no
 state to get wrong.
 
-The trap is the interval. The wiki does not say which block Basic records on, and the On Stop
-block is the only one left when there is no On Move state — so it is almost certainly
-`10000`/`10100`, which the club has at **300 s**. Switching the mode alone would pin every
-tracker at a five-minute cadence and make the weekend's worst case the permanent case. Basic is
-only an improvement with `10000`/`10100` brought down to 10 s at the same time. Confirm with a
-`getparam` round trip on one unit before trusting it on a race day.
+The trap is the interval. **Basic records on the On Stop block** (`10000`/`10100`) — measured,
+not inferred: with On Stop at 10 s and On Move moved to 60 s, a unit in Basic kept reporting
+every 10 s. The club had On Stop at **300 s**, so switching the mode alone would have pinned
+every tracker at a five-minute cadence and made the weekend's worst case the permanent case.
+Basic is only an improvement with `10000`/`10100` brought down at the same time. A `getparam`
+cannot settle this, whatever an earlier draft of this file said: it reads the values back, not
+which block the firmware honours. Only changing one block and watching the cadence answers it.
 
-Continuous 10 s recording is the documented ~10 %/h, flat in about nine hours: right for a race
-day from a full charge, wrong for a tracker left aboard between races. Both parameters can be
-set over the air (Codec 12 through Traccar, proven — see *Sending commands*), so the practical
-shape is Basic plus 10 s before racing and Movement plus 300 s afterwards. Remember only the
-roaming half of each pair is live.
+**Applied to all five units on 22 September 2026** — `setparam 10000:10;10100:10;12150:0` over
+the air (Codec 12 through Traccar, see *Sending commands*), read back on every unit, then
+measured. Sitting still on a table, which is the condition that used to produce total silence:
+
+| | stretch | fixes | yield | median gap | longest gap |
+|---|---:|---:|---:|---:|---:|
+| ATC700-1 | 69 min | 411 | 100% | 10 s | 22 s |
+| ATC700-2 | 41 min | 247 | 100% | 10 s | 15 s |
+| ATC700-3 | 41 min | 247 | 100% | 10 s | 14 s |
+| ATC700-4 | 41 min | 244 | 100% | 10 s | 19 s |
+| ATC700-5 | 40 min | 243 | 100% | 10 s | 16 s |
+
+**1,392 fixes against 1,397 expected — 99.6%**, no gap over 30 s on any unit. Against 24–57% of
+expected fixes during the races of 19–20 September on the same hardware.
+
+One unit demonstrated the old fault on the bench first, which is worth recording because it
+needs no boat to reproduce: three fixes ten seconds apart, the motion flag went `False`, and it
+then said nothing for **nine minutes** until it was disturbed.
+
+Continuous 10 s recording costs battery: the five dropped 5–15 percentage points in the first
+hour, which is consistent with the ~10 %/h measured before but too short a window, and too
+coarsely quantised (`io113` moves in 5% steps), to refine that figure. Flat in about nine hours
+either way: right for a race day from a full charge, wrong for a tracker left aboard between
+races. Both parameters can be set over the air, so the shape if endurance ever matters is Basic
+plus 10 s before racing and Movement plus 300 s afterwards. Remember only the roaming half of
+each pair is live — both halves are written above for that reason.
 
 ---
 
@@ -340,13 +362,13 @@ each pair is the one that is live (see the roaming trap above).
 | 1010 | GNSS position fix search timeout | 120 s |
 | 1011 | Periodic record priority | 2 |
 | 1012 | Power from USB | 1 |
-| 10000 / 10100 | On-stop record interval | 300 s |
+| 10000 / 10100 | On-stop record interval | **10 s** (300 s before 22 Sep 2026) — the interval Basic records on |
 | 10004 / 10104 | On-stop min saved records | 1 |
 | 10005 / 10105 | On-stop send period | 0 |
 | 10050 / 10150 | Moving record interval | 10 s |
 | 10054 / 10154 | Moving min saved records | 1 |
 | 10055 / 10155 | Moving send period | 120 s |
-| 12150 | Asset movement mode | 1 — *Movement*, the accelerometer profile. `0` is *Basic*, which ignores the accelerometer |
+| 12150 | Asset movement mode | **0 — *Basic*** (1, *Movement*, before 22 Sep 2026). Basic ignores the accelerometer and records on the On Stop interval |
 | 19000 | Accelerometer sensitivity threshold | 0 — which is 50 mG, the most sensitive |
 
 The 120 s moving send period is a ceiling, not the cadence: min saved records is 1, so a
@@ -446,11 +468,13 @@ you happened to be looking at.
 * Whether a reboot actually **clears** a diverging receiver. The cost is measured; the
   benefit is inferred, and cannot be tested without a live fault.
 * Whether the 50 mG accelerometer threshold keeps an ATC700 awake on a mooring in swell.
-* **Which record interval `12150 = 0` (Basic) actually uses.** The On Stop block is the only
-  one left when there is no On Move state, but the wiki does not say so, and getting it wrong
-  pins every tracker at 300 s. One `getparam` round trip settles it.
 * Whether Basic mode holds the link open the way a moving unit does, or re-registers on the
-  roaming SIM for every record — which would put the delivery lag up from a second.
+  roaming SIM for every record — which would put the delivery lag up from a second. The
+  stationary test says the *records* arrive on time; their lag has not been measured.
+* What Basic costs in battery over a full day. The first hour says 5–15 points, which the
+  quantisation of `io113` will not resolve any finer.
+* Whether 99.6% on a table holds up at six knots in a seaway. The fault it replaces was
+  invisible on a bench, and so might its successor be.
 * Whether enabling AGPS on the GL units shortens recovery, and whether the roaming SIM
   can serve the URL fetch it needs.
 * What the degraded reporting spells actually are. `getops` was sent twice and never
