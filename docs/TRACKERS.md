@@ -3,7 +3,7 @@
 Everything the club has measured about the GPS trackers on the boats — what each model
 costs in battery, how accurate it is, how quickly its fixes arrive, and the several ways
 each one will mislead you. Written from measurements against the club's own units in
-August 2026, not from datasheets.
+August and September 2026, not from datasheets.
 
 The vendor protocol manuals are in `docs/Trackers/`, by manufacturer, and the settings the
 club's own units are running are in `docs/Trackers/Config Files/` — the GL521MG's as plain
@@ -148,6 +148,92 @@ recorded with every fix and it explains most of what looks like a faulty unit. A
 comparison of two trackers in different spots in one room measures the room**, not the
 trackers; the only honest comparison puts them side by side.
 
+### Movement mode goes back to sleep after every record
+
+Measured across the four races of 19–20 September 2026. This is the largest data loss the
+club has measured, and it is a configuration fault rather than a hardware one.
+
+An ATC700 in `12150 = 1` (Movement) is **not** awake for as long as the asset is moving.
+Teltonika's own description of the mode: an acceleration over the `19000` threshold sets an
+instant movement status, a second one must follow **within five seconds** to confirm it, and
+*after generating a record in On Move the device returns to On Stop unless another movement
+event occurs first*. Every record is therefore a fresh test. Pass it and the next record comes
+in 10 s; fail it and the next comes in 300 s.
+
+A sailing boat does not reliably pass that test. Percentage of race time inside a gap longer
+than 30 s:
+
+| | race 87 | race 88 | race 89 | race 90 |
+|---|---|---|---|---|
+| MOJITO, RUTX50 | 0% | 0% | 0% | 0% |
+| CRACKAJACK, ATC700 on deck | **0%** | **0%** | 43% | 50% |
+| FINALLY, ATC700 below deck Sat | 67% | 76% | 46% | 66% |
+| SGRECH BACH, ATC700 | — | — | 61% | 75% |
+| ATC700-5, below deck on MOJITO | 47% | 65% | — | — |
+
+Two controlled comparisons fell out of the weekend by accident, and between them they pin it:
+
+**Same unit, same mounting, two days.** CRACKAJACK's tracker did not move between Saturday and
+Sunday. Saturday was windy with waves and it produced 1,009 fixes and **not one dropout**.
+Sunday was flat calm and the same unit dropped out 37 times. Boat motion, measured from its own
+fixes, differed by 13% — enough to change the answer completely, because the test is a 50 mG
+knock and not a speed.
+
+**Two trackers on one boat.** MOJITO carried the mains-powered RUTX50 on Saturday *and*
+ATC700-5 below deck — 3 m apart (median over 887 matched fixes, 95th percentile 5 m), so the
+same boat, the same hour, the same SIM. The router missed nothing. The ATC700 beside it was
+silent for half of each race.
+
+**Below deck is worse than a flat calm.** The two below-deck units failed on the windy day as
+badly as the on-deck unit failed in the calm, although the *boats* were equally lively (motion
+index 1.09 below deck on MOJITO against 1.19 on deck on CRACKAJACK). Soft stowage — a bag, a
+bunk, a padded locker — damps exactly what the accelerometer is listening for.
+
+Across all five unit-days, the boat was measurably calmer in the minute before a unit went
+quiet than when it kept reporting: 13–27% lower on the same index, five out of five in the same
+direction.
+
+**What it is not**, each checked rather than assumed:
+
+* *Not the radio.* Below deck and on deck read alike — 39–40 satellites, hdop 0.40, zero failed
+  fixes, signal bars in the same proportions. A deck that was attenuating enough to break the
+  link would show in the fixes that got through.
+* *Not the link.* Nothing ever arrives late. The first fix after a gap is 4.9 s old, the same as
+  any other, and the back-fill — which asks Traccar directly for the missing window — recovered
+  0–3 fixes per race. Those minutes were never recorded by anything.
+* *Not the battery.* FINALLY's unit was on external power and *gained* five points across
+  Saturday, and had the largest holes of the day.
+* *Not the hut and not Traccar.* The three units' silences do not coincide: all quiet together
+  for 9% of race 89 and 11% of race 90, against 7% and 14% expected by chance.
+
+**The signature to recognise:** ragged gaps of 90–330 s while the boat is sailing at 5–6 kn,
+with perfect GPS quality either side, and nothing delivered late afterwards. Not a clean 300 s
+cadence — the unit escapes and re-enters On Stop at random moments, so only 8–31% of the gaps
+run the full parked interval.
+
+**What it cost.** Six to twelve kilometres of each boat's track missing per race, with single
+unrecorded hops up to 1.5 km. GPS finish detection needs every mark rounded in order, and a
+five-minute hole at 6 kn hides a rounding completely.
+
+#### Basic mode is the fix, but not on its own
+
+`12150 = 0` is **Basic**, which disables the accelerometer and records on a fixed interval
+regardless of movement. That is the right behaviour for a boat that is out racing: there is no
+state to get wrong.
+
+The trap is the interval. The wiki does not say which block Basic records on, and the On Stop
+block is the only one left when there is no On Move state — so it is almost certainly
+`10000`/`10100`, which the club has at **300 s**. Switching the mode alone would pin every
+tracker at a five-minute cadence and make the weekend's worst case the permanent case. Basic is
+only an improvement with `10000`/`10100` brought down to 10 s at the same time. Confirm with a
+`getparam` round trip on one unit before trusting it on a race day.
+
+Continuous 10 s recording is the documented ~10 %/h, flat in about nine hours: right for a race
+day from a full charge, wrong for a tracker left aboard between races. Both parameters can be
+set over the air (Codec 12 through Traccar, proven — see *Sending commands*), so the practical
+shape is Basic plus 10 s before racing and Movement plus 300 s afterwards. Remember only the
+roaming half of each pair is live.
+
 ---
 
 ## Battery
@@ -231,11 +317,14 @@ Best accuracy, best latency, worst endurance. Reports the richest telemetry of t
 — satellites, hdop, pdop, rssi, battery percent in `io113` (not `battery`, which is
 volts) — and signals a failed fix honestly with `hdop=100, sat=0`.
 
-Movement detection is reliable at low speed: above 1 kn it is flagged moving 97.9% of the
-time, so a boat ghosting toward the line will not drop to its parked rate. The
-accelerometer threshold (`19000`) is at its most sensitive 50 mG, which on a mooring may
-keep it awake in swell — untested, and a plausible contributor to the 8 August flat
-battery.
+Movement detection **is not reliable on a sailing boat, and the August figure here was
+misleading.** Above 1 kn the *moving* flag is set 97.9% of the time — but the flag is not what
+keeps the unit reporting, and on 19–20 September the same units were silent for 43–76% of every
+race. See *Movement mode goes back to sleep after every record* above; that is the trap, and it
+is the reason to consider `12150 = 0`. The accelerometer threshold (`19000`) is already at its
+most sensitive 50 mG, so there is no sensitivity left to give it. On a mooring the same
+sensitivity may keep a unit awake in swell — untested, and a plausible contributor to the
+8 August flat battery.
 
 These are the settings the club's five units are running, read back off the devices on
 21 August 2026 and identical on all five. Parameter names are the wiki's; the roaming half of
@@ -257,7 +346,7 @@ each pair is the one that is live (see the roaming trap above).
 | 10050 / 10150 | Moving record interval | 10 s |
 | 10054 / 10154 | Moving min saved records | 1 |
 | 10055 / 10155 | Moving send period | 120 s |
-| 12150 | Asset movement mode | 1 |
+| 12150 | Asset movement mode | 1 — *Movement*, the accelerometer profile. `0` is *Basic*, which ignores the accelerometer |
 | 19000 | Accelerometer sensitivity threshold | 0 — which is 50 mG, the most sensitive |
 
 The 120 s moving send period is a ceiling, not the cadence: min saved records is 1, so a
@@ -357,6 +446,11 @@ you happened to be looking at.
 * Whether a reboot actually **clears** a diverging receiver. The cost is measured; the
   benefit is inferred, and cannot be tested without a live fault.
 * Whether the 50 mG accelerometer threshold keeps an ATC700 awake on a mooring in swell.
+* **Which record interval `12150 = 0` (Basic) actually uses.** The On Stop block is the only
+  one left when there is no On Move state, but the wiki does not say so, and getting it wrong
+  pins every tracker at 300 s. One `getparam` round trip settles it.
+* Whether Basic mode holds the link open the way a moving unit does, or re-registers on the
+  roaming SIM for every record — which would put the delivery lag up from a second.
 * Whether enabling AGPS on the GL units shortens recovery, and whether the roaming SIM
   can serve the URL fetch it needs.
 * What the degraded reporting spells actually are. `getops` was sent twice and never

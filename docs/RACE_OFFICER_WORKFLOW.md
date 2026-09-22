@@ -258,7 +258,13 @@ and starting guns — wait for automation to be switched on.
 
 After **AP over H** you are asked for the new warning signal time, because
 “further signals ashore” means the next signals are made later, ashore — there
-is no one-minute warning to count from. After **AP over A** there is nothing to
+is no one-minute warning to count from. Both that field and the
+**First warning signal time** on the race page open at least six minutes ahead
+rather than at the current minute: the sequence's first announcement is ten
+minutes before the gun, which is five before the warning signal, so a warning
+time closer than that is one the sequence is already part-way through. A time
+you have already set for later is left exactly as you set it, and a race that
+has been sailed keeps the time it was sailed at. After **AP over A** there is nothing to
 lower: no more racing today is a decision, not a pause.
 
 **The signal plan shows the postponement.** While AP is up, the signals due

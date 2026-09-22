@@ -68,6 +68,7 @@ from core.timeutils import (
     haversine_nm,
     normalise_key,
     normalise_start_time_value,
+    suggested_warning_time,
     parse_dt,
     parse_float,
     seconds_display,
@@ -2916,6 +2917,9 @@ def _render_pursuit_race_detail(race: sqlite3.Row):
         missing_rating=missing_rating, ranked_entries=ranked, timing_ready=timing_ready,
         rating_type=rating_type, duration_min=row_get(race, "pursuit_duration_min", None),
         first_warning_time=str(row_get(race, "start_time", "") or ""), first_start_time=race_first_start_time(race),
+        warning_time_value=(str(row_get(race, "start_time", "") or "")
+                            if (race_first_start_dt(race) and datetime.now() >= race_first_start_dt(race))
+                            else suggested_warning_time(row_get(race, "start_time", ""))),
         finish_time=(pursuit_finish_dt(race).isoformat(timespec="seconds") if pursuit_finish_dt(race) else ""),
         courses=appstate.COURSES, course=course, is_custom_course=is_custom_course,
         course_set=bool(row_get(race, "course_set", 1)), selected_polar=selected_polar,

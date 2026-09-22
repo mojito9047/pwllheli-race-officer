@@ -86,15 +86,15 @@ A VOX-keyed radio takes a moment to start transmitting, which clips the first wo
 Two rates are configurable, because the useful pace differs:
 
 - **Normal speech rate** — course and general announcements. Slow this down as far as you like: it is the one to change if announcements are hard to follow, and it no longer affects the timing of anything.
-- **Countdown speech rate** — the final “Ten. Nine. … One.”, and **the one that has to keep time**.
+- **Countdown speech rate** — the “Ten. Nine. … One.” before **every** gun, and **the one that has to keep time**. From v1.009 all four signals are counted down, not just the start; the full spoken sequence is in `FLAGS_AND_START_SEQUENCE.md`.
 
 Both are words-per-minute values passed to the speech engine, so the sensible range depends on the voice installed on the PC. Test with **Save and test central audio** rather than guessing.
 
-**The countdown rate governs when the count starts, not just how fast it is said.** The ten numbers are one utterance, so the app works out how far ahead of the gun to begin it: about eleven seconds at a rate of 185, proportionally earlier at a slower rate and later at a faster one. That is why the count keeps time whatever you set. Until v0.266 it was spoken at the *normal* rate with a fixed eleven-second lead, so a club that slowed the normal rate down to make the course announcements followable stretched the count with it and “One” landed after the gun.
+**The countdown rate governs when each count starts, not just how fast it is said.** The ten numbers are one utterance, so the app works out how far ahead of its gun to begin it: about eleven seconds at a rate of 185, proportionally earlier at a slower rate and later at a faster one. That is why the count keeps time whatever you set. Until v0.266 it was spoken at the *normal* rate with a fixed eleven-second lead, so a club that slowed the normal rate down to make the course announcements followable stretched the count with it and “One” landed after the gun.
 
 If you have slowed the normal rate, **set the countdown rate to what the normal rate used to be** — 185 unless you had changed it. A club upgrading keeps whatever it had stored, since a default is not a migration; only a fresh install picks up 185 on its own.
 
-If the count ever drifts against the clock, time the phrase at a known rate and set `COUNTDOWN_REFERENCE_RATE` and `COUNTDOWN_PHRASE_SECONDS_AT_REFERENCE` in `core/startsequence.py` to what you measured. Voices differ.
+The **normal** rate has a floor of its own for the same reason: the “Stand by 15 seconds” call fifteen seconds out has to be finished, and its VOX tone played, before the count is due four seconds later. That is why it is four words and does not name the signal it precedes. If the count ever drifts against the clock, time the phrase at a known rate and set `COUNTDOWN_REFERENCE_RATE` and `COUNTDOWN_PHRASE_SECONDS_AT_REFERENCE` in `core/startsequence.py` to what you measured. Voices differ.
 
 The automatic start-sequence scheduler also runs centrally. Browser pages display the countdown and signal plan, but they no longer fire automatic horns or generate automatic speech. The horn signal remains the authoritative race signal.
 

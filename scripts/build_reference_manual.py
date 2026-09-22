@@ -1039,11 +1039,16 @@ sig_table.setStyle(TableStyle([
 story.append(sig_table)
 story.append(Spacer(1, 8))
 story.append(Paragraph(
-    "Spoken announcements are layered around these: a course announcement at −9:00/−7:00/−3:00, a "
-    "“stand by 15 seconds” call 15 seconds before each horn, spoken “Five minutes / Four minutes / One "
-    "minute / Thirty seconds / Twenty seconds”, then a spoken countdown from ten to one, and “Start.” at "
-    "zero. If two starts' signals coincide (e.g. Start 2's warning falls on Start 1's start), the scheduler "
-    "coalesces them into a single horn sound rather than sounding twice.", styles["Body"]))
+    "Spoken announcements are layered around these, and every gun is run in the same way: at −10:00 what "
+    "is coming and when, a course announcement at −9:00 and −7:00, then, before each of the four horns, “stand by 15 seconds” at 15 "
+    "seconds out and a spoken countdown from ten to one, and the signal itself at the gun — “Five "
+    "minutes. Warning signal.”, “Four minutes. Preparatory signal.”, “One minute.” and “Start.”. Until "
+    "v1.009 only the start was counted down, and the warning, preparatory and one-minute signals had "
+    "the stand-by and nothing else, which the fleet reported as the announcements differing from gun "
+    "to gun. The class flags are not spoken: they are flown, and they are on the competitor page. If "
+    "two starts' signals coincide (e.g. Start 2's warning falls on Start 1's start), the scheduler "
+    "coalesces them into a single horn sound rather than sounding twice, and the shared countdown is "
+    "spoken once.", styles["Body"]))
 story += note_box(
     "There is no built-in protest or redress workflow, and the current flag panel does not yet model every "
     "AP/X/First Substitute/N/S combination. The horn remains the authoritative signal — browser pages only "

@@ -71,6 +71,34 @@ def countdown_lead_seconds(rate: Any) -> float:
                  * COUNTDOWN_REFERENCE_RATE / spoken_at, 1)
 
 
+# Every gun gets the same run-in: "stand by", the count from ten, then the
+# signal. The fleet reported hearing the start counted down and the other three
+# not, which is exactly what the sequence did -- the warning, preparatory and
+# one-minute guns had a stand-by and nothing else, and only the start was
+# counted. What differs between the four now is the words at the gun itself.
+STAND_BY_LEAD_SECONDS = 15.0
+PRESTART_HEADS_UP_SECONDS = 600.0
+# How far out the scheduler starts watching a race. It has to clear the earliest
+# event *and its VOX tone*, which is the ten-minute heads-up at -10:02, with room
+# for the poll to land: an event fires in a 2.5 s window and a boundary at
+# exactly the earliest event would drop it whenever the poll fell the wrong side.
+SEQUENCE_WINDOW_SECONDS = 660.0
+# Spelled out, not "1 and 3": these strings go to a speech synthesiser, and the
+# rest of the sequence spells its numbers for the same reason.
+PRESTART_HEADS_UP_TEXT = ("Warning signal in five minutes. "
+                          "Course announcements in one minute and three minutes.")
+WARNING_SIGNAL_SECONDS = 300.0
+TEN_COUNT_TEXT = "Ten. Nine. Eight. Seven. Six. Five. Four. Three. Two. One."
+
+# seconds before the start | what the log calls it | said at the gun | log label
+GUN_SIGNALS = (
+    (WARNING_SIGNAL_SECONDS, "warning signal", "Five minutes. Warning signal.", "Warning signal"),
+    (240.0, "preparatory signal", "Four minutes. Preparatory signal.", "Preparatory signal"),
+    (60.0, "one minute signal", "One minute.", "One minute signal"),
+    (0.0, "start signal", "Start.", "Start signal"),
+)
+
+
 def start_sequence_key(race: sqlite3.Row) -> str:
     """Return a stable key for one version of a race start sequence.
 
@@ -213,35 +241,62 @@ def central_start_sequence_events(race: sqlite3.Row, start_item: Optional[Dict[s
     class_flags_text = class_flags_text_for_start(race, start_item)
 
     events: List[Dict[str, Any]] = [
+        # Ten minutes out, before anything else is said, so a boat still ashore
+        # or motoring out knows what is coming and when. It is the only
+        # announcement that describes the sequence rather than being part of it.
+        {"sec": PRESTART_HEADS_UP_SECONDS, "kind": "audio", "label": f"{label_prefix}Audio: ten minute heads-up",
+         "text": full_phrase + PRESTART_HEADS_UP_TEXT, "rate": normal_rate},
         {"sec": 540, "kind": "audio", "label": f"{label_prefix}Audio: course announcement -09:00", "text": full_phrase + course_text, "rate": normal_rate},
         {"sec": 420, "kind": "audio", "label": f"{label_prefix}Audio: course announcement -07:00", "text": full_phrase + course_text, "rate": normal_rate},
-        {"sec": 315, "kind": "audio", "label": f"{label_prefix}Audio: stand by to warning signal", "text": f"{short_phrase}Stand by 15 seconds to warning signal.", "rate": normal_rate},
-        {"sec": 300, "kind": "horn", "label": f"{label_prefix}Warning signal / {class_flags_text}"},
-        {"sec": 300, "kind": "audio", "label": f"{label_prefix}Audio: five minute warning signal", "text": f"{short_phrase}Five minutes. Warning signal. Raise {class_flags_text}.", "rate": normal_rate},
-        {"sec": 255, "kind": "audio", "label": f"{label_prefix}Audio: stand by to preparatory signal", "text": f"{short_phrase}Stand by 15 seconds to preparatory signal.", "rate": normal_rate},
-        {"sec": 240, "kind": "horn", "label": f"{label_prefix}Preparatory signal"},
-        {"sec": 240, "kind": "audio", "label": f"{label_prefix}Audio: four minute preparatory signal", "text": f"{short_phrase}Four minutes. Preparatory signal.", "rate": normal_rate},
-        {"sec": 75, "kind": "audio", "label": f"{label_prefix}Audio: stand by to one minute signal", "text": f"{short_phrase}Stand by 15 seconds to one minute signal.", "rate": normal_rate},
-        {"sec": 60, "kind": "horn", "label": f"{label_prefix}One minute signal"},
-        {"sec": 60, "kind": "audio", "label": f"{label_prefix}Audio: one minute", "text": f"{short_phrase}One minute.", "rate": normal_rate},
-        {"sec": 30, "kind": "audio", "label": f"{label_prefix}Audio: thirty seconds", "text": f"{short_phrase}Thirty seconds.", "rate": normal_rate},
-        {"sec": 20, "kind": "audio", "label": f"{label_prefix}Audio: twenty seconds", "text": f"{short_phrase}Twenty seconds.", "rate": normal_rate},
-        # Speak the final ten seconds as a single utterance rather than ten
-        # separate one-word calls.  Each spoken item re-initialises the TTS
-        # engine, so ten back-to-back words drifted late and short words were
-        # clipped; one phrase is spoken cleanly.  Periods give ~1s spacing so it
-        # tracks the countdown.  The start horn below still fires on the clock.
-        #
-        # At the **countdown** rate, not the normal one. This is the announcement
-        # the setting called "Countdown speech rate" exists for, and it was the
-        # only one not using it: slowing the normal rate down to make the course
-        # announcements followable stretched the ten-count with it, and "One"
-        # landed after the gun. How early to begin therefore has to follow the
-        # rate too -- see `countdown_lead_seconds`.
-        {"sec": countdown_lead_seconds(fast_rate), "kind": "audio", "label": f"{label_prefix}Audio: countdown 10 to 1", "text": "Ten. Nine. Eight. Seven. Six. Five. Four. Three. Two. One.", "rate": fast_rate},
-        {"sec": 0, "kind": "horn", "label": f"{label_prefix}Start signal"},
-        {"sec": 0, "kind": "audio", "label": f"{label_prefix}Audio: start", "text": f"{short_phrase}Start.", "rate": fast_rate},
     ]
+    countdown_lead = countdown_lead_seconds(fast_rate)
+    for sec, signal_name, at_the_gun, horn_label in GUN_SIGNALS:
+        # The class flags stay on the log line -- that line is the instruction to
+        # whoever is raising them -- but they are no longer spoken. Competitors
+        # can see the flags on the boat and on the public page, and reading them
+        # out was also what made the warning the one announcement long enough to
+        # outlast the horn while the other three vanished inside it.
+        horn = f"{label_prefix}{horn_label}"
+        if sec == WARNING_SIGNAL_SECONDS and class_flags_text:
+            horn = f"{horn} / {class_flags_text}"
+        events.extend([
+            # Short on purpose, and that is why it does not name the signal. It
+            # has to be finished, and the VOX tone behind it played, before the
+            # ten-count is due: the audio worker speaks one item at a time, so
+            # anything still talking at -11 pushes the count late and "One"
+            # lands after the gun. "Stand by 15 seconds" clears it at every
+            # speech rate the settings allow; adding "to preparatory signal"
+            # does not, below about 130 words per minute. The signal names
+            # itself at the gun a moment later anyway.
+            {"sec": sec + STAND_BY_LEAD_SECONDS, "kind": "audio",
+             "label": f"{label_prefix}Audio: stand by to {signal_name}",
+             "text": f"{short_phrase}Stand by 15 seconds.", "rate": normal_rate},
+            # Spoken as one utterance rather than ten separate one-word calls.
+            # Each spoken item re-initialises the TTS engine, so ten back-to-back
+            # words drifted late and short words were clipped; one phrase is
+            # spoken cleanly, and the periods give it about a second apiece so it
+            # tracks the clock. The horn below still fires on the clock whatever
+            # the speech does.
+            #
+            # At the **countdown** rate, not the normal one. This is the
+            # announcement the setting called "Countdown speech rate" exists for,
+            # and it was once the only one not using it: slowing the normal rate
+            # down to make the course announcements followable stretched the
+            # ten-count with it, and "One" landed after the gun. How early to
+            # begin therefore follows the rate too -- see `countdown_lead_seconds`.
+            #
+            # The label deliberately carries no start name. In a rolling
+            # multi-start the starts are often five minutes apart, which puts one
+            # start's gun exactly on another's -- and two ten-counts queued on the
+            # same eleven seconds would run twenty-two and finish well after the
+            # gun. A shared label lets the scheduler's own "already fired at this
+            # moment" guard collapse them into a single count.
+            {"sec": sec + countdown_lead, "kind": "audio", "label": "Audio: countdown 10 to 1",
+             "text": TEN_COUNT_TEXT, "rate": fast_rate},
+            {"sec": sec, "kind": "horn", "label": horn},
+            {"sec": sec, "kind": "audio", "label": f"{label_prefix}Audio: {signal_name}",
+             "text": f"{short_phrase}{at_the_gun}", "rate": normal_rate},
+        ])
     if console.get("central_audio_vox_tone_enabled"):
         lead = int(console.get("central_audio_vox_lead_seconds", 2))
         audio_secs = sorted({float(ev["sec"]) for ev in events if ev["kind"] == "audio"}, reverse=True)
@@ -344,7 +399,7 @@ def run_pursuit_sequence(race: sqlite3.Row, now: datetime) -> None:
 
     # First start: a full RRS-26 warning sequence anchored at the first start.
     first_diff = (first_start - now).total_seconds()
-    if -30 <= first_diff <= 600:
+    if -30 <= first_diff <= SEQUENCE_WINDOW_SECONDS:
         for ev in central_start_sequence_events(race, {"name": "First start", "classes": ["1"], "time": first_start.isoformat(timespec="seconds")}):
             sec = float(ev.get("sec", 0))
             if sec - 2.5 < first_diff <= sec:
@@ -508,7 +563,7 @@ def start_sequence_scheduler_loop() -> None:
                     if not start_dt:
                         continue
                     diff = (start_dt - now).total_seconds()
-                    if diff > 600 or diff < -30:
+                    if diff > SEQUENCE_WINDOW_SECONDS or diff < -30:
                         continue
                     checked += 1
                     for ev in central_start_sequence_events(race, start_item):

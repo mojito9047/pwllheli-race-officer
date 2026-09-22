@@ -10,6 +10,7 @@ import re
 
 from core import track
 from core.raceadmin import next_whole_minute
+from core.timeutils import suggested_warning_time
 from core.series import export_attachment
 from core.racesignals import LOWER_AP_MIN_LEAD_S
 from core import barreplay
@@ -212,6 +213,8 @@ def race_detail(race_id: int):
     race_start_override = safe_json_loads(row_get(race, "start_plan_json", ""), {"starts": []})
     race_start_editor_grid = start_plan_grid_from_plan(effective_start_plan, effective_class_config)
     delete_summary = race_delete_summary(race, entries, get_events(race_id, limit=100000), video_maps["clips"])
+    _start_dt = race_first_start_dt(race)
+    _has_started = bool(_start_dt and _app.datetime.now() >= _start_dt)
     return render_template(
         "race.html", race=race, course=course, courses=appstate.COURSES, entries=entries, results=results, dual_results=dual_results,
         legs=legs, course_analysis=course_analysis, start_finish=appstate.START_FINISH, events=events, boats=boats, entry_boats=entry_boats, fleets=fleets,
@@ -246,8 +249,7 @@ def race_detail(race_id: int):
         # AP postpones races that have not started. The service layer refuses
         # after the first gun; the page should not offer it either, rather than
         # taking the press and answering with an error.
-        race_has_started=bool(race_first_start_dt(race)
-                              and _app.datetime.now() >= race_first_start_dt(race)),
+        race_has_started=_has_started,
         postponement_ends_at=row_get(race, 'postponement_ends_at', ''),
         # The default in the Lower AP box: the next whole minute, so the
         # commonest case is one press and every derived time is round.
@@ -258,6 +260,11 @@ def race_detail(race_id: int):
         class_config=effective_class_config, start_plan=effective_start_plan, start_schedule=race_start_schedule(race),
         signal_panel_schedule=signal_panel_schedule(race),
         first_warning_time=str(row_get(race, "start_time", "") or ""), first_start_time=race_first_start_time(race),
+        # What the first-warning field offers. A race that has been sailed keeps
+        # the time it was sailed at; anything else that has slipped into the past
+        # is replaced by a time the sequence can actually run in.
+        warning_time_value=(str(row_get(race, "start_time", "") or "") if _has_started
+                            else suggested_warning_time(row_get(race, "start_time", ""))),
         signal_plan_rows=start_signal_plan_rows(race),
         class_config_text=class_config_text(effective_class_config), start_plan_text=start_plan_text(effective_start_plan),
         start_plan_grid=race_start_editor_grid,

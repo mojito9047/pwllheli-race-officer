@@ -732,15 +732,16 @@ def signal_panel_schedule(race: sqlite3.Row) -> List[Dict[str, Any]]:
 
 
 SIGNAL_PLAN_TEMPLATE: List[Dict[str, Any]] = [
+    {"sec": 600, "rel": "-10:00", "flags": "No change", "action": "Central audio: what is coming and when", "horn": "—", "sound": False},
     {"sec": 540, "rel": "-09:00", "flags": "No change", "action": "Central audio: course announcement", "horn": "—", "sound": False},
     {"sec": 420, "rel": "-07:00", "flags": "No change", "action": "Central audio: course announcement", "horn": "—", "sound": False},
-    {"sec": 315, "rel": "-05:15", "flags": "No change", "action": "Central audio: “Stand by 15 seconds”", "horn": "—", "sound": False},
+    {"sec": 315, "rel": "-05:15", "flags": "No change", "action": "Central audio: “Stand by 15 seconds”, then the count from ten", "horn": "—", "sound": False},
     {"sec": 300, "rel": "-05:00", "flags": "{class_flags} up", "action": "Warning signal / class flag", "horn": "1 sound", "sound": True},
-    {"sec": 255, "rel": "-04:15", "flags": "{class_flags} remain up", "action": "Central audio: “Stand by 15 seconds”", "horn": "—", "sound": False},
+    {"sec": 255, "rel": "-04:15", "flags": "{class_flags} remain up", "action": "Central audio: “Stand by 15 seconds”, then the count from ten", "horn": "—", "sound": False},
     {"sec": 240, "rel": "-04:00", "flags": "{class_flags} + P up", "action": "Preparatory signal", "horn": "1 sound", "sound": True},
-    {"sec": 180, "rel": "-03:00", "flags": "{class_flags} + P remain up", "action": "Central audio: course announcement", "horn": "—", "sound": False},
-    {"sec": 75, "rel": "-01:15", "flags": "{class_flags} + P remain up", "action": "Central audio: “Stand by 15 seconds”", "horn": "—", "sound": False},
+    {"sec": 75, "rel": "-01:15", "flags": "{class_flags} + P remain up", "action": "Central audio: “Stand by 15 seconds”, then the count from ten", "horn": "—", "sound": False},
     {"sec": 60, "rel": "-01:00", "flags": "{class_flags} up; P down", "action": "Preparatory flag removed", "horn": "1 sound", "sound": True},
+    {"sec": 15, "rel": "-00:15", "flags": "{class_flags} remain up", "action": "Central audio: “Stand by 15 seconds”, then the count from ten", "horn": "—", "sound": False},
     {"sec": 0, "rel": "00:00", "flags": "{class_flags} down", "action": "Start signal", "horn": "1 sound", "sound": True},
 ]
 

@@ -317,6 +317,45 @@ story.append(bullets([
     "<b>Course analysis tab</b> - a predicted leg-by-leg timing table (distance, bearing, suggested sail and "
     "target speed) calculated from the current wind.",
 ]))
+audio_heading = [
+    Paragraph("<b>What you will hear on the water</b>", styles["H2"]),
+    Paragraph(
+        "The start hut broadcasts the sequence on VHF as well as sounding the horn. Every gun is run the "
+        "same way, so you can work your approach off the count rather than off your watch: a stand-by "
+        "fifteen seconds out, a count from ten, then the signal itself.", styles["Body"]),
+]
+
+audio_rows = [
+    ["10:00", "“Warning signal in five minutes. Course announcements in one minute and three minutes.”"],
+    ["9:00 and 7:00", "The course for the race, read out twice"],
+    ["5:15 / 5:11 / 5:00", "“Stand by 15 seconds” – the count from ten – horn, “Five minutes. Warning signal.”"],
+    ["4:15 / 4:11 / 4:00", "“Stand by 15 seconds” – the count from ten – horn, “Four minutes. Preparatory signal.”"],
+    ["1:15 / 1:11 / 1:00", "“Stand by 15 seconds” – the count from ten – horn, “One minute.”"],
+    ["0:15 / 0:11 / 0:00", "“Stand by 15 seconds” – the count from ten – horn, “Start.”"],
+]
+audio_cell = ParagraphStyle(name="AudioCell", fontName="Helvetica", fontSize=9,
+                            leading=12, textColor=colors.HexColor("#1f2937"))
+audio_head = ParagraphStyle(name="AudioHead", fontName="Helvetica-Bold", fontSize=9,
+                            leading=12, textColor=colors.white)
+audio_when = ParagraphStyle(name="AudioWhen", fontName="Helvetica-Bold", fontSize=9,
+                            leading=12, textColor=NAVY_DARK)
+audio_body = ([[Paragraph("BEFORE THE START", audio_head), Paragraph("WHAT YOU HEAR", audio_head)]]
+              + [[Paragraph(when, audio_when), Paragraph(said, audio_cell)] for when, said in audio_rows])
+audio_table = Table(audio_body, colWidths=[4.2 * cm, CONTENT_W - 4.2 * cm], repeatRows=1)
+audio_table.setStyle(TableStyle([
+    ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+    ("GRID", (0, 0), (-1, -1), 0.5, LINE),
+    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+    ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+]))
+story.append(KeepTogether(audio_heading + [Spacer(1, 2), audio_table]))
+story += note_box(
+    "The count is timed so that “One” lands on the horn. The class flags are not read out - they are "
+    "flown at the line and shown in the flag panel on the race page. The horn and the flags are the "
+    "signals; the speech is a convenience, and if the two ever disagree the flags and the horn win.")
+
 story += note_box(
     "The page is split into tabs below the race header — <b>Entries</b> (or <b>Start times</b> for a "
     "pursuit race), <b>Chart</b> and <b>Course analysis</b>, joined by <b>Leader board</b> once the race has "

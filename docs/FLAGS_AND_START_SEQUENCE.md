@@ -41,6 +41,46 @@ For each configured start, the RRS 26-style sequence is:
 | 1 minute | One-minute signal | That start's class numeral pennant(s) up; P down |
 | 0 minutes | Start signal | That start's class numeral pennant(s) down |
 
+### What is spoken
+
+Alongside the horns the app speaks the sequence through the hut's audio output, which is
+normally fed to a VHF on VOX. **Every gun is run in the same way** - a stand-by, a count
+from ten, then the signal:
+
+| Time before that start | Spoken |
+|---:|---|
+| 10:00 | "Warning signal in five minutes. Course announcements in one minute and three minutes." |
+| 9:00 | The course announcement |
+| 7:00 | The course announcement again |
+| 5:15 | "Stand by 15 seconds." |
+| 5:11 | "Ten. Nine. ... One." |
+| 5:00 | "Five minutes. Warning signal." |
+| 4:15 | "Stand by 15 seconds." |
+| 4:11 | "Ten. Nine. ... One." |
+| 4:00 | "Four minutes. Preparatory signal." |
+| 1:15 | "Stand by 15 seconds." |
+| 1:11 | "Ten. Nine. ... One." |
+| 1:00 | "One minute." |
+| 0:15 | "Stand by 15 seconds." |
+| 0:11 | "Ten. Nine. ... One." |
+| 0:00 | "Start." |
+
+The count starts eleven seconds out at the default countdown rate and proportionally
+earlier at a slower one, so "One" lands on the gun whatever the voice is set to - see
+`HARDWARE_HORN_AUDIO.md`. Where a race has more than one start, each announcement is
+prefixed with that start's name.
+
+Two things this deliberately does **not** do. It does not read out the class flags: they
+are flown at the line and shown in the flag panel on the race page and the public
+competitor page, and the race officer raising them does not need telling. And the stand-by
+does not name the signal it precedes - "Stand by 15 seconds to preparatory signal" is long
+enough that at a slow speech rate it would still be being spoken when the count is due,
+which pushes the count late and puts "One" after the gun.
+
+Before v1.009 only the start was counted down. The warning, preparatory and one-minute
+signals had a stand-by and then nothing until the horn, which competitors reported as the
+announcements being different around each gun. They were.
+
 The Start console scheduled signal-plan table greys out stages that have already passed. In a rolling-start sequence, the plan may show combined rows where one horn sound covers two scheduled actions at the same time.
 
 ### Pursuit races

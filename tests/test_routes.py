@@ -617,11 +617,12 @@ class TestLiveRaceLogUpdates:
         events = ro.central_start_sequence_events(race)
         countdown = [ev for ev in events if str(ev.get("label", "")).startswith("Audio: countdown")]
         loggable = [ev for ev in countdown if ev.get("log_event", True)]
-        # The final countdown is spoken as a single utterance over the last ten
-        # seconds, so there is exactly one event.
-        assert len(countdown) == 1
-        assert len(loggable) == 1
-        assert loggable[0]["label"] == "Audio: countdown 10 to 1"
+        # Every gun is counted down now, not just the start -- but each count is
+        # still a single utterance over its ten seconds rather than ten events.
+        assert len(countdown) == 4, [ev["sec"] for ev in countdown]
+        assert len(loggable) == 4
+        assert {ev["label"] for ev in countdown} == {"Audio: countdown 10 to 1"}
+        loggable = [ev for ev in loggable if ev["sec"] < 30]   # the start's
         # Started early enough that "One" lands on the start signal rather than a
         # second late. How early depends on the countdown speech rate -- the phrase
         # is one utterance and a slower voice takes longer over it -- so this is

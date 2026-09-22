@@ -42,9 +42,15 @@ def get(race_id):
 
 
 def countdown_event(race):
+    """The ten-count before the *start* gun.
+
+    All four guns are counted down now, so take the last one rather than
+    whichever the sort happens to put first -- these tests are about where the
+    count sits relative to its gun, and the start is the one that matters.
+    """
     events = startsequence.central_start_sequence_events(race)
-    return next(e for e in events
-                if str(e.get("label", "")).startswith("Audio: countdown"))
+    counts = [e for e in events if str(e.get("label", "")).startswith("Audio: countdown")]
+    return min(counts, key=lambda e: e["sec"])
 
 
 class TestTheCountdownUsesTheCountdownRate:

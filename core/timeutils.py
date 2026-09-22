@@ -98,6 +98,39 @@ def next_whole_minute(after: Optional[datetime] = None, at_least_seconds: int = 
     return rounded.isoformat(timespec="seconds")
 
 
+# The first thing a start sequence says is ten minutes before the gun, which is
+# five minutes before the warning signal. A field offering "now" invites a
+# warning time the sequence is already part-way through, so it starts six
+# minutes out: the five the sequence needs, and a minute to press the button in.
+WARNING_TIME_MIN_LEAD_S = 6 * 60
+
+
+def suggested_warning_time(current: Optional[str] = None,
+                           now: Optional[datetime] = None) -> str:
+    """What the first-warning-signal field should offer.
+
+    A time that is set and still ahead of us is the race officer's choice and is
+    left exactly as it is -- including one only a minute away, which is theirs to
+    make. A time already past is not a choice, it is whatever the race was
+    created with, and a field offering a moment that has gone has to be retyped
+    every time it is opened.
+
+    Callers must not use this for a race that has started: its warning time is
+    necessarily in the past, and moving it would rewrite the record of a race
+    that has already been sailed.
+    """
+    at = parse_dt(current or "")
+    ref = now or datetime.now()
+    if at:
+        # Round to the minute *before* deciding whether it is still ahead. A
+        # stored 11:20:40 read at 11:20:17 is in the future, but the whole minute
+        # it becomes is not, and the field would then offer a time that had gone.
+        at = at.replace(second=0, microsecond=0)
+        if at > ref:
+            return at.isoformat(timespec="seconds")
+    return next_whole_minute(ref, at_least_seconds=WARNING_TIME_MIN_LEAD_S)
+
+
 def normalise_start_time_value(value: str) -> str:
     """Force start-time form values to whole-minute ISO strings."""
     dt = parse_dt(value)

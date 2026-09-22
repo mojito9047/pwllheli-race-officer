@@ -86,7 +86,7 @@
     {t: 60, label: 'One minute signal'},
     {t: 0, label: 'Start signal'}
   ];
-  const voiceEvents = [540, 420, 315, 300, 255, 240, 180, 75, 60, 30, 20, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
+  const voiceEvents = [600, 540, 420, 315, 300, 255, 240, 75, 60, 15, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
   const hornInputEnabled = {{ 'true' if config.horn_input_enabled else 'false' }};
   const hornInputPollMs = {{ config.horn_input_poll_ms }};
   let latestRaceLogEventId = {{ events[0].id if events else 0 }};
@@ -180,15 +180,15 @@
     }
   }
   function voiceFor(seconds) {
-    if (seconds === 540 || seconds === 420 || seconds === 180) return courseAnnouncement;
-    if (seconds === 315) return 'Stand by 15 seconds to warning signal.';
-    if (seconds === 255) return 'Stand by 15 seconds to preparatory signal.';
-    if (seconds === 75) return 'Stand by 15 seconds to one minute signal.';
+    // Kept in step with core/startsequence.py: every gun has the same run-in.
+    // Disabled at the moment -- voiceArmed() is false, the hut speaks from the
+    // server -- but it must not contradict what the server says.
+    if (seconds === 600) return 'Warning signal in five minutes. Course announcements in one minute and three minutes.';
+    if (seconds === 540 || seconds === 420) return courseAnnouncement;
+    if (seconds === 315 || seconds === 255 || seconds === 75 || seconds === 15) return 'Stand by 15 seconds.';
     if (seconds === 300) return 'Five minutes. Warning signal.';
     if (seconds === 240) return 'Four minutes. Preparatory signal.';
     if (seconds === 60) return 'One minute.';
-    if (seconds === 30) return 'Thirty seconds.';
-    if (seconds === 20) return 'Twenty seconds.';
     if (seconds > 0 && seconds <= 10) return String(seconds);
     if (seconds === 0) return 'Start.';
     return '';
