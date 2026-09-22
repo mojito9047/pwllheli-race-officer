@@ -15,7 +15,7 @@ import sqlite3
 import threading
 import time
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from core.db import get_db, init_db
@@ -37,6 +37,81 @@ WEATHER_POLLER_STATE: Dict[str, Any] = {
     "last_poll_at": None,
 }
 WEATHER_POLLER_LOCK = threading.Lock()
+
+
+# The raw payload is kept for a couple of days and then dropped, exactly as the
+# power monitor's is and for the same reason: it is written on every sample and
+# **read by nothing**. Up to 20 KB a row, and the samples inside a race window
+# are kept indefinitely on purpose -- so on the club's own database 47,096 rows
+# held 39.5 MB of it, 79% of a 49.8 MB race database.
+#
+# The wind itself is race evidence and stays forever. Only the payload goes.
+RAW_JSON_RETENTION_DAYS = 2
+
+# Nulling frees the space inside the pages and does not shrink the file; only
+# VACUUM does, and on the club's database it turned 49.8 MB into 5.9 MB in a
+# tenth of a second.
+#
+# But this is the *live race database*, not the power monitor's, and VACUUM takes
+# an exclusive lock. A tenth of a second is nothing until it lands between the
+# preparatory signal and the gun, so it waits for a day when nothing is racing.
+VACUUM_MIN_INTERVAL_S = 24 * 3600
+_LAST_VACUUM_AT = 0.0
+
+
+def prune_weather_raw_payloads(db, now: float,
+                               days: float = RAW_JSON_RETENTION_DAYS) -> int:
+    """Drop the raw payload from samples older than `days`. Returns rows cleared."""
+    cutoff = now - float(days) * 86400
+    cur = db.execute("UPDATE weather_samples SET raw_json = NULL"
+                     " WHERE raw_json IS NOT NULL AND sample_time < ?", (cutoff,))
+    return int(cur.rowcount or 0)
+
+
+def racing_now(db) -> bool:
+    """Is anything on the water, or about to be?
+
+    Deliberately generous: a boat still marked RACING, or any race whose start is
+    within six hours either side of now. The cost of being wrong in this
+    direction is that a vacuum waits another day.
+    """
+    try:
+        if db.execute("SELECT 1 FROM entries WHERE status = 'RACING' LIMIT 1").fetchone():
+            return True
+        now = datetime.now()
+        window = timedelta(hours=6)
+        for row in db.execute("SELECT start_time FROM races WHERE start_time IS NOT NULL"
+                              " AND TRIM(start_time) != '' ORDER BY start_time DESC LIMIT 50"):
+            try:
+                at = datetime.fromisoformat(str(row["start_time"]))
+            except (TypeError, ValueError):
+                continue
+            if abs((at - now).total_seconds()) < window.total_seconds():
+                return True
+        return False
+    except Exception:
+        return True          # cannot tell: do not take a lock on the race database
+
+
+def vacuum_race_db_daily(db, now: Optional[float] = None) -> bool:
+    """Reclaim the race database, at most once a day and never while racing.
+
+    Never raises. A failure still stamps the clock, so a database that cannot be
+    vacuumed is not retried on every weather sample for the rest of the day.
+    """
+    global _LAST_VACUUM_AT
+    now = time.time() if now is None else now
+    if now - _LAST_VACUUM_AT < VACUUM_MIN_INTERVAL_S:
+        return False
+    if racing_now(db):
+        return False                 # try again on the next sample, not tomorrow
+    _LAST_VACUUM_AT = now
+    try:
+        db.commit()
+        db.execute("VACUUM")
+        return True
+    except Exception:
+        return False
 
 
 def insert_weather_sample(twd: Optional[float], tws_kt: Optional[float], gust_kt: Optional[float], source: str, raw: Any) -> Dict[str, Any]:
@@ -61,7 +136,9 @@ def insert_weather_sample(twd: Optional[float], tws_kt: Optional[float], gust_kt
         ]
         if stale_ids:
             db.executemany("DELETE FROM weather_samples WHERE id = ?", [(i,) for i in stale_ids])
+        prune_weather_raw_payloads(db, now)
         db.commit()
+        vacuum_race_db_daily(db, now)
     return {"t": now, "iso": iso, "twd": twd, "tws": tws_kt, "gust": gust_kt, "source": source}
 
 

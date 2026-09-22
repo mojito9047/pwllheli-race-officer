@@ -481,6 +481,20 @@ seconds the model landed.
 model timeout is 30 s, after which it answers with the provider's reason. A relay
 that times out first replaces that explanation with a bare gateway error.
 
+**Backup download and restore are the second exception**, `response_header_timeout
+90s`, and they were found the same way. The backup route builds the whole archive
+before it sends a byte, so nothing comes back until it is finished. On 22
+September a manual backup including the power history returned 504 after about
+six seconds; the hut had not failed, the 5-second timeout had. Unselecting the
+power history made the build fit inside five seconds and the same button worked,
+which made it look like a size problem and sent the search off after megabytes
+for a day.
+
+90 s because Cloudflare gives up at 100 and there is no point being the second to
+complain. The archive is 262 MB of database read down to a 34 MB ZIP — 102 MB and
+25 MB once the payload retention added in v1.010 has run — and the hut builds it
+in far less than either limit.
+
 If the model is ever configured to allow longer than 30 s, raise this to match.
 - `lxc/` — `setup.sh` + systemd units for the native Debian install (this guide). The name
   is historical: it is a plain Debian script and runs the same on a VPS.

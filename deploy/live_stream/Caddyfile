@@ -201,6 +201,37 @@ http://traccar.pwllhelisailingclub.org {
 		}
 	}
 
+	# --- Backup download and restore: the other slow thing the hut serves --------
+	# Same story as the Virtual Race Officer above, found the same way. The backup
+	# route builds the whole archive before it sends a byte, so nothing comes back
+	# until it is finished: on 22 September a manual backup including the power
+	# history returned 504 after about six seconds, and the hut had not failed --
+	# the 5-second response-header timeout below had. Taking the power history out
+	# made the build fit inside five seconds and the same button worked, which is
+	# what made it look like a size problem.
+	#
+	# The archive is 262 MB of database read down to a 34 MB ZIP, and a restore
+	# unpacks the same again. 90 seconds because Cloudflare gives up at 100 and
+	# there is no point being the second one to complain; the app finishes in far
+	# less than either.
+	@backup path /backup/download /admin/backup/download /backup/restore /admin/backup/restore
+	handle @backup {
+		reverse_proxy https://hut-origin.pwllhelisailingclub.org {
+			header_up Host hut-origin.pwllhelisailingclub.org
+			# Cloudflare Access service token, as everywhere else on this host.
+			header_up CF-Access-Client-Id {env.HUT_ACCESS_ID}
+			header_up CF-Access-Client-Secret {env.HUT_ACCESS_SECRET}
+			transport http {
+				tls_server_name hut-origin.pwllhelisailingclub.org
+				dial_timeout 3s
+				response_header_timeout 90s
+			}
+			# No holding page here. A backup that fails should say so where the
+			# administrator pressed the button, not be replaced by "the hut is not
+			# available" -- which is exactly how this was mis-read for a day.
+		}
+	}
+
 	# --- Everything else: the hut race app, with a holding page when it's down ---
 	# (No header overrides here — pass the app's own responses/headers through.)
 	handle {

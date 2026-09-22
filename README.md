@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.009
+# Pwllheli Race Officer v1.010
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -6,6 +6,20 @@ Race-office support software. It does not decide anything: official race decisio
 
 
 ## Recent releases
+
+### v1.010 update
+
+- **A manual backup including the power history timed out.** The relay gives the hut five
+  seconds to start answering, the backup builds the whole archive before sending a byte, and
+  with a 153 MB power database it ran past five. Backup and restore now get 90 seconds, the
+  way the Virtual Race Officer's commands already do. **Deploy `deploy/live_stream/Caddyfile`
+  to the relay** — that is the change that fixes it.
+- **The raw device payloads are no longer kept for ever.** The power monitor and the wind feed
+  both stored the raw payload on every sample and nothing ever read it: on the hut, 153 MB of
+  power history and 39.5 MB of the race database. Kept two days now, then dropped, with every
+  row and every reading untouched &mdash; 153 &rarr; 24.5 MB and 53.6 &rarr; 21.6 MB.
+- **Neither database ever reclaimed its space.** Both now vacuum once a day; the race database
+  waits for a day with no racing on it.
 
 ### v1.009 update
 
@@ -57,19 +71,6 @@ Race-office support software. It does not decide anything: official race decisio
   where there had been thirty-four seconds of empty water.
 - **Two boats finishing seconds apart share one shot**, rather than cutting away and straight
   back, because the wait is judged in seconds of film rather than seconds of racing.
-
-### v1.005 update
-
-- **Films had no finish videos at all.** A finish taken on the physical horn switch is
-  recorded as a different kind of clip, and the replay export was not looking for it &mdash;
-  so the hut camera was cut in at the start and never again. Six races were affected.
-- **The film no longer follows the leading boat down the leg.** It used to cut behind the
-  leader for 150 seconds after every rounding &mdash; 14% of a club race spent watching one
-  transom while the fleet was off-camera. Those cuts go to the wide shot, which holds the leg
-  being sailed. Mark roundings keep their own cameras.
-- **A fleet finished against the wrong race can be put right**, videos included, with
-  `scripts/refile_race_finishes.py` &mdash; and the race that was scribbled over restored from
-  an earlier backup.
 
 ## Main features
 

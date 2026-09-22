@@ -482,6 +482,64 @@ def init_power_db() -> None:
         POWER_DB_INITIALIZED = True
 
 
+# The raw VE.Direct payload is kept for a couple of days and then dropped.
+#
+# It is written on every sample and **read by nothing**: the only reader,
+# `power_history`, selects the numeric columns and says so. At roughly 700 bytes
+# a row and a sample every 35 seconds that was 83% of the database -- 86 MB of
+# 104 MB after fifty days, on course for about 629 MB of unread JSON at the
+# 365-day row retention. It is worth having when the Victron link is
+# misbehaving and worth nothing a week later, so the rows stay and the payload
+# goes.
+#
+# This is what made a manual backup time out at the front door: the archive is
+# built whole before a byte is sent, and both the building and the sending
+# scaled with a file that was mostly dead weight.
+RAW_JSON_RETENTION_DAYS = 2
+
+# Nulling a column frees the space inside its pages; it does not shrink the
+# file, and `freelist_count` cannot see it -- after clearing all 122,546
+# payloads on the club's own database the freelist was still zero and the file
+# still 104 MB. Only VACUUM reclaims it, and on that database it took **0.2
+# seconds** and gave back 104 MB -> 14.6 MB with every row still there.
+#
+# So there is no slack to detect and nothing to be clever about: vacuum once a
+# day, after the prune. Nothing here ever did, which is why a database holding
+# fifty days of readings was the size of seven months of them.
+VACUUM_MIN_INTERVAL_S = 24 * 3600
+_LAST_VACUUM_AT = 0.0
+
+
+def prune_raw_payloads(db: sqlite3.Connection, now: float,
+                       days: float = RAW_JSON_RETENTION_DAYS) -> int:
+    """Drop the raw payload from samples older than `days`. Returns rows cleared."""
+    cutoff = now - float(days) * 86400
+    cur = db.execute("UPDATE power_samples SET raw_json = NULL"
+                     " WHERE raw_json IS NOT NULL AND sample_time < ?", (cutoff,))
+    return int(cur.rowcount or 0)
+
+
+def vacuum_power_db_daily(db: sqlite3.Connection, now: Optional[float] = None) -> bool:
+    """Reclaim the file, at most once a day. Returns whether it ran.
+
+    Never raises: this is housekeeping on the daemon that keeps the hut's power
+    readings, and a failed vacuum must not stop the sampling. A failure still
+    stamps the clock, so a database that cannot be vacuumed is not retried every
+    thirty-five seconds for the rest of the day.
+    """
+    global _LAST_VACUUM_AT
+    now = time.time() if now is None else now
+    if now - _LAST_VACUUM_AT < VACUUM_MIN_INTERVAL_S:
+        return False
+    _LAST_VACUUM_AT = now
+    try:
+        db.commit()                 # VACUUM cannot run inside a transaction
+        db.execute("VACUUM")
+        return True
+    except Exception:
+        return False
+
+
 def insert_power_sample(reading: Dict[str, Any], raw: Optional[Dict[str, Any]] = None, retention_days: Optional[int] = None) -> Dict[str, Any]:
     """Store one combined power sample and purge rows past the retention window.
 
@@ -500,7 +558,9 @@ def insert_power_sample(reading: Dict[str, Any], raw: Optional[Dict[str, Any]] =
         db.execute(f"INSERT INTO power_samples ({columns}) VALUES ({placeholders})", values)
         cutoff = now - int(retention_days) * 86400
         db.execute("DELETE FROM power_samples WHERE sample_time < ?", (cutoff,))
+        prune_raw_payloads(db, now)
         db.commit()
+        vacuum_power_db_daily(db, now)
     return {"t": now, "iso": iso, **{col: reading.get(col) for col in _SAMPLE_COLUMNS}}
 
 

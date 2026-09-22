@@ -1,5 +1,63 @@
 # Change log
 
+## v1.010
+
+**A manual backup that included the power history returned a gateway time-out.
+It was not the backup, and it was not the size — though both were worth fixing
+anyway.**
+
+The 504 arrived **about six seconds** after pressing the button, and that is the
+whole diagnosis. The relay gives the hut `response_header_timeout 5s`, the
+backup route builds the entire archive before it sends a byte, and with a 153 MB
+power database the build ran past five seconds. Caddy gave up while the hut
+carried on working. Taking the power history out made the build fit inside five
+seconds and the same button worked, which is exactly why it looked like a size
+problem.
+
+The Virtual Race Officer's command endpoints were caught by this same timeout
+once before and were given their own patience. Backup download and restore now
+have theirs: `response_header_timeout 90s`, 90 because Cloudflare gives up at
+100 and there is no point being the second to complain. **That change is in
+`deploy/live_stream/Caddyfile` and has to be deployed to the relay** — it is the
+one that fixes the button.
+
+**The raw device payloads are no longer kept forever.** Looking for the cause
+turned up two databases mostly full of data nothing reads.
+
+`power_history.db` stored the raw VE.Direct payload on every sample — about 700
+bytes, one sample every 35 seconds, **written and read by nothing**: the only
+reader selects the numeric columns and says so. On the hut that was 175,000 of
+179,000 samples carrying one, 153 MB of database on course for about 761 MB at
+the year's row retention. `weather_samples` did the same in the *race* database,
+up to 20 KB a row, and because samples inside a race window are kept
+indefinitely on purpose their payloads were kept too: 39.5 MB of a 53.6 MB file.
+
+Both now drop the payload after two days — long enough to be there when the
+Victron link or the wind feed is misbehaving — and keep every row and every
+reading. Measured on the hut's own backup of 22 September:
+
+| | on disk | in the ZIP | rows |
+|---|---|---|---|
+| `power_history.db` | 153.1 → 24.5 MB | 14.3 → 6.7 MB | 179,039, all present |
+| `race_officer.db` | 53.6 → 21.6 MB | 3.0 → 1.5 MB | 50,632 wind samples, all present |
+| whole backup | 262 → 102 MB read | 33.8 → 24.8 MB | |
+
+**Nothing here ever vacuumed**, so none of that would have been given back.
+Nulling a column frees the space inside its pages and does not shrink the file,
+and `freelist_count` cannot see that it happened — after clearing every payload
+on the club's database the freelist was still zero and the file still 104 MB. A
+first attempt that vacuumed only above a freelist threshold would therefore
+never have run. VACUUM takes 0.3 s on the 153 MB file and gives the space back,
+so there is nothing to detect: once a day, after the prune.
+
+The race database's vacuum waits for a quiet day — nothing marked RACING and no
+race start within six hours — because that one takes an exclusive lock on the
+database the start sequence is writing to. It stamps its daily clock only when
+it actually runs, so a Saturday of racing does not cost the whole day.
+
+Track positions were checked and are fine: 55 MB for 349,770 rows is about 157
+bytes each and no payload column at all.
+
 ## v1.009
 
 **Every gun is counted down, a made-up course can be sailed more than once
