@@ -66,7 +66,7 @@
     {% endif %}
     {% if course_shown %}
     <p class="sequence">
-      {% for m in (course.board_marks or course.marks) %}<span class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</span>{% endfor %}
+      {% for m in (course.board_marks or course.marks) %}<span class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</span>{% endfor %}{% if (course.laps or 1) > 1 %}<span class="mark laps">&times;{{ course.laps }}</span>{% endif %}
       {% if course_shortened %}<span class="mark" style="background:#664d03;color:#fff;">→ Finish</span>{% endif %}
     </p>
     {% else %}

@@ -195,6 +195,23 @@ def course_for_display(course: Dict[str, Any]) -> Dict[str, Any]:
     return c
 
 
+MAX_COURSE_LAPS = 9
+
+
+def normalise_laps(value: Any) -> int:
+    """How many times round, clamped to what a course board can say.
+
+    One is "no multiplier" and is what everything that has never heard of laps
+    gets. Nine is arbitrary but a board is a board: a race officer wanting ten
+    laps is telling the fleet something a number on a board will not carry.
+    """
+    try:
+        laps = int(value)
+    except (TypeError, ValueError):
+        return 1
+    return max(1, min(MAX_COURSE_LAPS, laps))
+
+
 def course_sequence_text(course: Dict[str, Any]) -> str:
     """Return a compact text version of a course mark sequence.
 
@@ -203,8 +220,15 @@ def course_sequence_text(course: Dict[str, Any]) -> str:
     because the keys are upper-case throughout, but Ya is what the sailing
     instructions call it and what belongs on the board.
     """
-    return " ".join(f"{mark_display_code(m.get('mark',''))}{str(m.get('rounding',''))[:1].lower()}"
-                    for m in course_marks_only(course))
+    # The lap, not the expansion: a course sailed twice reads "1p 2p 3p x2" and
+    # not the six marks it becomes. That is what is chalked on the board, and
+    # the board is what this text is.
+    lap = course.get("lap_marks")
+    marks = course_marks_only({"marks": lap} if lap else course)
+    text = " ".join(f"{mark_display_code(m.get('mark',''))}{str(m.get('rounding',''))[:1].lower()}"
+                    for m in marks)
+    laps = normalise_laps(course.get("laps", 1))
+    return f"{text} ×{laps}" if laps > 1 and text else text
 
 
 def course_shorten_options(course: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -224,6 +248,32 @@ def course_shorten_options(course: Dict[str, Any]) -> List[Dict[str, Any]]:
             # further on truncates the waypoints before it along with everything else.
             continue
         opts.append({"index": i, "code": code, "display": mark_display_code(code)})
+    # On a lapped course, name the lap. "7 (rounding 3)" is a true description of
+    # a twelve-rounding course and no use at all to somebody holding a radio: the
+    # race officer is looking at a fleet on its second lap, not counting
+    # roundings since the gun. Within the lap the mark is still numbered where it
+    # is passed more than once, and where it is not the number is left off.
+    lap_marks = course.get("lap_marks") or []
+    laps = normalise_laps(course.get("laps", 1))
+    lap_length = len(lap_marks) if laps > 1 and lap_marks else 0
+    if lap_length:
+        per_lap: Dict[str, int] = {}
+        for item in lap_marks:
+            code = str(item.get("mark", "")).strip().upper()
+            if code and not is_waypoint(code):
+                per_lap[code] = per_lap.get(code, 0) + 1
+        within: Dict[str, int] = {}
+        for o in opts:
+            lap = o["index"] // lap_length + 1
+            if lap != within.get("__lap__"):
+                within = {"__lap__": lap}
+            o["lap"] = lap
+            if per_lap.get(o["code"], 0) > 1:
+                within[o["code"]] = within.get(o["code"], 0) + 1
+                o["label"] = f"{o['display']} (lap {lap}, rounding {within[o['code']]})"
+            else:
+                o["label"] = f"{o['display']} (lap {lap})"
+        return opts
     counts: Dict[str, int] = {}
     for o in opts:
         counts[o["code"]] = counts.get(o["code"], 0) + 1
@@ -261,8 +311,19 @@ def apply_course_shortening(course: Dict[str, Any], index: Any) -> Dict[str, Any
     return shortened
 
 
-def course_from_sequence(sequence: Iterable[Dict[str, Any]], course_no: Any = "Made up course", wind_label: str = "Made up course", source: str = "manual") -> Dict[str, Any]:
-    """Build a temporary course object from a hand-entered mark sequence."""
+def course_from_sequence(sequence: Iterable[Dict[str, Any]], course_no: Any = "Made up course", wind_label: str = "Made up course", source: str = "manual", laps: Any = 1) -> Dict[str, Any]:
+    """Build a temporary course object from a hand-entered mark sequence.
+
+    ``laps`` is the number of times round, and it is **expanded here**. The
+    hut's course board is small, so a race officer writes one lap and a x2
+    rather than the whole sequence twice -- but nothing downstream should have
+    to know that. The chart, the leg analysis, the rounding walk, the
+    leaderboard, the spoken announcement and the 3D replay all read
+    ``marks``, and ``marks`` is the course as it is sailed. ``lap_marks`` is
+    what goes back on the board, and into the builder when it is reopened --
+    seeding that from ``marks`` would double the course every time somebody
+    looked at it.
+    """
     marks: List[Dict[str, str]] = []
     for item in sequence:
         mark = str(item.get("mark", "")).strip().upper()
@@ -277,11 +338,15 @@ def course_from_sequence(sequence: Iterable[Dict[str, Any]], course_no: Any = "M
             continue
         rounding = "starboard" if rounding_raw.startswith("s") else "port"
         marks.append({"mark": mark, "rounding": rounding, "token": f"{mark}{rounding[0]}"})
+    laps = normalise_laps(laps)
+    lap_marks = list(marks)
     course = {
         "course_no": course_no,
         "wind_label": wind_label,
         "wind_range_deg": {"from": 0, "to": 359},
-        "marks": marks,
+        "marks": lap_marks * laps,
+        "lap_marks": lap_marks,
+        "laps": laps,
         "sequence_text": "",
         "length_nm": "—",
         "source": source,
@@ -289,7 +354,8 @@ def course_from_sequence(sequence: Iterable[Dict[str, Any]], course_no: Any = "M
     length = course_length_nm(course) if marks else None
     course["length_nm"] = round(length, 2) if length is not None else "—"
     course["sequence_text"] = course_sequence_text(course)
-    course["board_marks"] = course_marks_only(course)
+    # The board shows one lap and the multiplier beside it, not six chips.
+    course["board_marks"] = course_marks_only({"marks": lap_marks})
     return course
 
 
@@ -307,7 +373,9 @@ def custom_course_from_race(race: sqlite3.Row) -> Optional[Dict[str, Any]]:
     sequence = data.get("marks") if isinstance(data, dict) else data
     if not isinstance(sequence, list):
         return None
-    course = course_from_sequence(sequence, course_no="Made up course", wind_label="Made up course", source="manual")
+    laps = data.get("laps", 1) if isinstance(data, dict) else 1
+    course = course_from_sequence(sequence, course_no="Made up course", wind_label="Made up course",
+                                  source="manual", laps=laps)
     return course if course.get("marks") else None
 
 
@@ -461,8 +529,13 @@ def course_announcement_text(race: Dict[str, Any], course: Dict[str, Any]) -> st
     except (KeyError, IndexError, TypeError, ValueError):
         pass
     parts = []
-    # course_marks_only: a waypoint bends the leg, it is not something to announce.
-    for m in course_marks_only(course):
+    # The lap, and then how many times round -- "one, nine, five, times two" is
+    # shorter on the radio than the same three marks read twice, and it is what
+    # the board says. course_marks_only: a waypoint bends the leg, it is not
+    # something to announce.
+    laps = normalise_laps(course.get("laps", 1))
+    lap = course.get("lap_marks")
+    for m in course_marks_only({"marks": lap} if lap else course):
         mark = str(m.get("mark", "")).strip()
         rounding = str(m.get("rounding", "")).strip().lower()
         if not mark:
@@ -483,7 +556,10 @@ def course_announcement_text(race: Dict[str, Any], course: Dict[str, Any]) -> st
         except Exception:
             intro = f"The course for the next race will be course {course_no}."
     if parts:
-        return intro + " " + ". ".join(parts) + "."
+        said = intro + " " + ". ".join(parts) + "."
+        if laps > 1:
+            said += f" Times {number_words(laps)}."
+        return said
     return intro
 
 

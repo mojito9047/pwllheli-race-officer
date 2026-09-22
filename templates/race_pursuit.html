@@ -71,7 +71,8 @@
       <label>Race name <input name="name" value="{{ race.name }}"></label>
       <div class="two-col">
         <label>First warning-signal time
-          <input type="datetime-local" name="start_time" value="{{ dt_for_minute_input(warning_time_value) }}">
+          <input type="datetime-local" name="start_time" value="{{ dt_for_minute_input(first_warning_time) }}"
+                 data-suggested="{{ dt_for_minute_input(warning_time_suggested) }}">
         </label>
         <label>Fixed period (minutes)
           <input type="number" name="pursuit_duration_min" min="1" max="600" step="1" value="{{ duration_min|int if duration_min else '' }}">
@@ -219,7 +220,7 @@
         {% endfor %}
       </tbody>
     </table>
-    {% if not events %}<p class="muted">No horn or race events logged yet.</p>{% endif %}
+    {% if not events %}<p class="muted race-log-empty">No horn or race events logged yet.</p>{% endif %}
   </section>
 </div>
 
@@ -337,6 +338,7 @@
 </script>
 
 <script src="{{ url_for('static', filename='signal_flags.js') }}?v={{ app_version }}"></script>
+<script src="{{ url_for('static', filename='warning_time.js') }}?v={{ app_version }}"></script>
 <script>
 (function () {
   const signalSchedule = {{ signal_panel_schedule|tojson }};

@@ -1,5 +1,68 @@
 # Change log
 
+## v1.009
+
+**Every gun is counted down, a made-up course can be sailed more than once
+round, and the first-warning field stops inventing a time.**
+
+**Competitors reported "different audio announcements around each gun", and they
+were right.** The start was counted down from ten; the warning, preparatory and
+one-minute signals each had a "stand by" fifteen seconds out and then nothing
+until the horn. All four now run the same way — "Stand by 15 seconds", the count
+from ten, the signal — and the start's thirty- and twenty-second calls are gone,
+replaced by the same stand-by the others use.
+
+The stand-by no longer names the signal it precedes, which is a timing decision
+rather than a tidying one: the audio worker speaks one item at a time, and
+"Stand by 15 seconds to preparatory signal" is still being spoken when the count
+is due at any speech rate below about 130 words per minute, which puts "One"
+after the gun.
+
+**A new announcement ten minutes out** says what is coming and when, before any
+of the sequence starts.
+
+**The class flags are no longer read out.** The race officer raising them does
+not need telling, and the fleet can see them on the boat and on the public page.
+They stay on the log line, which is the instruction to whoever raises them.
+
+**A made-up course can be given a number of laps.** The hut's course board is
+small, so build one lap and set ×2 (up to ×9) rather than writing the sequence
+out twice. The board carries the lap with a ×2 chip beside it — on the race
+page, the start console, the clubhouse display, the dashboard and the public
+competitor page — and the marks are expanded behind it, so the chart, the leg
+analysis, the rounding walk, the leaderboard and the 3D replay all count every
+rounding and the distance shown is the distance sailed. The spoken announcement
+follows the board instead, naming each mark once and finishing "times two".
+
+Reopening the builder shows the lap that was built rather than the expansion,
+because seeding it from the expansion doubles the course every time anybody
+looks at it. The shorten-course selector names the lap — *7 (lap 2, rounding 1)*
+— and restarts the rounding count each lap, because a race officer is watching a
+fleet on its second lap and not counting roundings since the gun.
+
+**The first-warning field offered a time that had already gone**, so a race made
+minutes ago opened on the minute you were standing in and had to be retyped. It
+now suggests the next whole minute at least six minutes out — five for the
+sequence, which starts ten minutes before the gun, and one to press the button
+in — and it suggests it **when the field is opened**. It does not pre-fill: a
+new race has no warning time at all, and pre-filling meant that opening the race
+to set a course and pressing Save silently gave it one, which is a fleet counted
+down to a race nobody started. A time already set for later is left exactly as
+set, and a race that has been sailed is offered nothing.
+
+**The race log no longer says it is empty while full.** The page is left open
+through the whole sequence, so "No horn or race events logged yet" was rendered
+while the log genuinely was empty and then sat under fifteen rows of it.
+
+**The trackers lost between 43% and 76% of every race** over the weekend of
+19–20 September, and the cause is configuration rather than hardware. Written up
+in `TRACKERS.md` with the measurements and two controlled comparisons that fell
+out of the weekend by accident.
+
+**The competitor guide had nothing about the VHF at all.** It now carries a
+table of what is heard and when, says plainly that the horn and the flags are
+the signals, and explains what a ×2 chip on the course board means.
+
 ## v1.008
 
 **The sponsors' logos on the published results are links now.**

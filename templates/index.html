@@ -40,7 +40,7 @@
          same as a decision. #}
       {% if current_race_status.board_marks %}
       <p class="sequence dashboard-course-board">
-        {% for m in current_race_status.board_marks %}<span class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</span>{% endfor %}
+        {% for m in current_race_status.board_marks %}<span class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</span>{% endfor %}{% if (current_race_status.board_laps or 1) > 1 %}<span class="mark laps">&times;{{ current_race_status.board_laps }}</span>{% endif %}
         {% if current_race_status.course_shortened %}<span class="mark shortened">&rarr; Finish</span>{% endif %}
       </p>
       {% endif %}

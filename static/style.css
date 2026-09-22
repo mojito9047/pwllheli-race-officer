@@ -291,6 +291,9 @@ label { font-weight: 750; color: #4b5565; display: grid; gap: 6px; min-width: 15
 /* A waypoint bends a leg and is not rounded, so it is neither the port red nor the
    starboard green: a grey chip, matching the grey leg the chart draws into it. */
 .mark.via { background: #6b7280; }
+/* Not a mark at all: how many times round the marks beside it. Dark and plain,
+   so it reads as an instruction about the board rather than another rounding. */
+.mark.laps { background: #111827; letter-spacing: 0.02em; }
 .big { font-weight: 850; font-size: 18px; }
 .race-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; }
 .countdown {

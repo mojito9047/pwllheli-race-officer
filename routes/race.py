@@ -260,11 +260,15 @@ def race_detail(race_id: int):
         class_config=effective_class_config, start_plan=effective_start_plan, start_schedule=race_start_schedule(race),
         signal_panel_schedule=signal_panel_schedule(race),
         first_warning_time=str(row_get(race, "start_time", "") or ""), first_start_time=race_first_start_time(race),
-        # What the first-warning field offers. A race that has been sailed keeps
-        # the time it was sailed at; anything else that has slipped into the past
-        # is replaced by a time the sequence can actually run in.
-        warning_time_value=(str(row_get(race, "start_time", "") or "") if _has_started
-                            else suggested_warning_time(row_get(race, "start_time", ""))),
+        # The field shows exactly what is stored -- "Not set" is a real state, and
+        # pre-filling it meant that saving the form to set a course silently gave
+        # the race a warning signal time nobody chose. The suggestion is put in
+        # when the race officer opens the field, by static/warning_time.js, which
+        # is when they are choosing one. A race already sailed is offered nothing:
+        # its warning time is necessarily past, and moving it would rewrite the
+        # record of a race that is in the results.
+        warning_time_suggested=("" if _has_started
+                                else suggested_warning_time(row_get(race, "start_time", ""))),
         signal_plan_rows=start_signal_plan_rows(race),
         class_config_text=class_config_text(effective_class_config), start_plan_text=start_plan_text(effective_start_plan),
         start_plan_grid=race_start_editor_grid,

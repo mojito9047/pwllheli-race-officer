@@ -7,7 +7,7 @@
     <h2>Start console — {{ race.name }}</h2>
     <p><strong>First warning:</strong> {{ dt_full_display(first_warning_time) or 'Not set' }} · <strong>First start:</strong> {{ dt_full_display(first_start_time) or 'Not set' }} · <strong>Class:</strong> {{ race.class_name }} · <strong>Course:</strong> {{ race.course_no }}</p>
     <p class="sequence">
-      {% for m in (course.board_marks or course.marks) %}<span class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</span>{% endfor %}
+      {% for m in (course.board_marks or course.marks) %}<span class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</span>{% endfor %}{% if (course.laps or 1) > 1 %}<span class="mark laps">&times;{{ course.laps }}</span>{% endif %}
     </p>
   </div>
   <div class="countdown large-countdown" data-start="{{ first_start_time }}"

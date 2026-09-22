@@ -306,6 +306,9 @@ story.append(Paragraph(
 story.append(bullets([
     "<b>Race name and summary</b> - first warning-signal time, first start time, course number and "
     "series.",
+    "<b>Course board</b> - the marks in order, each with the hand you leave it on: <b>p</b> for port, "
+    "<b>s</b> for starboard. A dark <b>x2</b> or <b>x3</b> chip at the end means sail that lap that many "
+    "times before finishing.",
     "<b>Flag panel</b> - shows only the flags currently flying at the start line: your class's numeral pennant "
     "once the warning signal has gone up, and the blue-and-white <b>P</b> (preparatory) flag once that follows. "
     "An empty panel reading <b>No flags up</b> means the sequence hasn't started yet, or has finished.",

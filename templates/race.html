@@ -24,7 +24,7 @@
     {% endif %}
     {% if course_shown %}
     <p class="sequence">
-      {% for m in (course.board_marks or course.marks) %}<span class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</span>{% endfor %}
+      {% for m in (course.board_marks or course.marks) %}<span class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</span>{% endfor %}{% if (course.laps or 1) > 1 %}<span class="mark laps">&times;{{ course.laps }}</span>{% endif %}
       {% if course_shortened %}<span class="mark" style="background:#664d03;color:#fff;">→ Finish</span>{% endif %}
     </p>
     {% endif %}
@@ -99,7 +99,8 @@
           </select>
         </label>
         <label>First warning signal time
-          <input type="datetime-local" step="60" name="start_time" value="{{ dt_for_minute_input(warning_time_value) }}">
+          <input type="datetime-local" step="60" name="start_time" value="{{ dt_for_minute_input(first_warning_time) }}"
+                 data-suggested="{{ dt_for_minute_input(warning_time_suggested) }}">
         </label>
       </div>
       <div class="two-col">
@@ -191,7 +192,7 @@
         and save.</p>
       {% else %}
       <p class="sequence large">
-        {% for m in (course.board_marks or course.marks) %}<span class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</span>{% endfor %}
+        {% for m in (course.board_marks or course.marks) %}<span class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</span>{% endfor %}{% if (course.laps or 1) > 1 %}<span class="mark laps">&times;{{ course.laps }}</span>{% endif %}
       </p>
       {% endif %}
       <div class="weather-controls">
@@ -500,7 +501,7 @@
           {% endfor %}
         </tbody>
       </table>
-      {% if not events %}<p class="muted">No horn or race events logged yet.</p>{% endif %}
+      {% if not events %}<p class="muted race-log-empty">No horn or race events logged yet.</p>{% endif %}
     </section>
   </div>
 
@@ -767,7 +768,7 @@
         {% if postponed_flag == 'AP over H' %}
         <label>New warning signal
           <input type="datetime-local" step="60" name="warning_time"
-                 value="{{ dt_for_minute_input(warning_time_value) }}"
+                 value="{{ dt_for_minute_input(warning_time_suggested) }}"
                  min="{{ dt_for_minute_input(next_whole_minute) }}" required>
         </label>
         <p class="muted small" style="flex-basis:100%;margin:0;">With H there is no one-minute warning
@@ -863,7 +864,7 @@
           {% endfor %}
         </tbody>
       </table>
-      {% if not events %}<p class="muted">No horn or race events logged yet.</p>{% endif %}
+      {% if not events %}<p class="muted race-log-empty">No horn or race events logged yet.</p>{% endif %}
     </section>
   </div>
 
@@ -935,6 +936,7 @@
 </script>
 
 <script src="{{ url_for('static', filename='signal_flags.js') }}?v={{ app_version }}"></script>
+<script src="{{ url_for('static', filename='warning_time.js') }}?v={{ app_version }}"></script>
 <script>
 (function () {
   const timers = [
@@ -1324,6 +1326,10 @@
     if (numericEventId && numericEventId <= latestRaceLogEventId) return;
     if (numericEventId) latestRaceLogEventId = Math.max(latestRaceLogEventId, numericEventId);
     const html = `<td>${displayTime(dt)}</td><td>${escapeHtml(type)}</td><td>${escapeHtml(label)}</td><td>${escapeHtml(source)}</td><td>${assignFinishHtml(numericEventId, type, source, label, forcedAssignable)}</td>`;
+    // Rendered when the page loaded with nothing logged. The page is left open
+    // through the whole sequence, so by the time the first horn sounds this is
+    // sitting under a table full of events saying there are none.
+    document.querySelectorAll('.race-log-empty').forEach(el => { el.hidden = true; });
     bodies.forEach(tbody => {
       const row = document.createElement('tr');
       if (numericEventId) row.dataset.eventId = String(numericEventId);

@@ -80,7 +80,7 @@
       <p>
         <span>Start <strong>{{ dt_full_display(first_start_time) or 'not set' }}</strong></span>
         <span>Course <strong>{% if is_custom_course %}Made up{% else %}{{ race.course_no }}{% endif %}</strong></span>
-        <span class="bar-sequence">{% for m in (course.board_marks or course.marks) %}<em class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</em>{% endfor %}{% if course_shortened %}<em class="mark bar-shorten">→ Finish</em>{% endif %}</span>
+        <span class="bar-sequence">{% for m in (course.board_marks or course.marks) %}<em class="mark {{ m.rounding[0] }}">{{ m.mark }}{{ m.rounding[0] }}</em>{% endfor %}{% if (course.laps or 1) > 1 %}<em class="mark laps">&times;{{ course.laps }}</em>{% endif %}{% if course_shortened %}<em class="mark bar-shorten">→ Finish</em>{% endif %}</span>
       </p>
     </div>
     {# Beside the countdown, because that is where the room is already looking during a

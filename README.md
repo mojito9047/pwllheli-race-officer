@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.008
+# Pwllheli Race Officer v1.009
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -6,6 +6,18 @@ Race-office support software. It does not decide anything: official race decisio
 
 
 ## Recent releases
+
+### v1.009 update
+
+- **Every gun is counted down from ten**, not just the start. The warning, preparatory and
+  one-minute signals each get the same "Stand by 15 seconds" and the same count.
+- **A new announcement ten minutes out** says what is coming and when.
+- **The class flags are no longer read out** &mdash; they are flown, and they are on the page.
+- **A made-up course can be sailed ×2 or ×3.** Build one lap; the board carries the lap with a
+  ×2 chip and everything else sees the course as it is sailed.
+- **The first-warning field suggests a time when you open it**, at least six minutes ahead, and
+  no longer pre-fills &mdash; saving a new race's course must not give it a start time nobody chose.
+- **The race log no longer claims to be empty** while a start sequence fills it.
 
 ### v1.008 update
 
@@ -58,22 +70,6 @@ Race-office support software. It does not decide anything: official race decisio
 - **A fleet finished against the wrong race can be put right**, videos included, with
   `scripts/refile_race_finishes.py` &mdash; and the race that was scribbled over restored from
   an earlier backup.
-
-### v1.004 update
-
-- **A track repair has to say which days.** `fix_track_misattribution.py` detaches a tracker's
-  fixes from a boat they were never that boat's. With no bound in time it took every fix the
-  device had ever recorded &mdash; and because these trackers move between boats week to week,
-  that removed a boat from a race she had sailed with it aboard. It now refuses an unbounded
-  repair when the days it can see are not all bad, takes `--from`/`--until`, and has
-  `--reattach` for a repair that already took too much.
-- **A re-rendered film reaches the page.** For ten minutes after a render landed, the public
-  pages still offered the previous cut &mdash; and those links carry a day of cache, so a
-  competitor clicking in that window kept yesterday's film until tomorrow.
-- **The silent stage at the front of a render now reports itself.** It draws nothing, so it
-  uses one core and no graphics card, and on a long film that was minutes of nothing in the
-  log. The dashboard says **placing names and marks**; a failure there can say why.
-- **A render machine has a setup script**, the way the hut PC does.
 
 ## Main features
 

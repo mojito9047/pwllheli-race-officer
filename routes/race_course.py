@@ -79,7 +79,8 @@ def manual_course_builder(race_id: int):
             return redirect(url_for("manual_course_builder", race_id=race_id, polar_file=polar_path.name))
         polar_file = request.form.get("polar_file", "").strip() or polar_path.name
         with get_db() as db:
-            set_custom_course(db, race, sequence, actor=current_actor(), polar_file=polar_file)
+            set_custom_course(db, race, sequence, actor=current_actor(), polar_file=polar_file,
+                              laps=request.form.get("course_laps", 1))
         flash("Manual course saved to race.", "success")
         return redirect(url_for("race_detail", race_id=race_id, polar_file=polar_file) + "#tab-course")
 
@@ -94,7 +95,8 @@ def manual_course_builder(race_id: int):
         "course_builder.html",
         race=race,
         course=current_course,
-        initial_marks=current_course.get("marks", []),
+        initial_marks=current_course.get("lap_marks") or current_course.get("marks", []),
+        course_laps=current_course.get("laps", 1),
         mark_names=selectable_mark_names(),
         marks_data=track.race_marks(race),
         course_chart={**course_chart_config(), **track.race_chart_line(race)},

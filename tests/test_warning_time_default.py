@@ -92,35 +92,77 @@ class TestATimeSomebodyChose:
         assert offered == "2026-09-22T14:30:00"
 
 
-class TestTheFieldOnTheRacePage:
-    FIELD = re.compile(r'name="start_time" value="([^"]*)"')
+class TestTheFieldShowsWhatIsStored:
+    """Reported after the first attempt at this, and the reason it was wrong.
 
-    def _field_value(self, client, race_id):
+    A new race is created with **no** warning time -- "Not set" is a real state,
+    and no gun sounds until somebody chooses one. Pre-filling the field with a
+    suggestion meant the race officer could open the race to set a course, press
+    Save, and be given a warning signal time they never picked: a fleet counted
+    down to a race nobody had started.
+
+    So the field shows exactly what is stored. The suggestion arrives when the
+    field is opened, which is when a time is being chosen.
+    """
+
+    FIELD = re.compile(r'name="start_time"\s+value="([^"]*)"\s+data-suggested="([^"]*)"')
+
+    def _field(self, client, race_id):
         html = client.get(f"/race/{race_id}", follow_redirects=True).get_data(as_text=True)
         found = self.FIELD.search(html)
         assert found, "the first-warning field is gone from the race page"
-        return found.group(1)
+        return found.group(1), found.group(2)
 
-    def test_a_race_created_just_now_is_offered_a_time_it_can_run_in(self, logged_in_client):
-        """The reported case: create a race, open the field, and it shows the
-        minute you are standing in."""
-        race_id = _make_race(datetime.now().isoformat(timespec="seconds"))
-        offered = parse_dt(self._field_value(logged_in_client, race_id))
-        assert (offered - datetime.now()).total_seconds() >= WARNING_TIME_MIN_LEAD_S - 60
+    def test_a_new_race_shows_an_empty_field(self, logged_in_client):
+        value, _ = self._field(logged_in_client, _make_race(""))
+        assert value == "", f"the field offered {value!r} for a race with no time set"
 
-    def test_a_time_already_chosen_for_later_is_shown_as_chosen(self, logged_in_client):
+    def test_but_carries_the_suggestion_for_when_it_is_opened(self, logged_in_client):
+        _value, suggested = self._field(logged_in_client, _make_race(""))
+        offered = parse_dt(suggested)
+        assert offered and (offered - datetime.now()).total_seconds() >= WARNING_TIME_MIN_LEAD_S - 60
+
+    def test_a_time_already_chosen_is_shown_as_chosen(self, logged_in_client):
         chosen = (datetime.now() + timedelta(hours=3)).replace(second=0, microsecond=0)
-        race_id = _make_race(chosen.isoformat(timespec="seconds"))
-        assert self._field_value(logged_in_client, race_id) == chosen.strftime("%Y-%m-%dT%H:%M")
+        value, _ = self._field(logged_in_client, _make_race(chosen.isoformat(timespec="seconds")))
+        assert value == chosen.strftime("%Y-%m-%dT%H:%M")
 
-    def test_a_race_that_has_been_sailed_keeps_the_time_it_was_sailed_at(self, logged_in_client):
-        """The one that would really hurt. Its warning time is necessarily in the
-        past, so a blanket "replace anything past" would offer a new time -- and
-        saving the form to fix a course number would quietly move the warning
-        signal of a race that is already in the results."""
+    def test_a_race_that_has_been_sailed_is_offered_nothing(self, logged_in_client):
+        """Its warning time is necessarily past. Suggesting a new one would mean
+        a saved form moving the warning signal of a race in the results."""
         sailed = (datetime.now() - timedelta(days=2)).replace(second=0, microsecond=0)
-        race_id = _make_race(sailed.isoformat(timespec="seconds"), name="Sailed")
-        assert self._field_value(logged_in_client, race_id) == sailed.strftime("%Y-%m-%dT%H:%M")
+        value, suggested = self._field(logged_in_client, _make_race(sailed.isoformat(timespec="seconds")))
+        assert value == sailed.strftime("%Y-%m-%dT%H:%M")
+        assert suggested == ""
+
+    def test_the_script_that_fills_it_is_loaded(self, logged_in_client):
+        html = logged_in_client.get(f"/race/{_make_race('')}",
+                                    follow_redirects=True).get_data(as_text=True)
+        assert "warning_time.js" in html
+
+
+class TestSavingTheFormDoesNotInventATime:
+    """The reported bug itself, at the route that does the saving."""
+
+    def test_setting_a_course_leaves_the_warning_time_unset(self, logged_in_client, csrf_post):
+        race_id = _make_race("")
+        res = csrf_post(f"/race/{race_id}/update",
+                        {"name": "Warning Default", "course_no": "1", "start_time": ""})
+        assert res.status_code in (200, 302), res.status_code
+        with ro.get_db() as db:
+            after = db.execute("SELECT start_time FROM races WHERE id = ?", (race_id,)).fetchone()
+        assert (after["start_time"] or "") == "",             f"saving the form gave the race a warning signal time of {after['start_time']!r}"
+
+    def test_and_a_time_that_is_typed_in_is_kept(self, logged_in_client, csrf_post):
+        """The other half: the field still works."""
+        race_id = _make_race("")
+        chosen = (datetime.now() + timedelta(hours=2)).replace(second=0, microsecond=0)
+        csrf_post(f"/race/{race_id}/update",
+                  {"name": "Warning Default", "course_no": "1",
+                   "start_time": chosen.strftime("%Y-%m-%dT%H:%M")})
+        with ro.get_db() as db:
+            after = db.execute("SELECT start_time FROM races WHERE id = ?", (race_id,)).fetchone()
+        assert parse_dt(after["start_time"]) == chosen
 
 
 class TestTheRestartFieldUnderAPOverH:
@@ -132,7 +174,7 @@ class TestTheRestartFieldUnderAPOverH:
     def test_it_offers_a_time_rather_than_nothing(self):
         html = (ro.app.jinja_env.loader.get_source(ro.app.jinja_env, "race.html")[0])
         block = html.split('name="warning_time"')[1].split(">")[0]
-        assert "warning_time_value" in block
+        assert "warning_time_suggested" in block
 
     def test_and_will_not_accept_one_already_past(self):
         html = (ro.app.jinja_env.loader.get_source(ro.app.jinja_env, "race.html")[0])

@@ -40,7 +40,8 @@ from core import appstate
 from core.activitylog import log_activity
 from core.audio import queue_central_audio
 from core.boats import get_boat
-from core.courses import course_for_race, course_shorten_options, custom_course_from_race
+from core.courses import (course_for_race, course_shorten_options, custom_course_from_race,
+                          normalise_laps)
 from core.db import row_get
 from core.entrysync import (
     add_active_boats_to_race,
@@ -196,7 +197,7 @@ class PursuitUpdated:
 
 
 def set_custom_course(db: sqlite3.Connection, race: sqlite3.Row, sequence: List[Dict[str, str]],
-                      actor: str = "system", polar_file: str = "") -> int:
+                      actor: str = "system", polar_file: str = "", laps: Any = 1) -> int:
     """Save a made-up course on a race: the marks, in order, and which hand each
     is left on.
 
@@ -208,12 +209,16 @@ def set_custom_course(db: sqlite3.Connection, race: sqlite3.Row, sequence: List[
     race_id = int(race["id"])
     if not sequence:
         raise RaceValidationError("A made-up course needs at least one mark.", field="marks")
-    payload = {"marks": sequence, "updated_at": datetime.now().isoformat(timespec="seconds")}
+    laps = normalise_laps(laps)
+    payload = {"marks": sequence, "laps": laps,
+               "updated_at": datetime.now().isoformat(timespec="seconds")}
     db.execute("UPDATE races SET custom_course_json = ?, polar_file = COALESCE(NULLIF(?, ''),"
                " polar_file), course_set = 1 WHERE id = ?",
                (json.dumps(payload), (polar_file or "").strip(), race_id))
     db.commit()
-    log_activity("manual course saved", f"#{race_id} · {len(sequence)} marks", user=actor)
+    log_activity("manual course saved",
+                 f"#{race_id} · {len(sequence)} marks"
+                 + (f" ×{laps}" if laps > 1 else ""), user=actor)
     return len(sequence)
 
 

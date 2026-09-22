@@ -243,3 +243,36 @@ class TestTheSchedulerWatchesEarlyEnoughToSayIt:
         finally:
             ro.save_app_settings({"central_audio_vox_tone_enabled": "0",
                                   "central_audio_vox_lead_seconds": "2"})
+
+
+class TestTheLogDoesNotSayItIsEmptyWhileFull:
+    """Seen on a real start: fifteen rows of sequence events with "No horn or
+    race events logged yet." underneath them.
+
+    The race page is left open through the whole sequence, so the message is
+    rendered while the log genuinely is empty and the rows arrive afterwards,
+    from the live poll rather than from a reload. Nothing took it away.
+    """
+
+    TPL = (Path(__file__).resolve().parent.parent / "templates" / "race.html").read_text(encoding="utf-8")
+
+    def test_the_message_is_findable(self):
+        assert self.TPL.count('class="muted race-log-empty"') == 2, \
+            "both copies of the empty-state message should be tagged"
+
+    def test_adding_a_row_hides_it(self):
+        body = self.TPL.split("function prependLog(")[1].split("\n  }")[0]
+        assert "race-log-empty" in body, \
+            "rows are added to the log without clearing the it-is-empty message"
+        assert "hidden = true" in body
+
+    def test_it_is_cleared_before_the_rows_go_in(self):
+        """So a row and the message are never both on screen for a frame."""
+        body = self.TPL.split("function prependLog(")[1].split("\n  }")[0]
+        assert body.index("race-log-empty") < body.index("tbody.prepend(row)")
+
+    def test_the_pursuit_page_carries_the_same_hook(self):
+        """It has no live insert today, so its message is only ever right --
+        but a future one should find the same handle rather than a bare <p>."""
+        tpl = (Path(__file__).resolve().parent.parent / "templates" / "race_pursuit.html").read_text(encoding="utf-8")
+        assert "race-log-empty" in tpl

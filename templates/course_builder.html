@@ -23,6 +23,16 @@
           {% endfor %}
         </select>
       </label>
+      <label>Laps
+        {# One lap is the sequence as built. More repeats it: the board carries
+           the lap and a x2 beside it, and the course is expanded behind that so
+           the chart, the leg analysis and the leaderboard see every rounding. #}
+        <select name="course_laps" id="builderLaps">
+          {% for n in range(1, 10) %}
+            <option value="{{ n }}" {% if n == (course_laps or 1) %}selected{% endif %}>{% if n == 1 %}Once round{% else %}&times;{{ n }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
       <span class="wind-chip" id="builderLatestTwd">TWD {{ '%.0f°T'|format(latest_wind.twd) if latest_wind and latest_wind.twd is not none else '—' }}</span>
       <span class="wind-chip" id="builderLatestTws">TWS {{ '%.1f kt'|format(latest_wind.tws) if latest_wind and latest_wind.tws is not none else '—' }}</span>
       <span class="muted small" id="builderStatus">{{ weather_status.message }}</span>
@@ -117,6 +127,20 @@
   const hidden = document.getElementById('courseMarksJson');
   const table = document.getElementById('builderLegAnalysisTable');
   const polar = document.getElementById('builderPolar');
+  const lapsEl = document.getElementById('builderLaps');
+  // The editor holds one lap -- clicking a chip has to remove the mark you
+  // clicked, not one of its copies -- and everything that describes the course
+  // being sailed uses the expansion. The server does the same thing when it
+  // saves: this is the same course, drawn before it is stored.
+  function lapCount() {
+    const n = parseInt(lapsEl && lapsEl.value, 10);
+    return (n >= 1 && n <= 9) ? n : 1;
+  }
+  function sailedMarks() {
+    const out = [];
+    for (let i = 0; i < lapCount(); i++) out.push(...marks);
+    return out;
+  }
   const statusEl = document.getElementById('builderStatus');
   const predictedEl = document.getElementById('builderPredictedTime');
   const firstEl = document.getElementById('builderFirstLeg');
@@ -126,7 +150,7 @@
   function syncHidden() { hidden.value = JSON.stringify(marks); }
   function updateCourseMap() {
     const mapEl = document.getElementById('builderCourseMap');
-    if (mapEl && window.RaceCourseMap) window.RaceCourseMap.render(mapEl, marks);
+    if (mapEl && window.RaceCourseMap) window.RaceCourseMap.render(mapEl, sailedMarks());
   }
   function renderSequence() {
     syncHidden();
@@ -148,6 +172,13 @@
       span.addEventListener('click', () => { marks.splice(idx, 1); renderSequence(); refresh(); });
       seqEl.appendChild(span);
     });
+    if (lapCount() > 1) {
+      const laps = document.createElement('span');
+      laps.className = 'mark laps';
+      laps.textContent = '×' + lapCount();
+      laps.title = 'Sail the sequence this many times. Change it with the Laps selector.';
+      seqEl.appendChild(laps);
+    }
   }
   function renderRows(data) {
     const tbody = table.querySelector('tbody');
@@ -186,7 +217,7 @@
       const response = await fetch('{{ url_for('api_custom_leg_analysis') }}', {
         method: 'POST', cache: 'no-store',
         headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
-        body: JSON.stringify({marks, use_live: true, polar_file: polar.value})
+        body: JSON.stringify({marks: sailedMarks(), use_live: true, polar_file: polar.value})
       });
       const data = await response.json();
       if (!data.ok) throw new Error(data.message || 'Analysis failed');
@@ -203,6 +234,7 @@
     btn.addEventListener('click', () => { marks.push({mark: btn.dataset.mark, rounding: btn.dataset.rounding}); renderSequence(); refresh(); });
   });
   document.getElementById('undoMark').addEventListener('click', () => { marks.pop(); renderSequence(); refresh(); });
+  if (lapsEl) lapsEl.addEventListener('change', () => { renderSequence(); refresh(); });
   document.getElementById('clearMarks').addEventListener('click', () => { marks = []; renderSequence(); refresh(); });
   polar.addEventListener('change', refresh);
   renderSequence(); refresh();

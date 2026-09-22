@@ -95,6 +95,23 @@ Compound marks such as **Y** and **A** can be added as normal course marks. The 
 
 When a made-up course is active, the fixed course selector is greyed out and the race displays **Made up course**. Clear the made-up course to return to fixed-course selection.
 
+**Laps.** The builder has a **Laps** selector, because the hut's course board is
+small and a two-lap course written out in full fills it. Build one lap and set
+×2 (up to ×9), and the board carries the lap with a ×2 chip beside it — on the
+race page, the start console, the clubhouse display, the dashboard and the
+public competitor page alike. Everything else sees the course as it is sailed:
+the marks are expanded behind the board, so the chart, the leg analysis, the
+rounding walk, the leaderboard and the 3D replay all count every rounding. The
+distance shown is the distance sailed, not the distance of one lap.
+
+The spoken course announcement follows the board rather than the expansion: it
+names each mark once and finishes "times two". Reading three marks out twice is
+longer on the radio and says less.
+
+Reopening the builder shows the lap you built, not the expansion, so a course can
+be edited without it doubling. Courses made before this existed are one-lap
+courses and are unchanged.
+
 ### Choosing the finish line
 
 Almost every race finishes where it starts, on the club line between the CHPSC
@@ -258,13 +275,20 @@ and starting guns — wait for automation to be switched on.
 
 After **AP over H** you are asked for the new warning signal time, because
 “further signals ashore” means the next signals are made later, ashore — there
-is no one-minute warning to count from. Both that field and the
-**First warning signal time** on the race page open at least six minutes ahead
-rather than at the current minute: the sequence's first announcement is ten
-minutes before the gun, which is five before the warning signal, so a warning
-time closer than that is one the sequence is already part-way through. A time
-you have already set for later is left exactly as you set it, and a race that
-has been sailed keeps the time it was sailed at. After **AP over A** there is nothing to
+is no one-minute warning to count from. That field opens at least six
+minutes ahead rather than at the current minute, and so does **First warning
+signal time** on the race page when you click into it: the sequence's first
+announcement is ten minutes before the gun, which is five before the warning
+signal, so a warning time closer than that is one the sequence is already
+part-way through.
+
+The race page field **shows what is stored until you open it**, which for a new
+race is nothing at all. That matters: saving the Course & start tab to set a
+course must not give the race a warning signal time you never chose, because the
+horns and the announcements follow from it. A time you have already set for
+later is left exactly as you set it, however close, and a race that has been
+sailed is offered nothing — its warning time is in the past by definition, and
+moving it would rewrite the record of a race already in the results. After **AP over A** there is nothing to
 lower: no more racing today is a decision, not a pause.
 
 **The signal plan shows the postponement.** While AP is up, the signals due
@@ -332,6 +356,8 @@ on an older race.
 ## Shortening the course
 
 If the wind drops (or time runs short), use the **Shorten course** tab (between *Start console & log* and *Entries & finish times*) to shorten the course at a mark. Pick a mark from the course sequence and press **Call shortened course**. The app:
+
+On a lapped course the choices name the lap — *7 (lap 2, rounding 1)* — and the rounding number restarts each lap, because what you are looking at is a fleet on its second lap rather than a count of roundings since the gun. A mark passed once a lap just reads *F (lap 2)*. Fixed numbered courses do not declare a lap count, so a repeated mark there is still numbered straight through: *O (rounding 3)*.
 
 - sounds **two horn blasts**, then (once the horns have finished, so it is not drowned out) makes a central-audio announcement — *"Shortened course called on mark &lt;mark&gt; — after this mark proceed to finish"* — repeated a few seconds later;
 - displays International Code flag **S** (blue square on white) in the flag panel on both the race page and the public competitor page, and keeps it up until all boats are no longer racing;

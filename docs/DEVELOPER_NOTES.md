@@ -118,6 +118,31 @@ The Settings retry route calls `retry_public_video_uploads_once()`. It should re
 
 ## Compound mark geometry
 
+### Laps on a made-up course
+
+`races.custom_course_json` carries `{"marks": [...], "laps": N}`. **`marks` is one
+lap.** The expansion happens in `course_from_sequence`, which returns `marks`
+(the course as sailed, `lap_marks * laps`), `lap_marks` (one lap) and `laps`.
+Everything downstream reads `marks` and needs to know nothing about laps: the
+chart, `course_legs`, the rounding walk, the leaderboard and the 3D replay.
+
+Three things read `lap_marks` instead, and each for a reason:
+
+* the **board** (`board_marks`) and `sequence_text`, because a small board is the
+  point of the feature;
+* the **course builder**, seeded from `lap_marks` — seeding it from `marks`
+  doubles the course every time the builder is reopened, and doubles it again on
+  every save;
+* the **spoken announcement**, which names each mark once and ends "times two",
+  because reading six marks is longer on the radio and is not what the board
+  says.
+
+`course_shorten_options` keeps its index into `marks` and only changes the label,
+naming the lap and restarting the rounding count within it. Fixed numbered
+courses have no declared lap count, so they take the old straight-through
+numbering; inferring laps from a repeated sequence would be a guess shown to
+somebody holding a radio.
+
 `data/marks.json` can define parent marks with `compound: true`, `components` and `rounding_order`. The canonical course sequence remains parent-level so course boards and audio announcements stay compact. Geometry expands through `expand_course_points()` before `course_legs()` calculates distances, bearings and TWA analysis.
 
 Example: `Yp` expands to `Ya -> Yb`; `Ys` expands to `Yb -> Ya`. A corner is an ordinary coordinate-bearing mark and can be put on a course in its own right; `mark_sort_key()` files it under its parent in the picker. `hidden_from_picker: true` still exists as a mechanism for a mark that should not be selectable, but no mark carries it — the corners did until v0.255, which is why the walk and the chart could disagree about them.

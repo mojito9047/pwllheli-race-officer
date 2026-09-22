@@ -2615,6 +2615,7 @@ def dashboard_current_race_status() -> Dict[str, Any]:
     # rule the race sheet and the competitor page follow, and the reason it is
     # `course_set` being asked and not `course_no`, which a new race always has.
     board_marks: List[Dict[str, Any]] = []
+    board_laps = 1
     course_shortened = False
     if int(row_get(race, "course_set", 1) or 0):
         try:
@@ -2624,10 +2625,12 @@ def dashboard_current_race_status() -> Dict[str, Any]:
             if course_shortened:
                 course = apply_course_shortening(course, shorten_index)
             board_marks = list(course.get("board_marks") or course.get("marks") or [])
+            board_laps = int(course.get("laps") or 1)
         except Exception:
             # The dashboard is the page the hut leaves open all day; a course it
             # cannot read is a missing board, not a missing dashboard.
             board_marks = []
+            board_laps = 1
     return {
         "race": race,
         "postponed_flag": postponed,
@@ -2639,6 +2642,7 @@ def dashboard_current_race_status() -> Dict[str, Any]:
         "racing_count": racing_count,
         "race_finished": race_finished,
         "board_marks": board_marks,
+        "board_laps": board_laps,
         "course_shortened": course_shortened,
         "admin_url": url_for("race_detail", race_id=int(race["id"])),
         "public_url": url_for("competitor_current_race"),
@@ -2917,9 +2921,9 @@ def _render_pursuit_race_detail(race: sqlite3.Row):
         missing_rating=missing_rating, ranked_entries=ranked, timing_ready=timing_ready,
         rating_type=rating_type, duration_min=row_get(race, "pursuit_duration_min", None),
         first_warning_time=str(row_get(race, "start_time", "") or ""), first_start_time=race_first_start_time(race),
-        warning_time_value=(str(row_get(race, "start_time", "") or "")
-                            if (race_first_start_dt(race) and datetime.now() >= race_first_start_dt(race))
-                            else suggested_warning_time(row_get(race, "start_time", ""))),
+        warning_time_suggested=("" if (race_first_start_dt(race)
+                                       and datetime.now() >= race_first_start_dt(race))
+                                else suggested_warning_time(row_get(race, "start_time", ""))),
         finish_time=(pursuit_finish_dt(race).isoformat(timespec="seconds") if pursuit_finish_dt(race) else ""),
         courses=appstate.COURSES, course=course, is_custom_course=is_custom_course,
         course_set=bool(row_get(race, "course_set", 1)), selected_polar=selected_polar,

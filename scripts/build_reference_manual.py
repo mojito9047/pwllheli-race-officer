@@ -760,6 +760,16 @@ story.append(Paragraph(
     "course by picking a fixed course number, using <b>Recommend course</b> to have the app suggest "
     "a standard course from the live start-hut wind and a chosen boat polar, or <b>Build manual course</b> "
     "to lay out a one-off course from individual marks.", styles["Body"]))
+story.append(Paragraph(
+    "The manual builder has a <b>Laps</b> selector. The hut's course board is small, so build one lap and "
+    "set ×2 (up to ×9) rather than writing the sequence out twice: the board then carries the lap with a "
+    "×2 chip beside it, on the race page, the start console, the clubhouse display, the dashboard and the "
+    "public competitor page. Behind the board the marks are expanded, so the chart, the leg analysis, the "
+    "rounding walk, the leaderboard and the 3D replay all count every rounding and the distance shown is the "
+    "distance sailed. The spoken announcement follows the board instead: it names each mark once and "
+    "finishes “times two”. Reopening the builder shows the lap you built, not the expansion, so a "
+    "course can be edited without doubling. Fixed numbered courses have no lap count and are unchanged.",
+    styles["Body"]))
 story.append(figure("crop_course_top.png", "Course & start: warning-signal time and course selection.",
                      max_h=9 * cm))
 story.append(Paragraph(
@@ -864,7 +874,8 @@ story.append(Paragraph("Shortening the course", styles["H2"]))
 story.append(Paragraph(
     "If the wind drops or time runs short, the <b>Shorten course</b> tab (between <i>Start console &amp; log</i> "
     "and <i>Entries &amp; finish times</i>) shortens the course at a mark: choose a mark from the course sequence "
-    "and press <b>Call shortened course</b>. The app sounds <b>two horn blasts</b> and then — once the horns have "
+    "and press <b>Call shortened course</b>. On a lapped course the choices name the lap — <i>7 (lap 2, "
+    "rounding 1)</i> — and the rounding number restarts each lap. The app sounds <b>two horn blasts</b> and then — once the horns have "
     "finished, so it is not drowned out — makes a central-audio announcement — “Shortened course called on mark "
     "&lt;mark&gt; — after this mark proceed to finish” — repeated a few seconds later. It flies International Code "
     "flag <b>S</b> (blue square on white) in the flag panel on both the race and public competitor pages until all "
