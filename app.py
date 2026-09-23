@@ -104,6 +104,7 @@ from core.courses import (
     course_shorten_options,
     compound_mark_components,
     course_announcement_text,
+    is_waypoint,
     number_words,
     spoken_mark,
     course_for_display,
@@ -3159,6 +3160,16 @@ def api_mark_payload(code: str, rounding: str = "", token: str = "", parent_mark
 def api_course_mark_payload(item: Dict[str, Any], marks: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Return a parent course mark, including its expanded geometry components."""
     code = str(item.get("mark", "")).strip().upper()
+    if is_waypoint(code):
+        # A turning point, not a mark. This folded "via" into port like any
+        # other rounding, so an importer reading course.marks was told to leave
+        # the turning point off Cilan to port -- the fault course_from_sequence
+        # once had on the board. expand_course_points says "via"; so does this.
+        payload = api_mark_payload(code, rounding="via", token=code, marks=marks)
+        payload["waypoint"] = True
+        payload["expanded_components"] = [api_mark_payload(code, rounding="via", token=code,
+                                                           parent_mark=code, marks=marks)]
+        return payload
     rounding = "starboard" if str(item.get("rounding", "port")).lower().startswith("s") else "port"
     token = str(item.get("token") or f"{code}{rounding[0]}")
     payload = api_mark_payload(code, rounding=rounding, token=token, marks=marks)

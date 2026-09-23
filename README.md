@@ -257,6 +257,7 @@ Detailed documentation is in the `docs/` folder:
 - [`docs/Pwllheli_Relay_Guide.pdf`](docs/Pwllheli_Relay_Guide.pdf) — **the relay**: the single machine the club is reached through (front door, live camera, Traccar, visitor logging). Working copy of the procedures: [`deploy/live_stream/README.md`](deploy/live_stream/README.md).
 - [`docs/WEATHER_STATION.md`](docs/WEATHER_STATION.md) — start-hut weather station setup.
 - [`docs/PUBLIC_COMPETITOR_PAGE.md`](docs/PUBLIC_COMPETITOR_PAGE.md) — the public competitor home and race pages.
+- [`docs/PUBLIC_API.md`](docs/PUBLIC_API.md) — the read-only JSON API for external displays: the current race, its course as set and as sailed, and the marks.
 - [`docs/BAR_DISPLAY.md`](docs/BAR_DISPLAY.md) — the clubhouse TV at `/bar`.
 - [`docs/RACE_REPLAY_3D.md`](docs/RACE_REPLAY_3D.md) — 3D replay films of a sailed race, and what a club needs to make them. Setting up the machine that renders them: [`deploy/render_machine/README.md`](deploy/render_machine/README.md).
 - [`docs/REMOTE_ACCESS_CLOUDFLARE.md`](docs/REMOTE_ACCESS_CLOUDFLARE.md) — publishing the hut app through a Cloudflare Tunnel.

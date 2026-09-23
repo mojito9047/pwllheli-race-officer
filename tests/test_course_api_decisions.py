@@ -242,6 +242,36 @@ class TestAShortenedCourseIsNotLapped:
         assert [m["mark"] for m in status["board_marks"]] == ["1", "4", "7", "1", "4"]
 
 
+class TestAWaypointIsNotRounded:
+    """course.marks folded a waypoint's "via" into port, so an importer reading
+    it was told to leave the turning point off Cilan to port."""
+
+    def _course(self, client):
+        rid = _race(course_set=1)
+        seq = [{"mark": "1", "rounding": "port"}, {"mark": "TC", "rounding": "via"},
+               {"mark": "Y", "rounding": "starboard"}]
+        _update(rid, custom_course_json=json.dumps({"marks": seq, "laps": 1}))
+        return _api(client)["course"]
+
+    def test_the_course_marks_say_via(self, client):
+        tc = next(m for m in self._course(client)["marks"] if m["code"] == "TC")
+        assert tc["rounding"] == "via" and tc["waypoint"] is True
+        assert tc["token"] == "TC"
+        assert [c["rounding"] for c in tc["expanded_components"]] == ["via"]
+
+    def test_and_agree_with_the_expanded_marks(self, client):
+        course = self._course(client)
+        expanded = next(m for m in course["expanded_marks"] if m["code"] == "TC")
+        board = next(m for m in course["marks"] if m["code"] == "TC")
+        assert expanded["rounding"] == board["rounding"] == "via"
+
+    def test_real_marks_are_untouched(self, client):
+        marks = {m["code"]: m for m in self._course(client)["marks"]}
+        assert marks["1"]["rounding"] == "port" and "waypoint" not in marks["1"]
+        assert marks["Y"]["rounding"] == "starboard"
+        assert [c["code"] for c in marks["Y"]["expanded_components"]] == ["YB", "YA"]
+
+
 class TestNothingExistingChanged:
     def test_the_fields_an_importer_reads_are_all_still_there(self, client):
         _race(course_set=1)
