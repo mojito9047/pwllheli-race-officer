@@ -186,6 +186,38 @@ When a race is finished, the public specific race page uses the same classed IRC
 
 The app also exposes `/api/current_race_course` for external read-only displays such as the Mojito range-and-bearing app. It returns the current race metadata, selected course, parent/display marks, expanded compound-mark geometry, full mark coordinates and leg bearing/distance data in one JSON response.
 
+### What the race officer has decided
+
+A course in that payload does not say by itself whether anybody chose it, whether AP is
+flying, or whether the fleet has been sent home early. From v1.011 it carries those
+decisions too. Every field is an addition; nothing that was there changed meaning.
+
+| Field | Meaning |
+|---|---|
+| `race.course_set` | `false` until the race officer chooses a course. A new race is created with a course number, so `course` always has marks in it — **do not import a course while this is false.** |
+| `race.first_warning_time` | The first warning signal. The same value as `race.start_time`, which is the historic name of the column. |
+| `race.first_start_time` | The first start, five minutes after the warning. Count down to this. |
+| `race.postponed` | `true` while AP (or AP over H / AP over A) is flying. Stop the countdown. |
+| `race.postponement_flag` | Which flag is flying, or `""`. |
+| `race.postponement_ends_at` | When the race officer has said AP comes down, if they have. `""` otherwise, and `""` when not postponed. |
+| `course.laps` | Times round. `course.marks` is already expanded, so a course sailed twice has every mark twice. |
+| `course.shortened` | `true` once the course has been shortened. |
+| `course.shortened_at` | `null`, or `{index, mark, display, label, time}`. `index` points into `course.marks`: the last mark rounded. `label` is what the race officer picked, e.g. `7 (lap 2, rounding 1)`. |
+| `course.sailed` | **The route as the fleet is sailing it now** — `{sequence_text, length_nm, marks, expanded_marks, legs, finish}`. Identical to the course above until it is shortened. Once shortened it stops at the shorten mark and its last leg runs to the middle of the finish line, flagged `"finish": true`, with `finish` giving that point. |
+
+`course.marks`, `course.expanded_marks` and `course.legs` stay the course **as set**, even after it
+has been shortened. Draw `course.sailed` for the route.
+
+A display should therefore:
+
+1. Import nothing while `race.course_set` is false; show the start countdown instead.
+2. Hold the countdown while `race.postponed` is true.
+3. Draw `course.sailed.expanded_marks` and `course.sailed.legs`, and re-import when they change.
+
+`/public/race/state` carries `course_set`, `postponed_flag` and `postponement_ends_at` beside the
+`shortened_at_*` fields it already had, and its `signature` changes with any of them. It is the
+cheap thing to poll; fetch the full course when the signature moves.
+
 `/public/race/<race_id>/positions` returns the live GPS positions and position-on-the-water order for a race (used by the public race page). It is read-only, returns nothing while GPS tracking is disabled, and only serves races the public may view.
 
 This endpoint is deliberately read-only and contains the same kind of course/mark information that is already visible to competitors. Administrative race-office APIs remain behind `/admin` login.

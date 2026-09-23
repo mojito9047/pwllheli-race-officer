@@ -3073,6 +3073,13 @@ def competitor_race_state_signature(race: sqlite3.Row) -> Tuple[str, Dict[str, A
         "shortened_at_index": row_get(race, "shortened_at_index", None),
         "shortened_at_mark": row_get(race, "shortened_at_mark", ""),
         "shortened_at_time": row_get(race, "shortened_at_time", ""),
+        # Setting a course can change nothing else here: choosing course 1 for a
+        # race created with course 1 flips only this, and the page went on
+        # saying no course had been set. And a postponement is exactly what a
+        # display polling this needs to stop counting down to.
+        "course_set": bool(row_get(race, "course_set", 1)),
+        "postponed_flag": postponement_flag(race),
+        "postponement_ends_at": str(row_get(race, "postponement_ends_at", "") or ""),
         "entry_count": len(entries),
         "finished_count": finished_count,
         "racing_count": racing_count,
@@ -3174,6 +3181,28 @@ def api_expanded_course_point_payload(point: Dict[str, Any], marks: Optional[Dic
     return payload
 
 
+def api_course_legs_payload(course: Dict[str, Any], marks: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """The legs of a course in the external API's shape.
+
+    ``marks`` are the race's own: a course drawn for a past race is measured
+    against the buoys it was sailed to, not wherever they are today.
+    """
+    legs = []
+    for leg in course_legs(course, marks=marks):
+        legs.append({
+            "from": leg.get("from"),
+            "to": leg.get("to"),
+            "from_mark": leg.get("from_mark"),
+            "to_mark": leg.get("to_mark"),
+            "from_parent_mark": leg.get("from_parent_mark"),
+            "to_parent_mark": leg.get("to_parent_mark"),
+            "to_rounding": leg.get("to_rounding", ""),
+            "distance_nm": round(float(leg["distance_nm"]), 3) if leg.get("distance_nm") is not None else None,
+            "bearing_deg": round(float(leg["bearing_deg"]), 1) if leg.get("bearing_deg") is not None else None,
+        })
+    return legs
+
+
 def current_race_course_payload(race: sqlite3.Row) -> Dict[str, Any]:
     """Build the public JSON payload used by external range/bearing displays."""
     course = course_for_race(race)
@@ -3200,21 +3229,65 @@ def current_race_course_payload(race: sqlite3.Row) -> Dict[str, Any]:
     at_marks = track.race_marks(race)
     course_marks = [api_course_mark_payload(item, marks=at_marks) for item in course.get("marks", [])]
     expanded_points = [api_expanded_course_point_payload(point, marks=at_marks) for point in expand_course_points(course)]
-    legs = []
-    # The race's own marks: a course drawn for a past race is measured
-    # against the buoys it was sailed to, not wherever they are today.
-    for leg in course_legs(course, marks=at_marks):
-        legs.append({
-            "from": leg.get("from"),
-            "to": leg.get("to"),
-            "from_mark": leg.get("from_mark"),
-            "to_mark": leg.get("to_mark"),
-            "from_parent_mark": leg.get("from_parent_mark"),
-            "to_parent_mark": leg.get("to_parent_mark"),
-            "to_rounding": leg.get("to_rounding", ""),
-            "distance_nm": round(float(leg["distance_nm"]), 3) if leg.get("distance_nm") is not None else None,
-            "bearing_deg": round(float(leg["bearing_deg"]), 1) if leg.get("bearing_deg") is not None else None,
-        })
+    legs = api_course_legs_payload(course, at_marks)
+
+    # What the race officer has decided, which the course above cannot say by
+    # itself. A new race is created with a course number, so without course_set
+    # a plotter imports a course nobody has chosen; and the course above is the
+    # course as *set* -- course_for_race never truncates -- so a fleet sent home
+    # at mark 4 was still being shown all thirteen marks and 10.3 nm.
+    course_set = bool(row_get(race, "course_set", 1))
+    postponed_flag = postponement_flag(race)
+    shortened_at = None
+    sailed_course = course
+    shorten_index = row_get(race, "shortened_at_index", None)
+    if shorten_index is not None and str(shorten_index) != "":
+        truncated = apply_course_shortening(course, shorten_index)
+        # An index the course no longer reaches comes back unchanged, and a
+        # course that was not cut was not shortened.
+        if "shortened_at_index" in truncated:
+            sailed_course = truncated
+            index = int(truncated["shortened_at_index"])
+            option = next((o for o in course_shorten_options(course) if o["index"] == index), None)
+            code = str(course["marks"][index].get("mark", "")).strip().upper()
+            shortened_at = {
+                "index": index,
+                "mark": code,
+                "display": mark_display_code(code),
+                # "7 (lap 2, rounding 1)", as the race officer chose it.
+                "label": option["label"] if option else mark_display_code(code),
+                "time": str(row_get(race, "shortened_at_time", "") or ""),
+            }
+    sailed_legs = api_course_legs_payload(sailed_course, at_marks)
+    finish_point = None
+    if shortened_at:
+        # After the last rounding a shortened fleet goes straight to the finish
+        # line, and that leg is not in the course: the chart draws it dashed to
+        # the middle of the line, so this is the same point. The line is the
+        # race's own, at the race's own mark positions -- the one GPS finish
+        # detection uses -- so a race with a non-standard line is measured to it.
+        line = track.race_finish_line_points(race)
+        last = sailed_legs[-1] if sailed_legs else None
+        last_mark = at_marks.get(str((last or {}).get("to_mark") or "").strip().upper()) or {}
+        if line and last_mark.get("lat") is not None and last_mark.get("lon") is not None:
+            (s_lat, s_lon), (h_lat, h_lon) = line
+            f_lat, f_lon = (s_lat + h_lat) / 2.0, (s_lon + h_lon) / 2.0
+            m_lat, m_lon = float(last_mark["lat"]), float(last_mark["lon"])
+            finish_point = {"lat": round(f_lat, 7), "lon": round(f_lon, 7),
+                            "description": "Middle of the finish line"}
+            sailed_legs.append({
+                "from": last.get("to"),
+                "to": "Finish",
+                "from_mark": last.get("to_mark"),
+                "to_mark": None,
+                "from_parent_mark": last.get("to_parent_mark"),
+                "to_parent_mark": None,
+                "to_rounding": "",
+                "distance_nm": round(float(haversine_nm(m_lat, m_lon, f_lat, f_lon)), 3),
+                "bearing_deg": round(float(bearing_deg(m_lat, m_lon, f_lat, f_lon)), 1),
+                "finish": True,
+            })
+    sailed_length = sum(leg["distance_nm"] for leg in sailed_legs if leg.get("distance_nm") is not None)
 
     return {
         "ok": True,
@@ -3230,8 +3303,15 @@ def current_race_course_payload(race: sqlite3.Row) -> Dict[str, Any]:
             "custom_course": bool(custom_course_from_race(race)),
             "rating_rule": race["rating_rule"],
             "start_time": race["start_time"],
+            # start_time is the historic name of the column; it has held the
+            # first *warning* signal since v0.51. Named here for what it is.
+            "first_warning_time": str(row_get(race, "start_time", "") or ""),
             "first_start_time": first_start,
             "status": race_status,
+            "course_set": course_set,
+            "postponed": bool(postponed_flag),
+            "postponement_flag": postponed_flag,
+            "postponement_ends_at": str(row_get(race, "postponement_ends_at", "") or "") if postponed_flag else "",
             "entry_count": len(entries),
             "finished_count": finished_count,
             "racing_count": racing_count,
@@ -3250,6 +3330,23 @@ def current_race_course_payload(race: sqlite3.Row) -> Dict[str, Any]:
             "marks": course_marks,
             "expanded_marks": expanded_points,
             "legs": legs,
+            "laps": int(course.get("laps") or 1),
+            "shortened": shortened_at is not None,
+            # Index into course.marks above: the last mark rounded.
+            "shortened_at": shortened_at,
+            # The course as the fleet is sailing it now. The same as the course
+            # above until it is shortened; then cut at the shorten mark, with a
+            # final leg to the finish flagged "finish": true. Read this for the
+            # route; read the course above for what was set.
+            "sailed": {
+                "sequence_text": course_sequence_text(sailed_course),
+                "length_nm": round(sailed_length, 2) if sailed_legs else None,
+                "marks": [api_course_mark_payload(item, marks=at_marks) for item in sailed_course.get("marks", [])],
+                "expanded_marks": [api_expanded_course_point_payload(point, marks=at_marks)
+                                   for point in expand_course_points(sailed_course)],
+                "legs": sailed_legs,
+                "finish": finish_point,
+            },
         },
         "marks": {code: api_mark_payload(code, marks=at_marks) for code in sorted(appstate.MARKS.keys(), key=mark_sort_key)},
     }

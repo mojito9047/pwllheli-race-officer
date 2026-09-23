@@ -306,6 +306,14 @@ def apply_course_shortening(course: Dict[str, Any], index: Any) -> Dict[str, Any
     # 10.3 nm beside the words "shortened at 4", which is the one place somebody
     # reads the course out from.
     shortened["board_marks"] = course_marks_only(shortened)
+    # And a shortened course is not lapped any more. ``marks`` is already the
+    # expansion, cut where the flag went up, so the lap count copied across with
+    # the dict put "x2" after it: a course shortened at the second lap's mark 4
+    # read "1p 4p 7p 1p 4p x2" on every board. The same copy kept a fixed
+    # course's precomputed sequence text, which is the full course's.
+    shortened["laps"] = 1
+    shortened.pop("lap_marks", None)
+    shortened.pop("sequence_text", None)
     length = course_length_nm(shortened)
     shortened["length_nm"] = round(length, 2) if length is not None else "—"
     return shortened
