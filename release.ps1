@@ -14,6 +14,10 @@
     and an existing release has its notes and ZIP updated in place rather than
     failing with "release already exists".
 
+    The GitHub "Latest" badge is worked out, not assumed: it is only claimed when
+    this is the highest published version, so filling in an older release does not
+    advertise it as current. -DryRun prints which way it will go.
+
 .PARAMETER Version
     Override the version. Defaults to the contents of the VERSION file.
 
@@ -21,8 +25,8 @@
     Create the release as a draft instead of publishing it.
 
 .PARAMETER DryRun
-    Print what would happen (version, tag, ZIP, extracted notes) and exit without
-    tagging, pushing or creating anything.
+    Print what would happen (version, tag, ZIP, "Latest" badge, extracted notes)
+    and exit without tagging, pushing or creating anything.
 
 .EXAMPLE
     .\release.ps1 -DryRun
@@ -86,6 +90,57 @@ function Test-NativeOk {
     return ($code -eq 0)
 }
 
+function ConvertTo-VersionKey {
+    # "1.010" -> @(1, 10), comparable. Minors are zero-padded to three digits
+    # now (v1.008) and were not always (v0.165, v0.272), so they only sort
+    # correctly as numbers: as text "1.9" would beat "1.010".
+    param([string]$Text)
+    if ($Text -notmatch '^(\d+)\.(\d+)$') { return $null }
+    return @([int]$Matches[1], [int]$Matches[2])
+}
+
+function Compare-VersionKey {
+    param($A, $B)
+    if ($A[0] -ne $B[0]) { return $A[0].CompareTo($B[0]) }
+    return $A[1].CompareTo($B[1])
+}
+
+function Test-IsNewestRelease {
+    <#
+      Is this the highest version that has been released? $null when we cannot
+      tell (gh unreachable or unreadable output).
+
+      This exists because the script used to pass --latest unconditionally, so
+      publishing an *older* version moved GitHub's "Latest" badge backwards.
+      That is not hypothetical: v1.008 had been tagged but never released, and
+      filling it in after v1.009 would have advertised v1.008 as current to
+      anyone landing on the repository. It had to be done by hand with
+      --latest=false instead.
+    #>
+    param([string]$Version, [string]$Gh)
+    $mine = ConvertTo-VersionKey $Version
+    if ($null -eq $mine) { return $null }
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $json = & $Gh @("release", "list", "--limit", "200", "--json", "tagName,isDraft") 2>$null
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+    if ($code -ne 0 -or -not $json) { return $null }
+    try { $releases = (($json -join "") | ConvertFrom-Json) } catch { return $null }
+    foreach ($release in $releases) {
+        # A draft of a later version is not published and holds no badge.
+        if ($release.isDraft) { continue }
+        if ([string]$release.tagName -notmatch '^v(\d+\.\d+)$') { continue }
+        $other = ConvertTo-VersionKey $Matches[1]
+        if ($null -eq $other) { continue }
+        if ((Compare-VersionKey $other $mine) -gt 0) { return $false }
+    }
+    return $true
+}
+
 # --- Resolve gh (may not be on PATH in every shell) -------------------------
 $gh = (Get-Command gh -ErrorAction SilentlyContinue).Source
 if (-not $gh) {
@@ -143,6 +198,20 @@ try {
     if ($counts) { $ahead = [int](($counts -split "\s+")[1]) }
 } catch { $ahead = 0 }
 if ($ahead -gt 0) { Write-Output "Unpushed : $ahead commit(s) on $branch - these will be pushed" }
+
+# Which way the "Latest" badge should go. Worked out before -DryRun returns so
+# that a dry run shows it.
+$isNewest = $null
+if (-not $Draft) { $isNewest = Test-IsNewestRelease $Version $gh }
+if ($Draft) {
+    Write-Output "Latest  : no (draft)"
+} elseif ($isNewest -eq $true) {
+    Write-Output "Latest  : yes"
+} elseif ($isNewest -eq $false) {
+    Write-Output "Latest  : no - a higher version is already released"
+} else {
+    Write-Output "Latest  : gh decides (could not read the release list)"
+}
 Write-Output "--- release notes ---"
 Write-Output $notesText
 Write-Output "---------------------"
@@ -175,11 +244,23 @@ try {
     # v0.193 left behind and had to be finished by hand.
     if (Test-NativeOk $gh @("release", "view", $tag)) {
         Write-Output "Release $tag already exists; updating its notes and asset."
-        Invoke-Native $gh @("release", "edit", $tag, "--notes-file", $notesFile) "gh release edit"
+        $editArgs = @("release", "edit", $tag, "--notes-file", $notesFile)
+        # Only ever promote on an edit. Leaving the badge alone is the safe
+        # answer for an existing release we are merely re-uploading to.
+        if ($isNewest -eq $true) { $editArgs += "--latest" }
+        Invoke-Native $gh $editArgs "gh release edit"
         Invoke-Native $gh @("release", "upload", $tag, $zip, "--clobber") "gh release upload"
     } else {
         $ghArgs = @("release", "create", $tag, $zip, "--title", $tag, "--notes-file", $notesFile)
-        if ($Draft) { $ghArgs += "--draft" } else { $ghArgs += "--latest" }
+        if ($Draft) {
+            $ghArgs += "--draft"
+        } elseif ($isNewest -eq $true) {
+            $ghArgs += "--latest"
+        } elseif ($isNewest -eq $false) {
+            # Filling in a release older than one already published.
+            $ghArgs += "--latest=false"
+        }
+        # Otherwise say nothing and let gh decide by date and version.
         Invoke-Native $gh $ghArgs "gh release create"
     }
 } finally {

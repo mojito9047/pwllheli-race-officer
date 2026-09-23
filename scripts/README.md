@@ -114,6 +114,15 @@ fresh clone. Run them from the repo root, e.g. `python scripts/build_release_zip
    notes and ZIP updated in place rather than failing. `-Version` overrides the version
    and `-Draft` holds it back.
 
+   It works out the **"Latest" badge** rather than always claiming it. Publishing an
+   older version — filling in a release that was tagged but never created, which is
+   what happened to v1.008 after v1.009 was already out — would otherwise have
+   advertised the older one as current, and had to be done by hand with
+   `--latest=false`. The script now compares the version against the published
+   releases and passes `--latest` or `--latest=false` accordingly; `-DryRun` prints
+   which. If it cannot read the release list it says nothing and lets `gh` decide by
+   date and version.
+
    To cut **several stacked versions** at once, tag each at the *last* commit carrying
    that `VERSION`, so a tag is a whole release rather than a half-finished one, and
    build each ZIP in a throwaway `git worktree` at its tag. That way the working tree
