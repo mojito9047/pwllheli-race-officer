@@ -186,16 +186,23 @@ class TestTheModelIsNotTrusted:
         """A schema that offers something unimplemented invites the model to
         propose it, and the failure lands on the person on the water."""
         from core import boats, raceadmin
+        from routes import assistant_reads as reads
         implemented = {
             "create_race": raceadmin.create_race,
             "set_start_and_course": raceadmin.update_race_settings,
             "add_entries": raceadmin.add_entries,
             "shorten_course": raceadmin.shorten_course_at,
+            # The race sheet's own Finish button calls the same function.
+            "finish_boat": raceadmin.finish_entry_now,
             "postpone_race": raceadmin.postpone_race,
             "resume_race": raceadmin.resume_race,
             "race_status": True,          # read-only, served from core.races
             "race_results": True,         # read-only, served from core.series
             "look_up": True,              # read-only, answered from the club's own data
+            "mark_distance": True,        # read-only, measured with core.timeutils
+            # The rest of the look-ups, each a function in routes/assistant_reads.py
+            # built on the one its own page uses.
+            **{name: reads.READS[name] for name in reads.READS if name != "race_results"},
             "set_custom_course": raceadmin.set_custom_course,
             "boat_rating": boats.find_boat_ratings,
             "add_boat": boats.insert_boat_from_listings,
@@ -375,7 +382,26 @@ class TestAQuestionTheAppCanHearTheAnswerTo:
         """"status" is six characters and could be a mark's name only in a world
         where the app is not listening."""
         assert answer_to_question("shorten_course", {"race_id": 57}, "at_mark", [], "status") is None
-        assert answer_to_question("create_race", {}, "name", [], "Sunday Points") is None
+        assert answer_to_question("create_race", {}, "name", [], "status") is None
+        assert answer_to_question("create_race", {}, "name", [], "make it a pursuit") is None
+
+    def test_a_new_race_is_told_its_name_and_series_in_words(self):
+        """Asked what it is called, any name is the answer -- and taken whole:
+        "Evening Race 12" holds the suggested "Evening Race", and reading it as
+        that would have named it after the last race."""
+        said = answer_to_question("create_race", {"gun_time": "x"}, "name", ["Evening Race"],
+                                  "Evening Race 12")
+        assert said.arguments == {"gun_time": "x", "name": "Evening Race 12"}
+        assert answer_to_question("create_race", {}, "name", [], "call it Autumn Pursuit"
+                                  ).arguments["name"] == "Autumn Pursuit"
+        options = ["Wednesday Evening Points", "no series"]
+        assert answer_to_question("create_race", {}, "series", options, "none"
+                                  ).arguments["series"] == "no series"
+        assert answer_to_question("create_race", {}, "series", options, "the autumn series"
+                                  ).arguments["series"] == "autumn"
+        # Two answers at once are the interpreter's to read.
+        assert answer_to_question("create_race", {}, "series", options,
+                                  "autumn, call it Autumn 3") is None
 
 
 class TestItCanAnswerInWords:
@@ -427,3 +453,187 @@ class TestNothingHereExecutesAnything:
         with open(source, encoding="utf-8") as handle:
             text = handle.read()
         assert "import raceadmin" not in text and "from core.raceadmin" not in text
+
+
+def stub(intent: Intent):
+    """A parser standing in for a model that produced exactly this."""
+    return lambda text, context: intent
+
+
+def plan(*steps):
+    return Intent(assistant.PLAN, {"steps": [{"name": name, "arguments": args}
+                                             for name, args in steps]}, source="stub")
+
+
+class TestSeveralChangesInOneSentence:
+    """"Use course 4 and add Mojito" is two jobs. Read as one, the course changed
+    and Mojito was never mentioned again; it is now read back as both, in order,
+    and agreed to once."""
+
+    def test_two_changes_are_read_back_together_and_in_order(self):
+        answer = interpret("use course 4 and add Mojito", stub(plan(
+            ("set_start_and_course", {"course_no": 4}),
+            ("add_entries", {"scope": "boat", "boat": "Mojito"}))), current_race_id=57)
+        assert answer.status == NEEDS_CONFIRMATION
+        assert answer.intent == assistant.PLAN
+        assert answer.readback.startswith("In this order: (1) Set race #57: course 4.")
+        assert "(2) Add Mojito to race #57." in answer.readback
+        assert [s["intent"] for s in answer.resolved["steps"]] == [
+            "set_start_and_course", "add_entries"]
+
+    def test_a_step_the_app_does_not_implement_sinks_the_whole_plan(self):
+        """Half of what was asked, carried out when the read-back cannot say
+        which half, is worse than asking again."""
+        said = plan(("set_start_and_course", {"course_no": 4}), ("arm_start_sequence", {}))
+        assert parse_command("use course 4 and arm it", ctx(), stub(said)) is None
+
+    def test_a_look_up_is_not_a_step(self):
+        said = plan(("set_start_and_course", {"course_no": 4}), ("race_status", {}))
+        assert parse_command("use course 4, how are we", ctx(), stub(said)) is None
+
+    def test_a_plan_of_one_is_just_that_change(self):
+        got = parse_command("use course 4", ctx(),
+                            stub(plan(("set_start_and_course", {"course_no": 4}))))
+        assert got.name == "set_start_and_course" and got.arguments == {"course_no": 4}
+
+    def test_everything_aimed_at_a_new_race_goes_into_it(self):
+        """The second and third calls name no race, so read alone they would have
+        changed the current one -- a different race from the one being made."""
+        answer = interpret("create a race at 11, course 4, and add all the boats", stub(plan(
+            ("create_race", {"race_type": "standard", "gun_time": "2026-08-15T11:00"}),
+            ("set_start_and_course", {"course_no": 4}),
+            ("add_entries", {"scope": "all_active"}))), current_race_id=57)
+        assert answer.status == NEEDS_CONFIRMATION
+        assert answer.intent == "create_race"
+        assert answer.resolved["course_no"] == 4 and answer.resolved["add_all_active"]
+        assert "course 4" in answer.readback and "race #57" not in answer.readback
+
+    def test_a_change_a_new_race_cannot_carry_is_asked_for_afterwards(self):
+        answer = interpret("new race and shorten at 4", stub(plan(
+            ("create_race", {"race_type": "standard"}),
+            ("shorten_course", {"at_mark": "4"}))), current_race_id=57)
+        assert answer.status == NEEDS_CLARIFICATION
+        assert "create the race first" in answer.question
+
+    def test_a_question_about_one_step_is_answered_into_that_step(self):
+        """Asked which race type, "standard" must come back as the whole plan
+        with the type filled in -- not as the one step it was about."""
+        said = plan(("create_race", {"gun_time": "2026-08-15T11:00", "length_min": 60}),
+                    ("add_entries", {"race_id": 12, "scope": "all_active"}))
+        answer = interpret("an hour race at 11, and everyone into race 12", stub(said),
+                           current_race_id=57)
+        assert answer.status == NEEDS_CLARIFICATION
+        assert answer.clarify_field == "0:race_type"
+        again = answer_to_question(assistant.PLAN, answer.arguments, answer.clarify_field,
+                                   answer.options, "standard")
+        assert again.name == assistant.PLAN
+        assert again.arguments["steps"][0]["arguments"]["race_type"] == "standard"
+        assert again.arguments["steps"][1] == {"name": "add_entries",
+                                               "arguments": {"race_id": 12, "scope": "all_active"}}
+        assert resolve(again, ctx(current_race_id=57)).status == NEEDS_CONFIRMATION
+
+
+class TestANewRaceCarriesWhatItWasGiven:
+    def test_a_named_course_is_the_course(self):
+        answer = interpret("create a race at 11 on course 4", stub(Intent("create_race", {
+            "race_type": "standard", "gun_time": "2026-08-15T11:00", "course_no": 4})))
+        assert answer.resolved["course_no"] == 4
+        assert "first gun 11:00, course 4" in answer.readback
+
+    def test_named_boats_are_entered_by_name(self):
+        answer = interpret("race at 11 with Mojito and Sgrech Bach", stub(Intent("create_race", {
+            "race_type": "standard", "boats": "Mojito, Sgrech Bach"})))
+        assert answer.resolved["boat_names"] == ["Mojito", "Sgrech Bach"]
+        assert "adding Mojito and Sgrech Bach" in answer.readback
+
+    def test_every_boat_wins_over_a_list_of_some(self):
+        answer = interpret("race with everyone", stub(Intent("create_race", {
+            "race_type": "standard", "add_all_active": True, "boats": "Mojito"})))
+        assert "adding every active boat" in answer.readback
+        assert "boat_names" not in answer.resolved
+
+
+class TestMeasuringBetweenMarks:
+    def test_it_needs_both_marks(self):
+        answer = interpret("how far to C", stub(Intent("mark_distance", {"to_mark": "C"})))
+        assert answer.status == NEEDS_CLARIFICATION
+
+    def test_it_is_read_only(self):
+        assert assistant.tool_kind("mark_distance") == assistant.READ
+        answer = interpret("O to C", stub(Intent("mark_distance",
+                                                 {"from_mark": "O", "to_mark": "C"})))
+        assert answer.resolved == {"from_mark": "O", "to_mark": "C"}
+
+
+class TestEveryToolSaysWhatItDoesToTheTurn:
+    def test_each_has_a_kind(self):
+        assert {t["name"]: t["kind"] for t in assistant.TOOLS}.keys() == TOOL_NAMES
+        assert all(t["kind"] in (assistant.READ, assistant.REPORT, assistant.WRITE)
+                   for t in assistant.TOOLS)
+
+    def test_the_status_report_is_the_only_report(self):
+        assert [t["name"] for t in assistant.TOOLS if t["kind"] == assistant.REPORT] == [
+            "race_status"]
+
+    def test_an_unknown_tool_counts_as_a_change(self):
+        """So it ends the turn and reaches parse_command, which drops it --
+        rather than being run as a look-up nobody wrote."""
+        assert assistant.tool_kind("arm_start_sequence") == assistant.WRITE
+
+    def test_every_argument_has_a_real_type(self):
+        for tool in assistant.TOOLS:
+            for name, spec in tool["arguments"].items():
+                assert isinstance(spec, dict) and spec.get("type"), (tool["name"], name)
+
+
+class TestTheNewLookUpsAreReadThroughTheirSchemas:
+    """Standings, the log, a boat's season and the rest need no rule of their
+    own: their arguments are read to their types, what is required is asked for,
+    and a look-up about a race is about the race being talked about."""
+
+    def test_a_series_is_required_and_asked_for(self):
+        answer = interpret("standings", stub(Intent("series_standings", {})))
+        assert answer.status == NEEDS_CLARIFICATION
+        assert answer.question == "Which series?"
+
+    def test_a_choice_is_read_whatever_its_case(self):
+        answer = interpret("autumn on irc", stub(Intent("series_standings",
+                                                        {"series": "autumn", "rating": "irc"})))
+        assert answer.resolved == {"series": "autumn", "rating": "IRC"}
+
+    def test_a_word_that_is_not_one_of_the_choices_is_dropped(self):
+        answer = interpret("autumn on PHRF", stub(Intent("series_standings",
+                                                         {"series": "autumn", "rating": "PHRF"})))
+        assert "rating" not in answer.resolved
+
+    def test_a_race_look_up_is_about_the_race_in_the_conversation(self):
+        answer = interpret("when was the start", stub(Intent("race_log", {})), current_race_id=90)
+        assert answer.resolved["race_id"] == 90
+
+    def test_a_race_can_be_named_rather_than_numbered(self):
+        answer = interpret("log of race 4", stub(Intent("race_log", {"race_name": "Race 4"})),
+                           current_race_id=90)
+        assert "race_id" not in answer.resolved and answer.resolved["race_name"] == "Race 4"
+
+    def test_numbers_are_numbers(self):
+        answer = interpret("an hour", stub(Intent("suggest_course", {"target_minutes": "60",
+                                                                     "tws": "12.5"})))
+        assert answer.resolved["target_minutes"] == 60.0 and answer.resolved["tws"] == 12.5
+
+    def test_a_course_to_time_needs_marks_or_a_number(self):
+        answer = interpret("how long would it take", stub(Intent("time_course", {})))
+        assert answer.status == NEEDS_CLARIFICATION
+
+    def test_every_new_look_up_is_read_only(self):
+        assert all(assistant.tool_kind(name) == assistant.READ for name in assistant.GENERIC_READS)
+
+
+class TestTheCourseBoardAsTyped:
+    @pytest.mark.parametrize("said", ["4p 7p Op", "4p, 7p, Op", "4 port, 7 port, O port"])
+    def test_every_way_of_writing_it_is_the_same_course(self, said):
+        assert assistant.parse_mark_sequence(said) == [
+            {"mark": "4", "rounding": "port"}, {"mark": "7", "rounding": "port"},
+            {"mark": "O", "rounding": "port"}]
+
+    def test_a_starboard_rounding_on_the_board_is_starboard(self):
+        assert assistant.parse_mark_sequence("Fp 2p Os")[2] == {"mark": "O", "rounding": "starboard"}

@@ -49,6 +49,14 @@ def tool_call(name, arguments):
     return {"content": [{"type": "tool_use", "name": name, "input": arguments}]}
 
 
+def text_of(value) -> str:
+    """The words in a message or a system prompt, whether it was sent as a string
+    or as a list of blocks -- which it is when it carries a cache marker."""
+    if isinstance(value, str):
+        return value
+    return " ".join(str(block.get("text") or "") for block in value or [])
+
+
 def transport_returning(body, captured=None):
     def send(url, payload, headers, timeout):
         if captured is not None:
@@ -148,8 +156,8 @@ class TestWhatIsAsked:
         parse = make_model_parser("k", transport=transport_returning(tool_call("race_status", {}), calls))
         parse("status", ctx())
         payload = calls[0]["payload"]
-        assert "2026-08-15" in payload["messages"][0]["content"]
-        assert "2026-08-15" not in payload["system"]
+        assert "2026-08-15" in text_of(payload["messages"][0]["content"])
+        assert "2026-08-15" not in text_of(payload["system"])
 
     def test_the_warning_and_gun_convention_is_in_the_system_prompt(self):
         assert "FIRST WARNING SIGNAL" in SYSTEM_PROMPT
@@ -337,3 +345,274 @@ class TestReadingTheResponse:
         got = intent_from_response(
             {"content": [{"type": "tool_use", "name": "race_status", "input": "57"}]}, "m")
         assert got.name == "race_status" and got.arguments == {}
+
+
+def transport_replying(*bodies, captured=None):
+    """A provider that answers each request with the next reply in turn."""
+    import copy
+    replies = list(bodies)
+
+    def send(url, payload, headers, timeout):
+        if captured is not None:
+            # A copy: each request is built from the last, and the test wants to
+            # see each one as it was sent.
+            captured.append(copy.deepcopy(payload))
+        return replies.pop(0) if replies else None
+    return send
+
+
+def reading(answers=None, seen=None):
+    """A context whose look-ups answer from `answers` and are recorded in `seen`."""
+    context = ctx()
+
+    def read(name, arguments):
+        if seen is not None:
+            seen.append((name, arguments))
+        return (answers or {}).get(name, f"{name} result")
+    context.read = read
+    return context
+
+
+def uses(*calls, text=None, thinking=False):
+    """A provider reply calling these tools, optionally thinking first."""
+    content = []
+    if thinking:
+        content.append({"type": "thinking", "thinking": "", "signature": "sig-1"})
+    if text:
+        content.append({"type": "text", "text": text})
+    for index, (name, arguments) in enumerate(calls):
+        content.append({"type": "tool_use", "id": f"toolu_{name}_{index}", "name": name,
+                        "input": arguments})
+    return {"content": content, "stop_reason": "tool_use" if calls else "end_turn"}
+
+
+def words(text):
+    return {"content": [{"type": "text", "text": text}], "stop_reason": "end_turn"}
+
+
+class TestItLooksThingsUpAndThenAnswers:
+    """Asked how far it was from O to the Causeway, the page said four times that
+    it could not work that out -- holding both positions. A look-up went straight
+    to the phone and the model never saw it; now it does, and answers from it."""
+
+    def test_what_a_look_up_found_goes_back_and_the_answer_comes_from_it(self):
+        sent, seen = [], []
+        parse = make_model_parser("k", transport=transport_replying(
+            uses(("mark_distance", {"from_mark": "O", "to_mark": "C"}), thinking=True),
+            words("It's 11.57 nm from O to the Causeway."), captured=sent))
+        intent = parse("how far is it from O to causeway?",
+                       reading({"mark_distance": "O to C: 11.57 nm"}, seen))
+        assert intent.name == ANSWER and "11.57" in intent.arguments["text"]
+        assert seen == [("mark_distance", {"from_mark": "O", "to_mark": "C"})]
+        second = sent[1]["messages"]
+        assert second[-2]["role"] == "assistant"
+        result = second[-1]["content"][0]
+        assert result["type"] == "tool_result"
+        assert result["tool_use_id"] == "toolu_mark_distance_0"
+        assert result["content"] == "O to C: 11.57 nm"
+
+    def test_its_own_reply_goes_back_as_it_came_thinking_and_all(self):
+        """A model continuing its turn is handed what it wrote; an edited copy
+        -- a thinking block dropped, its signature lost -- is not its turn."""
+        sent = []
+        parse = make_model_parser("k", transport=transport_replying(
+            uses(("look_up", {"topic": "courses"}), thinking=True), words("67."), captured=sent))
+        parse("how many courses", reading())
+        echoed = sent[1]["messages"][-2]["content"]
+        assert echoed[0] == {"type": "thinking", "thinking": "", "signature": "sig-1"}
+
+    def test_several_look_ups_at_once_are_all_answered_in_one_message(self):
+        """Split across messages, a model learns to stop asking for more than one
+        thing at a time -- and "what are O's and C's positions?" lost C."""
+        sent, seen = [], []
+        parse = make_model_parser("k", transport=transport_replying(
+            uses(("look_up", {"topic": "marks", "query": "O"}),
+                 ("look_up", {"topic": "marks", "query": "C"})),
+            words("O is at one place and C at another."), captured=sent))
+        parse("what are O and C positions?", reading(seen=seen))
+        assert len(seen) == 2
+        results = sent[1]["messages"][-1]["content"]
+        assert [r["tool_use_id"] for r in results] == ["toolu_look_up_0", "toolu_look_up_1"]
+
+    def test_a_change_ends_the_turn_and_nothing_alongside_it_is_run(self):
+        seen = []
+        parse = make_model_parser("k", transport=transport_replying(
+            uses(("look_up", {"topic": "courses"}), ("set_start_and_course", {"course_no": 4}))))
+        intent = parse("use course 4", reading(seen=seen))
+        assert intent.name == "set_start_and_course"
+        assert seen == [], "a look-up ran alongside a change nobody has agreed to"
+
+    def test_two_changes_come_back_as_one_plan(self):
+        parse = make_model_parser("k", transport=transport_replying(
+            uses(("set_start_and_course", {"course_no": 4}),
+                 ("add_entries", {"scope": "boat", "boat": "Mojito"}))))
+        intent = parse("use course 4 and add Mojito", reading())
+        assert intent.name == "plan"
+        assert [s["name"] for s in intent.arguments["steps"]] == [
+            "set_start_and_course", "add_entries"]
+
+    def test_the_status_report_is_shown_as_it_is_not_reworded(self):
+        """The sentence people type most. A second round trip to put the app's
+        own report in other words would double the wait for nothing."""
+        calls = []
+        parse = make_model_parser("k", transport=transport_replying(
+            uses(("race_status", {})), captured=calls))
+        assert parse("status", reading()).name == "race_status"
+        assert len(calls) == 1
+
+    def test_without_a_way_to_look_things_up_a_look_up_is_the_answer(self):
+        """The caller decides. A context with no `read` gets the look-up back as
+        an intent, which the page shows as it always did."""
+        parse = make_model_parser("k", transport=transport_replying(
+            uses(("look_up", {"topic": "courses"}))))
+        assert parse("how many courses", ctx()).name == "look_up"
+
+    def test_a_model_that_keeps_looking_is_stopped(self):
+        from core.assistant_llm import MAX_READ_ROUNDS
+        calls = []
+        parse = make_model_parser("k", transport=transport_replying(
+            *[uses(("look_up", {"topic": "races"}))] * (MAX_READ_ROUNDS + 3), captured=calls))
+        intent = parse("which was the longest ISORA course", reading())
+        assert len(calls) == MAX_READ_ROUNDS + 1
+        assert intent.name == "look_up", "the page should be shown what was looked up"
+
+    def test_a_provider_that_fails_part_way_still_leaves_what_was_found(self):
+        parse = make_model_parser("k", transport=transport_replying(
+            uses(("look_up", {"topic": "courses"})), None))
+        assert parse("how many courses", reading()).name == "look_up"
+
+    def test_a_look_up_that_raises_is_reported_to_the_model_not_the_page(self):
+        sent = []
+        parse = make_model_parser("k", transport=transport_replying(
+            uses(("look_up", {"topic": "fleet"})), words("Nothing is reporting."), captured=sent))
+        context = ctx()
+
+        def broken(name, arguments):
+            raise RuntimeError("tracker database locked")
+        context.read = broken
+        assert parse("where are they", context).name == ANSWER
+        result = sent[1]["messages"][-1]["content"][0]
+        assert result["is_error"] is True and "tracker database locked" in result["content"]
+
+    def test_an_openai_endpoint_loops_the_same_way(self):
+        sent = []
+        url = "https://api.cloudflare.com/client/v4/accounts/a/ai/v1/chat/completions"
+        parse = make_model_parser("k", base_url=url, transport=transport_replying(
+            {"choices": [{"message": {"tool_calls": [
+                {"id": "c1", "function": {"name": "mark_distance",
+                                          "arguments": '{"from_mark": "O", "to_mark": "C"}'}}]}}]},
+            {"choices": [{"message": {"content": "11.57 nm."}}]}, captured=sent))
+        intent = parse("O to C?", reading({"mark_distance": "11.57 nm"}))
+        assert intent.name == ANSWER
+        tail = sent[1]["messages"][-2:]
+        assert tail[0]["role"] == "assistant" and tail[0]["tool_calls"][0]["id"] == "c1"
+        assert tail[1] == {"role": "tool", "tool_call_id": "c1", "content": "11.57 nm"}
+
+
+class TestWhatTheModelIsToldAboutEachTool:
+    def _tools(self):
+        calls = []
+        parse = make_model_parser("k", transport=transport_returning(tool_call("race_status", {}), calls))
+        parse("status", ctx())
+        return {t["name"]: t for t in calls[0]["payload"]["tools"]}
+
+    def test_numbers_are_numbers_and_choices_are_choices(self):
+        tools = self._tools()
+        props = lambda name: tools[name]["input_schema"]["properties"]  # noqa: E731
+        assert props("set_start_and_course")["race_id"]["type"] == "integer"
+        assert props("create_race")["add_all_active"]["type"] == "boolean"
+        assert props("add_entries")["scope"]["enum"] == ["all_active", "boat", "same_as"]
+        assert tools["mark_distance"]["input_schema"]["required"] == ["from_mark", "to_mark"]
+
+    def test_a_new_race_can_be_given_its_course(self):
+        """"Create a race at 11 on course 4" had nowhere to put the 4."""
+        assert "course_no" in self._tools()["create_race"]["input_schema"]["properties"]
+
+    def test_each_says_whether_it_reads_or_changes(self):
+        tools = self._tools()
+        assert tools["look_up"]["description"].startswith("Read-only")
+        assert tools["create_race"]["description"].startswith("Changes something")
+
+
+class TestTheUnchangingPartIsCached:
+    """Every round of a turn sends everything before it again, and the tools and
+    the prompt are the same for every sentence anybody types."""
+
+    def _payload(self):
+        calls = []
+        parse = make_model_parser("k", transport=transport_returning(tool_call("race_status", {}), calls))
+        parse("status", ctx())
+        return calls[0]["payload"]
+
+    def test_the_system_prompt_is_a_plain_string(self):
+        """Cloudflare's Messages route answered a block-shaped one with a 400."""
+        assert isinstance(self._payload()["system"], str)
+
+    def test_a_fixed_opening_marks_the_end_of_what_never_changes(self):
+        from core.assistant_llm import CACHE_ANCHOR
+        first = self._payload()["messages"][0]["content"][0]
+        assert first == {"type": "text", "text": CACHE_ANCHOR,
+                         "cache_control": {"type": "ephemeral"}}
+
+    def test_the_end_of_the_request_is_marked_too(self):
+        last = self._payload()["messages"][-1]["content"][-1]
+        assert last["cache_control"] == {"type": "ephemeral"}
+        assert "Instruction: status" in last["text"]
+
+
+class TestItRemembersWhatItLookedUpAndSaysWhatItIsDoing:
+    def test_each_look_up_is_recorded_with_its_arguments(self):
+        context = reading()
+        parse = make_model_parser("k", transport=transport_replying(
+            uses(("suggest_course", {"target_minutes": 20})), words("Three options.")))
+        parse("course for 20 minutes", context)
+        assert context.looked_up == [{"tool": "suggest_course", "arguments": {"target_minutes": 20}}]
+
+    def test_it_says_what_it_is_doing_in_order(self):
+        told = []
+        context = reading()
+        context.progress = told.append
+        parse = make_model_parser("k", transport=transport_replying(
+            uses(("series_standings", {"series": "autumn"})), words("Mojito leads.")))
+        parse("who is leading", context)
+        assert told == ["thinking", "series_standings", "answering"]
+
+    def test_a_progress_report_that_fails_does_not_fail_the_answer(self):
+        context = reading()
+
+        def broken(stage):
+            raise RuntimeError("nobody listening")
+        context.progress = broken
+        parse = make_model_parser("k", transport=transport_replying(words("Hello.")))
+        assert parse("hello", context).name == ANSWER
+
+    def test_eight_earlier_turns_are_sent_not_four(self):
+        from core.assistant_llm import RECENT_TURNS
+        calls = []
+        context = ctx()
+        context.recent = [(f"said {n}", f"did {n}") for n in range(12)]
+        parse = make_model_parser("k", transport=transport_returning(words("ok"), calls))
+        parse("and now?", context)
+        sent = calls[0]["payload"]["messages"]
+        assert RECENT_TURNS == 8
+        assert text_of(sent[0]["content"]).endswith("said 4")
+        assert len(sent) == RECENT_TURNS * 2 + 1
+
+
+class TestTheAppsNotesAreNotRepeated:
+    def test_a_note_copied_into_a_reply_is_taken_out(self):
+        """It began a reply "[looked up suggest_course: target_minutes 20, boat
+        J70]" -- the app's note on an earlier turn, written out as though it
+        were how the app talks."""
+        parse = make_model_parser("k", transport=transport_replying(
+            words('[looked up suggest_course: target_minutes 20, boat "J70"] '
+                  "Here are three on the J70. [cards shown, numbered: 1 Course 4 (4p Op)]")))
+        intent = parse("do the same again on the J70 polar", reading())
+        assert intent.name == ANSWER
+        assert intent.arguments["text"] == "Here are three on the J70."
+
+    def test_brackets_of_its_own_are_left_alone(self):
+        parse = make_model_parser("k", transport=transport_replying(
+            words("Course 4 [the long one] takes about an hour.")))
+        intent = parse("how long is course 4?", reading())
+        assert intent.arguments["text"] == "Course 4 [the long one] takes about an hour."

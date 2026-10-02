@@ -3656,6 +3656,7 @@ def read_settings_form() -> Tuple[Dict[str, Any], Dict[str, Any]]:
         "assistant_api_key": request.form.get("assistant_api_key", ""),
         "assistant_model": request.form.get("assistant_model", ""),
         "assistant_base_url": request.form.get("assistant_base_url", ""),
+        "forecast_url": request.form.get("forecast_url", ""),
     }
     return listing_settings, hardware_settings
 

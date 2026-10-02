@@ -76,7 +76,7 @@ from core.timeutils import (
     parse_dt,
 )
 from core.track import finish_lines
-from core.video import cancel_pending_start_clips, ensure_start_video_scheduled
+from core.video import cancel_pending_start_clips, ensure_start_video_scheduled, schedule_video_clip
 
 # A race with no name is still a race; the club sails a lot of them.
 # The gun follows the first warning signal by five minutes (RRS 26).
@@ -592,6 +592,54 @@ def add_entries(db: sqlite3.Connection, race: sqlite3.Row, scope: EntryScope,
         recompute_pursuit_start_times(race_id)
     log_activity(action, detail, user=actor)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Finishing a boat
+# ---------------------------------------------------------------------------
+
+@dataclass
+class FinishRecorded:
+    entry_id: int
+    boat_name: str
+    sail_no: str
+    finish_time: str
+    horn: Dict[str, Any]
+
+
+def finish_entry_now(db: sqlite3.Connection, race: sqlite3.Row, entry_id: int,
+                     actor: str = "system") -> FinishRecorded:
+    """Record a boat's finish at this moment, sound the horn, and film it.
+
+    The race sheet's Finish button, moved out of its route so that the button
+    and a finish agreed to from the water are one operation: the same clock, the
+    same horn, the same race-log entry and the same finish clip. A second copy
+    would be a finish from the water that did not sound the horn, or was not
+    filmed, and nobody would find out until a protest needed the video.
+
+    The time is taken here, when the finish is carried out -- for the button,
+    the press; from the water, the Yes -- never when it was asked for.
+    """
+    # In production this machine should use GPS/NTP disciplined time.
+    race_id = int(race["id"])
+    entry = db.execute("SELECT * FROM entries WHERE id = ? AND race_id = ?",
+                       (int(entry_id), race_id)).fetchone()
+    if not entry:
+        raise RaceValidationError("Entry not found.", field="entry_id")
+    now = datetime.now().isoformat(timespec="seconds")
+    db.execute("UPDATE entries SET finish_time = ?, finish_source = 'manual-now', status = 'FINISHED'"
+               " WHERE id = ? AND race_id = ?", (now, int(entry_id), race_id))
+    db.commit()
+    sail_no = str(entry["sail_no"] or "")
+    label_parts = [str(entry["boat_name"])] + ([sail_no] if sail_no else [])
+    label = f"Finish now + horn: {' — '.join(label_parts)} at {dt_display(now)}"
+    horn = fire_horn(hardware_config()["horn_duration_ms"])
+    log_event(race_id, "finish", label, "finish-now",
+              {"entry_id": int(entry_id), "finish_time": now, "horn": horn})
+    schedule_video_clip(race_id, "finish", now, entry_id=int(entry_id), label=label)
+    log_activity("finish recorded", f"race #{race_id} · {entry['boat_name']}", user=actor)
+    return FinishRecorded(entry_id=int(entry_id), boat_name=str(entry["boat_name"]),
+                          sail_no=sail_no, finish_time=now, horn=horn or {})
 
 
 # ---------------------------------------------------------------------------

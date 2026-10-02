@@ -228,6 +228,7 @@ internet is down, which is the trade the club chose.
 | API key | The provider key. Stored like every other secret and never shown back. Blank means the page is unavailable. |
 | Model | The model id, e.g. `claude-sonnet-5`, or `anthropic/claude-sonnet-5` through Cloudflare's AI Gateway. |
 | Base URL | The endpoint. Anthropic's own API by default; a gateway address gains logging, rate limiting and a model fallback without changing anything else. |
+| Weather forecast URL | Where it looks when asked what the wind will do. Blank reads Open-Meteo's forecast at the start line on the UK Met Office model — the wind hour by hour, which is what a race question needs. An `api.open-meteo.com` URL of your own is read the same way; any other page for its words only (a windy.app spot page gives a daily kitesurfing summary, because its hourly forecast is drawn in the browser). Fetched at most once every half hour. |
 
 The card shows an **Interpreter** line saying whether one is configured and
 answering, and if the last request failed it gives the provider's own reason — a

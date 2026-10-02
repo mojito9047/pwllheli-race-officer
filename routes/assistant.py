@@ -27,12 +27,14 @@ import json
 import os
 import re
 import secrets
+import threading
 import time
 from datetime import datetime, timedelta
 
 from core import track
 from core.boats import find_boat_ratings, insert_boat_from_listings
-from core.courses import apply_course_shortening, validate_course_sequence_json
+from core.courses import (apply_course_shortening, custom_course_from_race,
+                          validate_course_sequence_json)
 from core.timeutils import bearing_deg, haversine_nm
 from core.assistant import (
     ANSWER,
@@ -40,22 +42,31 @@ from core.assistant import (
     NEEDS_CLARIFICATION,
     NEEDS_CONFIRMATION,
     NOT_UNDERSTOOD,
+    PLAN,
+    READ,
+    REPORT,
+    TOOL_KINDS,
+    WRITE,
     CommandContext,
+    Intent,
     answer_to_question,
-    grammar_parse,
     parse_command,
+    parse_mark_sequence,
     reads_as_no,
     reads_as_yes,
     resolve,
+    tool_kind,
 )
 from core.assistant_llm import interpreter_status, parser_from_config
 from core.raceadmin import (
+    clear_custom_course,
     EntryScope,
     RaceSettings,
     RaceSpec,
     RaceValidationError,
     add_entries,
     create_race,
+    finish_entry_now,
     postpone_race,
     resume_race,
     set_custom_course,
@@ -64,6 +75,10 @@ from core.raceadmin import (
     update_race_settings,
 )
 from routes import app_module
+from routes.assistant_reads import (READS, card_for_sequence, find_polar, offer_fixed_course,
+                                    offered_courses)
+from core.polar_io import list_polar_files, race_saved_polar
+from core.racesignals import LOWER_AP_MIN_LEAD_S
 
 _app = app_module()
 analyse_course_with_wind = _app.analyse_course_with_wind
@@ -99,7 +114,8 @@ resolve_sail_chart_path_for_polar = _app.resolve_sail_chart_path_for_polar
 load_polar = _app.load_polar
 load_sail_chart = _app.load_sail_chart
 target_speed_info_for = _app.target_speed_info_for
-from core.races import postponement_flag
+from core.entrysync import series_boat_names
+from core.races import postponement_flag, race_first_start_dt, race_is_postponed
 
 row_get = _app.row_get
 url_for = _app.url_for
@@ -111,15 +127,73 @@ weather_runtime_status = _app.weather_runtime_status
 PENDING_TTL_SECONDS = 300
 
 # Read-only intents skip the confirmation step: there is nothing to undo, and
-# asking a competitor to confirm a question they just asked is noise.
-READ_ONLY_INTENTS = {"race_status", "race_results", "look_up", "boat_rating"}
+# asking a competitor to confirm a question they just asked is noise. Taken from
+# the tools' own kinds, so a new look-up cannot be left needing a Yes by omission.
+READ_ONLY_INTENTS = {name for name, kind in TOOL_KINDS.items() if kind in (READ, REPORT)}
+
+
+# What the page is told while it waits, keyed by (who, client command id). A
+# sentence can take three calls to the interpreter and twenty seconds, and the
+# page used to show a greyed-out button for all of it: "you just have to wait and
+# hope". The page asks for this every second and a half while its command is
+# out, which works through Cloudflare and the relay the way any small request
+# does -- a stream would have to survive both being buffered.
+_PROGRESS: dict = {}
+_PROGRESS_LOCK = threading.Lock()
+PROGRESS_KEEP_S = 120.0
+
+# What each stage looks like to somebody at the tiller.
+_DOING = {
+    "thinking": "Reading that",
+    "answering": "Working out the answer",
+    "checking": "Checking it against the race",
+    "look_up": "Looking that up",
+    "mark_distance": "Measuring between the marks",
+    "boat_rating": "Looking up the rating",
+    "race_results": "Getting the results",
+    "series_standings": "Working out the standings",
+    "race_log": "Reading the race log",
+    "boat_history": "Going through the boat's races",
+    "race_entries": "Looking up the entries",
+    "gps_finishes": "Checking the GPS finishes",
+    "tracker_status": "Checking the trackers",
+    "wind_history": "Reading the wind record",
+    "recommend_courses": "Ranking the club's courses",
+    "suggest_course": "Searching the marks for a course",
+    "time_course": "Timing the course",
+    "boat_polar": "Reading the polar",
+    "weather_forecast": "Fetching the forecast",
+    "boat_positions": "Finding the boats",
+    "race_status": "Getting the status",
+}
+
+
+def _report_progress(actor: str, command_id: str, stage: str) -> None:
+    now = time.monotonic()
+    with _PROGRESS_LOCK:
+        for key in [k for k, v in _PROGRESS.items() if now - v["at"] > PROGRESS_KEEP_S]:
+            _PROGRESS.pop(key, None)
+        entry = _PROGRESS.setdefault((actor, command_id), {"started": now, "steps": []})
+        entry["at"] = now
+        said = _DOING.get(stage, "Working on it")
+        if not entry["steps"] or entry["steps"][-1] != said:
+            entry["steps"].append(said)
+
+
+def _progress_for(actor: str, command_id: str) -> dict:
+    with _PROGRESS_LOCK:
+        entry = _PROGRESS.get((actor, command_id))
+        if not entry:
+            return {}
+        return {"doing": entry["steps"][-1], "steps": list(entry["steps"]),
+                "elapsed": round(time.monotonic() - entry["started"], 1)}
 
 
 # Every turn is remembered, not only the ones that changed something. A question
 # the app asked and the answer it got are the two halves of one exchange, and
 # recording only the half that acted is what made "standard" -- the answer to the
 # app's own question -- come back as "I did not understand that".
-THREADED_STATUSES = ("done", "pending", "asked", "answered", "not_understood")
+THREADED_STATUSES = ("done", "pending", "asked", "answered", "not_understood", "failed")
 
 
 def _remember(actor: str, text: str, intent: str, reply: str, status: str,
@@ -138,27 +212,68 @@ def _remember(actor: str, text: str, intent: str, reply: str, status: str,
     return token
 
 
-def _recent_exchanges(actor: str, limit: int = 6):
+def _recent_exchanges(actor: str, limit: int = 8):
     """The last few turns: what this person said and what the app said back.
 
     Without it every sentence is read alone, so "make it a pursuit", "add the
     fleet to that" or a one-word answer to a question has no antecedent and the
     interpreter has to guess or decline. Scoped to the one person and to the last
     half hour: a thread is a conversation, not the club's whole history.
+
+    Each turn carries what it looked up as well as what it said. Asked for
+    courses "in 20 mins", then which polar, then what that polar was, then to
+    "use the J70 polar", the interpreter timed them for a hundred minutes: the
+    twenty had only ever been an argument to a look-up, the turn that set it had
+    fallen out of a four-turn window, and it then insisted the hundred was right.
+
+    The notes travel on the race officer's side of the turn, not the app's. On
+    the app's side they read as how the app writes, and the interpreter began a
+    reply "[looked up suggest_course: target_minutes 20, boat J70] ..." -- the
+    note written out in place of the look-up it describes, and nothing drawn.
     """
     since = (datetime.now() - timedelta(minutes=30)).isoformat(timespec="seconds")
     placeholders = ", ".join("?" for _ in THREADED_STATUSES)
     with get_db() as db:
         rows = db.execute(
-            "SELECT text, readback, result_json, status FROM assistant_commands"
+            "SELECT text, readback, result_json, resolved_json, status FROM assistant_commands"
             f" WHERE actor = ? AND created_at >= ? AND status IN ({placeholders})"
             " ORDER BY id DESC LIMIT ?",
             (actor, since, *THREADED_STATUSES, limit)).fetchall()
     exchanges = []
     for row in reversed(rows):
         done = json.loads(row["result_json"] or "{}").get("message")
-        exchanges.append((row["text"], done or row["readback"] or ""))
+        said = done or row["readback"] or ""
+        stored = json.loads(row["resolved_json"] or "{}") or {}
+        notes = []
+        looked = stored.get("looked_up") or [] if isinstance(stored, dict) else []
+        if looked:
+            notes.append("; ".join(_looked_up_note(item) for item in looked))
+        cards = stored.get("courses") or [] if isinstance(stored, dict) else []
+        if len(cards) > 1:
+            # So "the second one" is the second card, whatever the words said.
+            notes.append("cards shown, numbered: " + "; ".join(
+                f"{n} {_card_name(card)}" for n, card in enumerate(cards, 1)))
+        typed = row["text"]
+        if notes:
+            typed += "\n[" + LOOK_UP_NOTE + " " + "; ".join(notes) + "]"
+        exchanges.append((typed, said))
     return exchanges
+
+
+# How the app labels its own notes on an earlier turn, so nobody -- the
+# interpreter included -- takes them for something the race officer typed.
+LOOK_UP_NOTE = "App's note, not typed by the race officer --"
+
+
+def _card_name(card: dict) -> str:
+    board = " ".join(f"{m.get('mark')}{m.get('rounding', 'p')}" for m in card.get("board") or [])
+    return f"{card['title']} ({board})" if card.get("title") else f"made-up course {board}"
+
+
+def _looked_up_note(item: dict) -> str:
+    """One look-up as the next turn is reminded of it: its tool and its arguments."""
+    arguments = ", ".join(f"{name} {value}" for name, value in (item.get("arguments") or {}).items())
+    return f"looked up {item.get('tool')}" + (f": {arguments}" if arguments else "")
 
 
 def _thread_for(actor: str, limit: int = 14):
@@ -173,17 +288,20 @@ def _thread_for(actor: str, limit: int = 14):
     placeholders = ", ".join("?" for _ in THREADED_STATUSES)
     with get_db() as db:
         rows = db.execute(
-            "SELECT text, readback, result_json, status FROM assistant_commands"
-            f" WHERE actor = ? AND created_at >= ? AND status IN ({placeholders})"
+            "SELECT text, readback, result_json, resolved_json, status, created_at"
+            f" FROM assistant_commands WHERE actor = ? AND created_at >= ? AND status IN ({placeholders})"
             " ORDER BY id DESC LIMIT ?",
             (actor, since, *THREADED_STATUSES, limit)).fetchall()
     kinds = {"done": "ow-done", "pending": "ow-ask", "asked": "ow-ask",
-             "not_understood": "ow-ask"}
+             "not_understood": "ow-ask", "failed": "ow-problem"}
     turns = []
     for row in reversed(rows):
         said = json.loads(row["result_json"] or "{}").get("message") or row["readback"] or ""
-        turns.append({"you": row["text"], "app": said,
-                      "kind": kinds.get(row["status"], "")})
+        courses = (json.loads(row["resolved_json"] or "{}") or {}).get("courses") or []
+        turns.append({"you": row["text"], "app": said, "courses": courses,
+                      "kind": kinds.get(row["status"], ""),
+                      # The hut's clock, HH:MM: which of two "use course 4"s was the later.
+                      "at": str(row["created_at"] or "")[11:16]})
     return turns
 
 
@@ -242,6 +360,21 @@ def _pending_command(actor: str):
             " AND expires_at >= ? ORDER BY id DESC LIMIT 1", (actor, now)).fetchone()
 
 
+def _still_waiting(actor: str) -> dict:
+    """The proposal still waiting for this person's yes, for a reply that is not
+    itself one.
+
+    A reply in words used to take the Yes button away with it. With AP-down read
+    back and waiting, "give me a usable option" got an answer, the button went,
+    and for a minute and a half the interpreter kept saying "press Yes" to a
+    race officer who had nothing to press -- AP came down three minutes late.
+    """
+    row = _pending_command(actor)
+    if row is None:
+        return {}
+    return {"pending_token": str(row["token"]), "pending_readback": str(row["readback"] or "")}
+
+
 def _supersede_pending(actor: str, keep_id: int) -> None:
     """One live proposal at a time.
 
@@ -282,6 +415,31 @@ def _working_race(actor: str = ""):
                 if race is not None:
                     return race
     return get_current_competitor_race()
+
+
+# A reading older than this is not "the wind now". The instrument samples every
+# few seconds; a quarter of an hour without one is a station that has stopped.
+WIND_STALE_S = 15 * 60
+
+
+def _wind_reading():
+    """The latest wind sample with how old it is and where it came from, or None.
+
+    "321° at 0.6 knots" was being given as the wind now while the wind history
+    said nothing had been recorded for an hour: the latest sample is returned
+    whatever its age, and every course time was being worked out on it.
+    """
+    try:
+        status = weather_runtime_status()
+        wind = status.get("sample") or status.get("latest") or latest_weather_sample()
+        if not wind or wind.get("twd") is None:
+            return None
+        taken = float(wind.get("t") or 0)
+        return {"twd": float(wind["twd"]), "tws": float(wind.get("tws") or 0.0),
+                "age_s": (time.time() - taken) if taken else None,
+                "manual": str(wind.get("source") or "") == "manual"}
+    except Exception:
+        return None
 
 
 def _wind_now():
@@ -375,6 +533,27 @@ def _fleet_facts(race) -> list:
             + "; ".join(said) + "."]
 
 
+def _postponement_facts(race) -> list:
+    """Whether a postponement flag is flying on this race, in words nobody can
+    read past: the stored gun time stays as it was under AP, and entries stay
+    marked as racing, so both look like a race under way when it is not."""
+    flag = postponement_flag(race)
+    if not flag:
+        return []
+    since = str(row_get(race, "postponed_at", "") or "")[11:16]
+    ends = str(row_get(race, "postponement_ends_at", "") or "")[11:16]
+    said = (f"{flag} IS UP on this race" + (f" since {since}" if since else "")
+            + ": it is postponed and has NOT started. No start signal sounds while it is up, "
+            "whatever the stored start time says, and a boat shown as racing has not started "
+            "either.")
+    if ends:
+        said += f" It is due to come down at {ends}, with the warning signal one minute later."
+    elif flag == "AP":
+        said += (" Nothing brings it down but resume_race, and the warning signal is made one "
+                 "minute after it is lowered.")
+    return [said]
+
+
 def _tracker_facts() -> list:
     """Whether the trackers are actually reporting, and how recently.
 
@@ -459,6 +638,26 @@ def _course_as_sailed(race):
     return apply_course_shortening(course, index)
 
 
+def _course_label(race) -> str:
+    """The race's course as the race officer knows it: "course 20", or a made-up
+    course by its board. The fixed number a made-up course keeps underneath it is
+    never said: it is not the course anybody is sailing."""
+    if race is None or not row_get(race, "course_set", 1):
+        return ""
+    made = custom_course_from_race(race)
+    if made:
+        board = " ".join(f"{m['mark']}{str(m.get('rounding', 'p') or 'p')[:1]}"
+                         for m in made.get("marks") or [])
+        return f"a made-up course, {board}"
+    return f"course {row_get(race, 'course_no', '')}"
+
+
+def _race_polar_path(race):
+    """The polar this race's times are worked out on: its own, else the club's.
+    The race sheet's Predicted column uses the same, so the two agree."""
+    return resolve_polar_path(race_saved_polar(race, list_polar_files()) if race is not None else None)
+
+
 def _expected_time_round(race):
     """How long the race's course should take in the wind now, and by when.
 
@@ -470,7 +669,8 @@ def _expected_time_round(race):
     if not wind or race is None or not row_get(race, "course_set", 1):
         return None
     try:
-        analysis = analyse_course_with_wind(_course_as_sailed(race), wind[0], wind[1])
+        analysis = analyse_course_with_wind(_course_as_sailed(race), wind[0], wind[1],
+                                            _race_polar_path(race))
         minutes = analysis.get("predicted_minutes")
         if not minutes:
             return None
@@ -534,6 +734,10 @@ def _header_state(race) -> dict:
         "course_marks": (course or {}).get("marks") or [],
         "course_board": _board_marks(course),
         "wind_direction": round(wind[0]) if wind else "",
+        # So the page can tell a different race from a changed one, and draw a
+        # shortening called from the race sheet as the chart there draws it.
+        "race_id": int(race["id"]),
+        "shortened": bool(row_get(race, "shortened_at_mark", "")),
     }
 
 
@@ -567,14 +771,17 @@ def _course_facts(race, wind) -> list:
         return []
     twd, tws = wind
     facts = []
-    target = 60.0
     course = _course_as_sailed(race) if race is not None else None
     if course and race is not None and row_get(race, "course_set", 1):
-        analysis = analyse_course_with_wind(course, twd, tws)
+        polar = _race_polar_path(race)
+        analysis = analyse_course_with_wind(course, twd, tws, polar)
         minutes = analysis.get("predicted_minutes")
-        said = f"Course {course.get('course_no')} is {course.get('length_nm')} nautical miles"
+        facts.append(f"The race's times are worked out on the {polar.stem} polar"
+                     + (" (the club's default)" if polar.name == resolve_polar_path(None).name
+                        else " (its own)") + ".")
+        said = (f"The race's course, {_course_label(race)}, is {course.get('length_nm')} "
+                "nautical miles")
         if minutes:
-            target = float(minutes)
             said += (f" and should take about {round(minutes)} minutes round in this wind, "
                      "for a boat sailing to the polar")
         facts.append(said + ".")
@@ -595,19 +802,14 @@ def _course_facts(race, wind) -> list:
     elif race is not None:
         facts.append("No course has been chosen for it yet.")
 
-    rows = recommend_courses_with_polar(twd, tws, target, resolve_polar_path(None))
-    for row in rows[:5]:
-        facts.append(f"Course {row['course_no']}: {row.get('length_nm')} nm, about "
-                     f"{round(row['predicted_minutes'])} minutes, {row.get('upwind_legs')} upwind / "
-                     f"{row.get('reach_legs')} reaching / {row.get('downwind_legs')} downwind legs."
-                     if row.get("predicted_minutes") else
-                     f"Course {row['course_no']}: {row.get('length_nm')} nm.")
-    reaching = [r for r in rows if r.get("predicted_minutes")]
-    if reaching:
-        most = max(reaching, key=lambda r: (r.get("reach_legs") or 0, -abs(r["predicted_minutes"] - target)))
-        facts.append(f"The most reaching available in this wind is course {most['course_no']} with "
-                     f"{most.get('reach_legs')} reaching legs ({most.get('length_nm')} nm, about "
-                     f"{round(most['predicted_minutes'])} minutes).")
+    # No list of recommended courses here any more. It was ranked for a length --
+    # the current course's own time, or an hour -- that nobody had asked for, and
+    # the interpreter took it as the race officer's: "where did you get the
+    # target time from? I didn't say anything about it." The recommendations are
+    # a look-up now, made with the length the race officer actually gives.
+    facts.append("No race length has been asked for unless the race officer gives one. To "
+                 "recommend or suggest a course, use the length they said; if they have not "
+                 "said one, ask, or say plainly which length you assumed and why.")
     return facts
 
 
@@ -661,7 +863,18 @@ def _facts(race) -> list:
 
     def the_wind():
         if wind:
-            facts.append(f"Wind now: {round(wind[0])} degrees true at {round(wind[1], 1)} knots.")
+            reading = _wind_reading() or {}
+            said = f"{round(wind[0])} degrees true at {round(wind[1], 1)} knots"
+            if reading.get("manual"):
+                facts.append(f"Wind: {said} -- typed into Settings by hand, not measured. Say so "
+                             "whenever you use it.")
+            elif reading.get("age_s") is not None and reading["age_s"] > WIND_STALE_S:
+                facts.append(f"The wind instrument's last reading was {_plain_age(reading['age_s'])} "
+                             f"ago: {said}. Nothing newer has come in, so the wind now is NOT known. "
+                             "Say so before using it, and say that any course time is worked out "
+                             "on that old reading.")
+            else:
+                facts.append(f"Wind now: {said}.")
             facts.extend(_wind_trend())
         else:
             facts.append("The club's wind instrument is not reading, so nothing about the wind, "
@@ -675,6 +888,11 @@ def _facts(race) -> list:
         entries = get_entries(race_id)
         racing = sum(1 for e in entries if e["status"] == "RACING")
         finished = sum(1 for e in entries if e["finish_time"] or e["status"] == "FINISHED")
+        # First, because it decides what every other fact means. With AP up
+        # since 21:17 the interpreter was told only that the gun was at 21:21 and
+        # that Mojito was racing, and it told the race officer AP was down --
+        # while the competitor page showed the flag.
+        facts.extend(_postponement_facts(race))
         facts.append(f"Race #{race_id} has {len(entries)} boats entered, {racing} racing "
                      f"and {finished} finished.")
         # By name and sail number, because "who has entered?" and "is GBR4822
@@ -781,7 +999,7 @@ def _context(actor: str = "") -> CommandContext:
     """
     race = _working_race(actor)
     gun = parse_dt(race_first_start_time(race)) if race else None
-    return CommandContext(
+    context = CommandContext(
         now=datetime.now(),
         current_race_id=int(race["id"]) if race else None,
         current_race_name=str(row_get(race, "name", "") or "") if race else "",
@@ -789,14 +1007,66 @@ def _context(actor: str = "") -> CommandContext:
         current_gun_time=gun,
         current_course_no=int(row_get(race, "course_no", 0) or 0) if race else None,
         course_is_set=bool(row_get(race, "course_set", 1)) if race else True,
+        current_course_label=_course_label(race),
         race_finished=race_is_finished_for_public(int(race["id"])) if race else False,
         recent=_recent_exchanges(actor) if actor else [],
         facts=_facts(race),
+        club_series=[str(s["name"]) for s in list_series()],
+        last_races=_last_races(),
     )
+    context.read = lambda name, arguments: _read(name, arguments, context)
+    return context
+
+
+def _last_races(limit: int = 12) -> list:
+    """The latest races, newest first, as a new race is asked about them: its
+    name, its series and when it was, so "the last race was in ..." can be said."""
+    series_names = {int(s["id"]): str(s["name"]) for s in list_series()}
+    races = []
+    for race in _recent_races(limit):
+        when = parse_dt(race_first_start_time(race)) or parse_dt(str(row_get(race, "created_at", "") or ""))
+        races.append({"name": str(row_get(race, "name", "") or ""),
+                      "series": series_names.get(int(row_get(race, "series_id", 0) or 0), ""),
+                      "when": when.strftime("on %a %d %b").replace(" 0", " ") if when else ""})
+    return races
+
+
+def _read(name: str, arguments: dict, context: CommandContext) -> str:
+    """Run a read-only tool for the interpreter and say what it found.
+
+    Through exactly the path the page takes for the same tool -- resolve, the
+    checks against the race, `_execute` -- so the model is told what the race
+    officer would have been shown, and there is no second way to look anything
+    up. A question the app would have asked comes back as that question, for the
+    model to answer from what it knows or to put to the race officer.
+    """
+    if tool_kind(name) == WRITE:
+        return "That tool changes something, so it cannot be run as a look-up."
+    answer = resolve(Intent(name, dict(arguments or {}), source="model"), context)
+    if answer.status == NEEDS_CLARIFICATION:
+        return f"The app needs more to look that up: {answer.question}"
+    if answer.status != NEEDS_CONFIRMATION:
+        return answer.question or answer.answer or "The app could not look that up."
+    resolved, error, _field = _check_against_the_race(answer.intent, dict(answer.resolved))
+    if error:
+        return error
+    if (answer.intent == "weather_forecast" and not resolved.get("race_id")
+            and context.current_race_id):
+        # "Will it build during the race?" is about the race the conversation
+        # is about, so the forecast covers that race's hours.
+        resolved["race_id"] = int(context.current_race_id)
+    if answer.intent in _TIMED_ON_A_POLAR and not resolved.get("boat") and context.current_race_id:
+        race = get_race(int(context.current_race_id))
+        if race is not None:
+            resolved["race_polar"] = race_saved_polar(race, list_polar_files())
+    try:
+        return str(_execute(answer.intent, resolved, current_actor()).get("message") or "")
+    except RaceValidationError as exc:
+        return exc.message
 
 
 def _parser():
-    """The configured model. There is no longer anything underneath it.
+    """The configured model, and nothing underneath it.
 
     The built-in grammar used to answer when no model was configured or one
     could not be reached, on the reasoning that "status" and "shorten at mark 4"
@@ -805,35 +1075,21 @@ def _parser():
     six sentence shapes reads as an app that is simply stupid, and the person on
     the water cannot tell a sentence it will not understand from one it has
     misunderstood. The club's decision is that this feature is unavailable until
-    a model is configured and answering, and that is now what it says.
+    a model is configured and answering, and that is what it says.
 
-    `grammar_parse` stays in `core.assistant`: it is what lets the golden set of
-    sentences be tested in CI with no provider account, and it is still the
-    deterministic reading used when a model has already produced something.
+    It then stayed behind the model, to catch a command the model answered in
+    words, and whenever the model failed. It never caught one. What it did,
+    every time it acted, was see "course N" in a sentence and propose setting
+    it: "which is longer, course 3 or course 4?", "use course 4 and add Mojito"
+    (Mojito lost), "time course 4 on the J70 polar", "that's a different course,
+    not course 6". Measured over 67 sentences with and without it, it changed
+    nothing else, so it was taken out (September 2026). A model that fails now
+    fails plainly: the page says the interpreter did not answer.
+
+    `grammar_parse` stays in `core.assistant` for the tests, as a free and
+    predictable stand-in for a model.
     """
-    model = parser_from_config(hardware_config())
-    if model is None:
-        return None
-
-    def either(text, context):
-        reading = model(text, context)
-        if reading is not None and reading.name != ANSWER:
-            return reading
-        # The model chose to answer in words rather than act. If the grammar can
-        # see an actual command in the same sentence, that wins: "shorten at mark
-        # 4" must shorten the course, however chatty the reply to it would be.
-        fallback = grammar_parse(text, context)
-        if fallback is None or reading is None:
-            return fallback or reading
-        # But a deterministic *question* does not beat a better question. Told
-        # "shorten course", the grammar recognised the shape and could only ask
-        # which mark; the model had already asked which mark **and named the one
-        # the fleet was sailing to**, and that sentence was being thrown away.
-        if resolve(fallback, context).status == NEEDS_CLARIFICATION:
-            return reading
-        return fallback
-
-    return either
+    return parser_from_config(hardware_config())
 
 
 def _fail(message: str, status: int = 400):
@@ -908,6 +1164,75 @@ def _suggested_course(target_minutes: float):
 # Checking the resolved command against the actual race
 # ---------------------------------------------------------------------------
 
+# The look-ups that time something on a polar, and so default to the race's own.
+_TIMED_ON_A_POLAR = {"recommend_courses", "suggest_course", "time_course", "boat_polar",
+                     "look_up"}
+
+# The look-ups that are about one race, and so can be asked about by the race's
+# name -- "the night race", "Race 4" -- rather than its number.
+_NAMES_A_RACE = {"race_results", "race_log", "race_entries", "gps_finishes", "wind_history",
+                 "boat_positions"}
+
+
+def _match_boats(names):
+    """Each name as the boat database has it, or the question to ask instead.
+
+    The interpreter has names; only the boat database has boats. An unmatched
+    name is a question, never the nearest boat: entering the wrong one is a boat
+    racing that nobody knows is racing.
+    """
+    matched = []
+    for typed in names:
+        wanted = typed.strip().lower()
+        boats = search_boats(typed)
+        match = next((b for b in boats if str(b["boat_name"]).strip().lower() == wanted), None)
+        if match is None:
+            match = boats[0] if len(boats) == 1 else None
+        if match is None:
+            return [], (f"There is no boat called '{typed}' in the boat database, or the name "
+                        "matches more than one.")
+        matched.append({"id": int(match["id"]), "name": str(match["boat_name"])})
+    if not matched:
+        return [], "Which boat should be added?"
+    return matched, ""
+
+
+def _entry_label(entry) -> str:
+    sail = str(row_get(entry, "sail_no", "") or "").strip()
+    return f"{entry['boat_name']} ({sail})" if sail else str(entry["boat_name"])
+
+
+def _match_entry(race, typed: str):
+    """The entry a boat was named as in this race, or the question to ask instead.
+
+    Against the race's own entries, not the boat database: a finish can only be
+    recorded for a boat that is racing, and a race-only entry has no database
+    record at all. By name or by sail number, whole first; a part of a name only
+    when it is the only one it could be. Never the nearest boat: a finish given
+    to the wrong one is two boats' results wrong at once.
+    """
+    entries = get_entries(int(race["id"]))
+    wanted = " ".join(str(typed or "").lower().split())
+    digits = re.sub(r"\D", "", wanted)
+
+    def sail(entry):
+        return str(row_get(entry, "sail_no", "") or "").replace(" ", "").lower()
+
+    exact = [e for e in entries
+             if str(e["boat_name"] or "").strip().lower() == wanted
+             or (wanted and sail(e) == wanted.replace(" ", ""))
+             or (digits and digits == wanted and re.sub(r"\D", "", sail(e)) == digits)]
+    if len(exact) == 1:
+        return exact[0], ""
+    near = exact or [e for e in entries if wanted and wanted in str(e["boat_name"] or "").lower()]
+    if len(near) == 1:
+        return near[0], ""
+    if near:
+        return None, f"'{typed}' could be " + " or ".join(_entry_label(e) for e in near) + ". Which one?"
+    entered = ", ".join(_entry_label(e) for e in entries) or "no boats yet"
+    return None, f"'{typed}' is not entered in {race['name']}. Entered: {entered}."
+
+
 def _check_against_the_race(intent: str, resolved: dict):
     """Re-check every field that depends on data, after the interpreter.
 
@@ -917,10 +1242,59 @@ def _check_against_the_race(intent: str, resolved: dict):
     Returns (resolved, error_message, field_the_error_is_about) -- the field so
     that a one-word correction to it can be understood as one.
     """
+    if intent == PLAN:
+        # Every step, before anything is read back, so the read-back cannot
+        # promise a second step that would then fail after the first was done.
+        steps = []
+        for index, step in enumerate(resolved.get("steps") or []):
+            checked, error, field = _check_against_the_race(step["intent"],
+                                                            dict(step.get("resolved") or {}))
+            if error:
+                return resolved, error, f"{index}:{field}" if field else ""
+            steps.append(dict(step, resolved=checked))
+        return dict(resolved, steps=steps), "", ""
+
     race_id = resolved.get("race_id")
     race = get_race(int(race_id)) if race_id else None
     if race_id and not race:
         return resolved, f"There is no race #{int(race_id)}.", "race_id"
+
+    if intent == "finish_boat":
+        if race is None:
+            return resolved, "Which race? There is no race to finish a boat in.", "race_id"
+        gun = race_first_start_dt(race)
+        # A finish before the start is a mistake about which race this is, or
+        # which boat, and the horn would sound for it all the same.
+        if race_is_postponed(race):
+            return resolved, (f"{race['name']} has not started -- AP is up -- so no boat can "
+                              "have finished it."), ""
+        if gun and gun > datetime.now():
+            return resolved, (f"{race['name']} has not started: its first gun is at "
+                              f"{gun:%H:%M}. A boat cannot finish before it."), ""
+        entry, problem = _match_entry(race, resolved.get("boat"))
+        if problem:
+            return resolved, problem, "boat"
+        resolved = dict(resolved, entry_id=int(entry["id"]), boat_name=str(entry["boat_name"]),
+                        sail_no=str(row_get(entry, "sail_no", "") or ""),
+                        finished_at=str(row_get(entry, "finish_time", "") or ""),
+                        entry_status=str(row_get(entry, "status", "") or ""),
+                        no_start_time=gun is None)
+
+    if intent == "set_start_and_course" and resolved.get("polar_name"):
+        path = find_polar(resolved["polar_name"])
+        if path is None:
+            names = ", ".join(sorted(p.rsplit(".", 1)[0] for p in list_polar_files()))
+            return resolved, (f"There is no polar for '{resolved['polar_name']}'. The club has: "
+                              f"{names}."), "polar"
+        resolved = dict(resolved, polar_file=path.name, polar_label=path.stem)
+
+    if intent == "create_race" and resolved.get("course_no") is not None:
+        course = appstate.COURSE_BY_NO.get(int(resolved["course_no"]))
+        if course is None:
+            numbers = sorted(appstate.COURSE_BY_NO)
+            return resolved, (f"There is no course {resolved['course_no']}. The club's courses "
+                              f"run from {numbers[0]} to {numbers[-1]}."), "course_no"
+        resolved = dict(resolved, course_length_nm=course.get("length_nm"))
 
     if intent in ("create_race", "set_start_and_course") and resolved.get("series_name"):
         # The interpreter has a name; only the database has series. A name that
@@ -989,6 +1363,15 @@ def _check_against_the_race(intent: str, resolved: dict):
         resolved = dict(resolved, at_index=int(match["index"]), at_mark=str(match["display"]),
                         at_label=str(match.get("label") or match["display"]))
 
+    if intent == "time_course" and resolved.get("marks") and not resolved.get("course_no"):
+        # Timed on marks that do not exist, a course is a length of nothing.
+        try:
+            resolved = dict(resolved, sequence=validate_course_sequence_json(
+                json.dumps(parse_mark_sequence(resolved["marks"]))))
+        except ValueError as exc:
+            return resolved, (f"{exc} The club's marks are: "
+                              + ", ".join(sorted(appstate.MARKS)) + "."), "marks"
+
     if intent == "set_custom_course":
         # The interpreter has mark names; only the app has marks. An unknown one
         # is a question listing the real ones -- a course sent to a fleet has to
@@ -1000,27 +1383,16 @@ def _check_against_the_race(intent: str, resolved: dict):
             return resolved, (f"{exc} The club's marks are: "
                               + ", ".join(sorted(appstate.MARKS)) + "."), "marks"
 
-    if intent == "add_entries" and resolved.get("scope") == "boat":
-        # The interpreter has names; only the boat database has boats. An
-        # unmatched name is a question, never the nearest boat: entering the
-        # wrong one is a boat racing that nobody knows is racing.
-        matched = []
-        for typed in resolved.get("boat_names") or []:
-            wanted = typed.strip().lower()
-            boats = search_boats(typed)
-            match = next((b for b in boats if str(b["boat_name"]).strip().lower() == wanted), None)
-            if match is None:
-                match = boats[0] if len(boats) == 1 else None
-            if match is None:
-                return resolved, (f"There is no boat called '{typed}' in the boat database, or "
-                                  "the name matches more than one."), "boat"
-            matched.append({"id": int(match["id"]), "name": str(match["boat_name"])})
-        if not matched:
-            return resolved, "Which boat should be added?", "boat"
+    if ((intent == "add_entries" and resolved.get("scope") == "boat")
+            or (intent == "create_race" and resolved.get("boat_names"))):
+        matched, error = _match_boats(resolved.get("boat_names") or [])
+        if error:
+            return resolved, error, "boat"
         resolved = dict(resolved, boats=matched,
                         boat_names=[b["name"] for b in matched])
 
-    if intent == "race_results" and not resolved.get("race_id"):
+    if intent in _NAMES_A_RACE and not resolved.get("race_id") and (
+            resolved.get("race_name") or intent == "race_results"):
         wanted = str(resolved.get("race_name") or "").strip().lower()
         races = _recent_races(40)
         match = next((r for r in races if str(r["name"]).strip().lower() == wanted), None)
@@ -1209,8 +1581,10 @@ def _look_up(resolved: dict, race_id_hint=None) -> str:
                               for m in course.get("marks", []))
             return (f"Course {number} is {course.get('length_nm')} nm: {board}. With no wind "
                     "reading the legs cannot be analysed.")
-        analysis = analyse_course_with_wind(course, wind[0], wind[1])
+        polar = resolve_polar_path(resolved.get("race_polar") or None)
+        analysis = analyse_course_with_wind(course, wind[0], wind[1], polar)
         minutes = analysis.get("predicted_minutes")
+        offer_fixed_course(course, analysis, wind[0], wind[1], polar.stem)
         return (f"Course {number} is {course.get('length_nm')} nm"
                 + (f", about {round(float(minutes))} minutes round in this wind" if minutes else "")
                 + f". Legs: {_leg_shape(analysis)}.")
@@ -1303,11 +1677,17 @@ def _look_up(resolved: dict, race_id_hint=None) -> str:
                 + ". The first named is the one being raced now.")
 
     if topic == "races":
-        rows = _recent_races(20)
-        said = "; ".join(f"#{r['id']} '{r['name']}'"
-                         + (f" {str(r['start_time'])[:16].replace('T', ' ')}"
-                            if r["start_time"] else "") for r in rows)
-        return f"The most recent races are: {said}." if said else "There are no races yet."
+        # With its series, course, type and gun. Asked "what course did we sail in
+        # the last ISORA race?", the app had only names and dates to offer, and
+        # "another ISORA race" was then proposed on whatever course suited the
+        # wind -- five nautical miles, for a race that had been a night passage.
+        rows = _races_matching(query) if query else _recent_races(20)
+        if not rows:
+            return (f"No race or series matches '{resolved.get('query')}'." if query
+                    else "There are no races yet.")
+        series = {int(row["id"]): str(row["name"]) for row in list_series()}
+        said = "; ".join(_race_line(row, series) for row in rows)
+        return f"Races, most recent first (times are the first gun): {said}."
 
     if topic == "fleet":
         race = get_race(int(race_id_hint)) if race_id_hint else _working_race(current_actor())
@@ -1315,6 +1695,67 @@ def _look_up(resolved: dict, race_id_hint=None) -> str:
         return facts[0] if facts else "No boat in that race is reporting a position."
 
     return f"There is nothing to look up under '{topic}'."
+
+
+def _races_matching(query: str, limit: int = 20):
+    """Races whose name or series contains `query`, most recent first."""
+    wanted = f"%{str(query or '').strip().lower()}%"
+    with get_db() as db:
+        return db.execute(
+            "SELECT r.* FROM races r LEFT JOIN race_series s ON s.id = r.series_id"
+            " WHERE lower(r.name) LIKE ? OR lower(COALESCE(s.name, '')) LIKE ?"
+            " ORDER BY COALESCE(NULLIF(r.start_time, ''), r.created_at) DESC, r.id DESC LIMIT ?",
+            (wanted, wanted, limit)).fetchall()
+
+
+def _race_line(race, series_names: dict) -> str:
+    """One race as somebody choosing the next one needs it."""
+    gun = race_first_start_time(race)
+    series = series_names.get(int(row_get(race, "series_id", 0) or 0), "no series")
+    if row_get(race, "course_set", 1):
+        course = f"course {row_get(race, 'course_no', '')}"
+    else:
+        course = "course not set"
+    return (f"#{race['id']} '{race['name']}'"
+            + (f" {gun[:16].replace('T', ' ')}" if gun else " no start time")
+            + f", {series}, {course}, {row_get(race, 'race_type', 'standard') or 'standard'}")
+
+
+def _find_mark(said: str):
+    """A mark's key from its code or its name: "O", "mark 4", "the Causeway"."""
+    wanted = re.sub(r"^(?:the\s+)?(?:mark\s+)?", "", str(said or "").strip().lower()).strip()
+    if not wanted:
+        return None
+    marks = appstate.MARKS
+    exact = [key for key in marks if key.lower() == wanted]
+    if exact:
+        return exact[0]
+    named = [key for key, row in marks.items()
+             if wanted == str(row.get("name", "")).strip().lower()]
+    if len(named) == 1:
+        return named[0]
+    partly = [key for key, row in marks.items() if wanted in str(row.get("name", "")).lower()]
+    return partly[0] if len(partly) == 1 else None
+
+
+def _mark_distance(one: str, two: str) -> str:
+    """How far, and on what bearing, from one mark to another, in words."""
+    a, b = _find_mark(one), _find_mark(two)
+    missing = [said for said, key in ((one, a), (two, b)) if key is None]
+    if missing:
+        return ("There is no mark called " + " or ".join(f"'{m}'" for m in missing)
+                + ". The club's marks are: " + ", ".join(sorted(appstate.MARKS)) + ".")
+    first, second = appstate.MARKS[a], appstate.MARKS[b]
+    for key, row in ((a, first), (b, second)):
+        if row.get("lat") is None or row.get("lon") is None:
+            return f"Mark {key} has no position recorded, so nothing can be measured to it."
+    nm = haversine_nm(float(first["lat"]), float(first["lon"]),
+                      float(second["lat"]), float(second["lon"]))
+    heading = bearing_deg(float(first["lat"]), float(first["lon"]),
+                          float(second["lat"]), float(second["lon"])) % 360
+    return (f"{a} ({first.get('name')}) to {b} ({second.get('name')}): {round(nm, 2)} nm on a "
+            f"bearing of {round(heading):03d}° true. The way back is the same distance on "
+            f"{round((heading + 180) % 360):03d}°.")
 
 
 def _boat_name(result_row: dict) -> str:
@@ -1394,7 +1835,7 @@ def _execute(intent: str, resolved: dict, actor: str) -> dict:
             race = get_race(created.race_id)
             # A create that named a time is two operations, not a second way of
             # creating a race: the same update the Course & start tab performs.
-            course_no = resolved.get("suggested_course_no")
+            course_no = resolved.get("course_no") or resolved.get("suggested_course_no")
             if resolved.get("first_warning_time") or course_no:
                 # Built from the race as just created, so the series the spec
                 # asked for survives this second save -- it was being written
@@ -1411,12 +1852,19 @@ def _execute(intent: str, resolved: dict, actor: str) -> dict:
                     choosing_course=bool(course_no),
                 ), actor)
                 race = get_race(created.race_id)
+            # Named boats go in through the same call add_entries makes, one at a
+            # time, once the race exists to put them in.
+            named = 0
+            for boat in resolved.get("boats") or []:
+                named += add_entries(db, get_race(created.race_id),
+                                     EntryScope(kind="boat", boat_id=int(boat["id"])),
+                                     actor=actor).added
         message = (f"Race #{created.race_id} '{race['name']}' created")
         if resolved.get("first_gun_time"):
             message += f". First gun {race_first_start_time(race)[11:16]}"
-        if created.entries_added:
-            message += f", {created.entries_added} boat(s) added"
-        suggested = resolved.get("suggested_course_no")
+        if created.entries_added or named:
+            message += f", {created.entries_added + named} boat(s) added"
+        suggested = resolved.get("course_no") or resolved.get("suggested_course_no")
         message += (f", course {suggested}." if suggested
                     else ". Course not yet set — say 'use course 4' or 'recommend a course'.")
         # Said out loud, because it is a real difference in how the race will be
@@ -1433,20 +1881,38 @@ def _execute(intent: str, resolved: dict, actor: str) -> dict:
         race_id = int(resolved["race_id"])
         with get_db() as db:
             race = get_race(race_id)
+            if resolved.get("course_chosen") and custom_course_from_race(race):
+                # The race sheet's own course change does both: the number, and the
+                # made-up course cleared. The Course & start save keeps a made-up
+                # course on purpose -- an unrelated save must not wipe it -- so a
+                # number given to it alone was quietly ignored, three times, while
+                # the reply said "Race #660 updated: course 64".
+                clear_custom_course(db, race, actor=actor)
+                race = get_race(race_id)
             changes = {"course_no": resolved.get("course_no"),
                        "start_time": resolved.get("first_warning_time", ""),
                        "choosing_course": bool(resolved.get("course_chosen"))}
             if resolved.get("series_id"):
                 changes["series_id"] = int(resolved["series_id"])
+            if resolved.get("polar_file"):
+                changes["polar_file"] = resolved["polar_file"]
             result = _save_start_and_course(db, race, _settings_from(race, **changes), actor)
         race = get_race(race_id)
         bits = []
         if resolved.get("first_gun_time"):
             bits.append(f"first gun {race_first_start_time(race)[11:16]}")
         if resolved.get("course_chosen") and resolved.get("course_no") is not None:
-            bits.append(f"course {resolved['course_no']}")
+            # Read back from the race, not from the request: the reply may only
+            # ever say what the race is now on.
+            sailing = _course_label(race)
+            if sailing == f"course {resolved['course_no']}":
+                bits.append(sailing)
+            else:
+                bits.append(f"but the course could NOT be changed -- it is still {sailing}")
         if resolved.get("series_name"):
             bits.append(f"series {resolved['series_name']}")
+        if resolved.get("polar_label"):
+            bits.append(f"timed on the {resolved['polar_label']} polar")
         return {"message": f"Race #{race_id} updated: " + ", ".join(bits) + ".",
                 "race_id": race_id, "warnings": result.warnings}
 
@@ -1484,6 +1950,24 @@ def _execute(intent: str, resolved: dict, actor: str) -> dict:
             message = f"{added.added} boat(s) added to race #{race_id}."
         return {"message": message, "race_id": race_id, "added": added.added}
 
+    if intent == "finish_boat":
+        # The race sheet's Finish button: the same call, so the same horn, the
+        # same race-log entry and the same finish clip, with the time taken now.
+        race_id = int(resolved["race_id"])
+        with get_db() as db:
+            done = finish_entry_now(db, get_race(race_id), int(resolved["entry_id"]), actor=actor)
+        label = done.boat_name + (f" ({done.sail_no})" if done.sail_no else "")
+        horn = done.horn or {}
+        message = f"{label} finished at {done.finish_time[11:19]}."
+        if not horn.get("ok"):
+            message += (" The finish is recorded, but the horn did NOT sound: "
+                        f"{horn.get('message') or 'the horn did not answer'}")
+        elif horn.get("mode") == "simulated":
+            message += " The horn is only simulated on this machine -- no horn is connected."
+        else:
+            message += " Horn sounded."
+        return {"message": message, "race_id": race_id, "entry_id": done.entry_id}
+
     if intent == "shorten_course":
         race_id = int(resolved["race_id"])
         with get_db() as db:
@@ -1502,9 +1986,16 @@ def _execute(intent: str, resolved: dict, actor: str) -> dict:
 
     if intent == "resume_race":
         race_id = int(resolved["race_id"])
+        lower_at = resolved.get("lower_at") or None
+        if lower_at and not resolved.get("lower_at_named", True):
+            # "AP down", no time named: the read-back's minute if it can still be
+            # announced, else the first one that can. A time the race officer
+            # chose is still refused when it is too soon, and says the earliest.
+            chosen = parse_dt(lower_at)
+            if chosen is None or (chosen - datetime.now()).total_seconds() < LOWER_AP_MIN_LEAD_S:
+                lower_at = None
         with get_db() as db:
-            call = resume_race(db, get_race(race_id), actor=actor,
-                               lower_at=resolved.get("lower_at") or None,
+            call = resume_race(db, get_race(race_id), actor=actor, lower_at=lower_at,
                                warning_time=resolved.get("warning_time") or None)
         # The times it actually used, not the ones proposed: a confirmation
         # agreed to after its moment has passed rolls to the next whole minute,
@@ -1570,33 +2061,34 @@ def _execute(intent: str, resolved: dict, actor: str) -> dict:
     if intent == "look_up":
         return {"message": _look_up(resolved, race_id_hint=resolved.get("race_id"))}
 
-    if intent == "race_results":
-        race_id = int(resolved["race_id"])
-        race = get_race(race_id)
-        entries = get_entries(race_id)
-        groups = compute_dual_results(race, entries)
-        parts = []
-        for rating in ("irc", "ytc"):
-            for table in (groups.get(rating) or {}).get("tables", []) or []:
-                placed = [row for row in table.get("rows", []) or [] if row.get("rank")]
-                if not placed:
-                    continue
-                placed.sort(key=lambda row: row["rank"])
-                # A result row carries the entry and the boat, not a name: asked
-                # for the results of the night race, this raised and the page said
-                # only "the hut did not answer (500)".
-                order = ", ".join(f"{row['rank']}. {_boat_name(row)}" for row in placed[:8])
-                label = str(table.get("title") or table.get("class_name") or "").strip()
-                parts.append(f"{rating.upper()}{f' {label}' if label else ''}: {order}")
-        if not parts:
-            # A race with nobody placed is not a results failure: it may not have
-            # been sailed, or the finishes may not be in yet. Say which.
-            racing = sum(1 for e in entries if e["status"] == "RACING")
-            return {"message": f"Race #{race_id} '{race['name']}' has no results yet — "
-                               f"{len(entries)} entered, {racing} still racing.",
-                    "race_id": race_id}
-        return {"message": f"Race #{race_id} '{race['name']}' — " + "; ".join(parts) + ".",
-                "race_id": race_id}
+    if intent == "mark_distance":
+        return {"message": _mark_distance(resolved["from_mark"], resolved["to_mark"])}
+
+    if intent in READS:
+        # Standings, results, the log, a boat's season, entries, GPS finishes,
+        # trackers, the wind, and courses fixed or made up -- each from the
+        # function its own page uses (routes/assistant_reads.py).
+        result = {"message": READS[intent](resolved)}
+        if intent == "race_results":
+            result["race_id"] = int(resolved["race_id"])
+        return result
+
+    if intent == PLAN:
+        # In the order read back, each through its own branch above. A step that
+        # fails stops the rest, and the reply says what was done before it: half
+        # a plan carried out is a state the race officer has to know about.
+        done, race_id = [], None
+        for step in resolved.get("steps") or []:
+            try:
+                result = _execute(step["intent"], step.get("resolved") or {}, actor)
+            except RaceValidationError as exc:
+                before = " ".join(done)
+                return {"message": (f"{before} " if before else "")
+                        + f"Then this could not be done, and nothing after it was: {exc.message}",
+                        "race_id": race_id}
+            done.append(str(result.get("message") or "").strip())
+            race_id = result.get("race_id") or race_id
+        return {"message": " ".join(done), "race_id": race_id}
 
     if intent == "race_status":
         race_id = int(resolved["race_id"])
@@ -1609,7 +2101,7 @@ def _execute(intent: str, resolved: dict, actor: str) -> dict:
         parts.append(f"first gun {race_first_start_time(race)[11:16]}" if warning
                      else "no start time set")
         if row_get(race, "course_set", 1):
-            parts.append(f"course {row_get(race, 'course_no', '')}")
+            parts.append(_course_label(race))
             # How long it should take is the other half of "where are we?", and
             # the app has always known it -- it is what the course recommendation
             # ranks by. Asked outright, the interpreter reached for this report
@@ -1624,10 +2116,114 @@ def _execute(intent: str, resolved: dict, actor: str) -> dict:
         parts.append(f"{len(entries)} entered, {racing} racing, {finished} finished")
         if row_get(race, "shortened_at_mark", ""):
             parts.append(f"shortened at mark {row_get(race, 'shortened_at_mark', '')}")
+        flag = postponement_flag(race)
+        if flag:
+            since = str(row_get(race, "postponed_at", "") or "")[11:16]
+            parts.insert(1, f"{flag} UP" + (f" since {since}" if since else "")
+                         + " -- postponed, not started")
         return {"message": "; ".join(parts) + ".", "race_id": race_id,
                 "entries": len(entries), "racing": racing, "finished": finished}
 
     raise RaceValidationError(f"{intent} is not something this app will do.")
+
+
+def _with_the_fleet(readback: str, resolved: dict) -> str:
+    """A new race's read-back says which boats it will have.
+
+    A race in a series is entered with the boats already racing in that series,
+    so the series is the fleet: the read-back names them, because agreeing to a
+    series is agreeing to them. A race in no series with nobody named starts
+    empty, and says so.
+    """
+    series_name = str(resolved.get("series_name") or "")
+    if resolved.get("series_id") and series_name:
+        with get_db() as db:
+            names = series_boat_names(db, int(resolved["series_id"]))
+        if names:
+            shown = ", ".join(names[:8]) + (f" and {len(names) - 8} more" if len(names) > 8 else "")
+            fleet = f"in series {series_name}, entering its {len(names)} boat(s): {shown}"
+        else:
+            fleet = f"in series {series_name}, which has no boats yet"
+        return readback.replace(f"in series {series_name}", fleet, 1)
+    if not (resolved.get("boat_names") or resolved.get("add_all_active")):
+        return readback.replace("in no series", "in no series, with no boats entered yet", 1)
+    return readback
+
+
+def _checked_readback(intent: str, readback: str, interpreted: dict, resolved: dict):
+    """The read-back in the club's own words once the race has been checked.
+
+    `interpreted` is what the interpreter said and `resolved` what it matched in the
+    club's records; the read-back is corrected from one to the other, and a new
+    race is offered a course for the wind if nobody named one.
+    """
+    # A name matched against the club's own records is read back in the club's
+    # spelling, not as it was typed: "add mojito" is agreed to as "Add Mojito",
+    # which is the boat that will actually be entered.
+    # The read-back must say which rounding, on a course that passes the mark
+    # more than once: "shorten at 4" on a course with three 4s is three
+    # different finishes, and the label is the only thing that tells them apart.
+    if intent == "shorten_course" and resolved.get("at_label"):
+        typed = str(interpreted.get("at_mark") or "")
+        label = str(resolved["at_label"])
+        if typed and label and typed != label:
+            readback = readback.replace(f"mark {typed}", f"mark {label}", 1)
+        if resolved.get("ambiguous_rounding"):
+            readback += (" This course passes it more than once; this is the next one the fleet "
+                         "comes to.")
+    if intent == "set_start_and_course" and resolved.get("course_chosen") and resolved.get("race_id"):
+        race = get_race(int(resolved["race_id"]))
+        made = _course_label(race) if race is not None and custom_course_from_race(race) else ""
+        if made:
+            readback += f" It replaces {made}."
+    if intent == "set_start_and_course" and resolved.get("polar_label"):
+        typed = str(interpreted.get("polar_name") or "")
+        if typed and typed != resolved["polar_label"]:
+            readback = readback.replace(f"the {typed} polar", f"the {resolved['polar_label']} polar", 1)
+    for field in ("series_name", "at_mark"):
+        typed = str(interpreted.get(field) or "")
+        matched = str(resolved.get(field) or "")
+        if typed and matched and typed != matched:
+            readback = readback.replace(typed, matched, 1)
+    for typed, matched in zip(interpreted.get("boat_names") or [],
+                              resolved.get("boat_names") or []):
+        if typed and matched and typed != matched:
+            readback = readback.replace(typed, matched, 1)
+    if intent == "create_race":
+        readback = _with_the_fleet(readback, resolved)
+    if intent == "finish_boat" and resolved.get("boat_name"):
+        typed = str(interpreted.get("boat") or "")
+        label = resolved["boat_name"] + (f" ({resolved['sail_no']})" if resolved.get("sail_no") else "")
+        if typed:
+            readback = readback.replace(f"Finish {typed} ", f"Finish {label} ", 1)
+        if resolved.get("finished_at"):
+            readback += (f" {resolved['boat_name']} already has a finish at "
+                         f"{resolved['finished_at'][11:19]}; this replaces it.")
+        elif str(resolved.get("entry_status") or "").upper() not in ("", "RACING", "FINISHED"):
+            readback += (f" {resolved['boat_name']} is marked {resolved['entry_status']}; this "
+                         "records a finish instead.")
+        if resolved.get("no_start_time"):
+            readback += (" The race has no start time, so its elapsed time cannot be worked out "
+                         "until one is set.")
+    if intent == "create_race" and resolved.get("course_no") is not None:
+        # Named, so the race officer's choice: read back with its length and no
+        # suggestion beside it. "Create a race on course 4" used to be answered
+        # with course 5, chosen for the wind, and a "Say no" to get 4 back.
+        length = resolved.get("course_length_nm")
+        if length is not None:
+            readback = readback.replace(f"course {resolved['course_no']}",
+                                        f"course {resolved['course_no']} ({length} nm)", 1)
+    elif intent == "create_race":
+        suggestion = _suggested_course(resolved.get("target_length_min")
+                                       or resolved.get("pursuit_duration_min") or 60.0)
+        if suggestion:
+            resolved["suggested_course_no"] = suggestion["course_no"]
+            readback += (f" Course {suggestion['course_no']}"
+                         + (f" ({suggestion['length_nm']} nm)" if suggestion.get("length_nm") else "")
+                         + f", chosen for the wind now ({suggestion['twd']}°T, "
+                         f"{suggestion['tws']} kn). Say no if you would rather pick your own.")
+
+    return readback, resolved
 
 
 # ---------------------------------------------------------------------------
@@ -1658,6 +2254,9 @@ def assistant_command():
             if row["status"] == "done":
                 return jsonify({"ok": True, "status": "done", "repeat": True,
                                 **json.loads(row["result_json"] or "{}")})
+            if row["status"] == "failed":
+                return jsonify({"ok": True, "status": ANSWERED, "repeat": True,
+                                "answer": json.loads(row["result_json"] or "{}").get("message", "")})
             return jsonify({"ok": True, "status": NEEDS_CONFIRMATION, "repeat": True,
                             "intent": row["intent"], "readback": row["readback"],
                             "resolved": json.loads(row["resolved_json"] or "{}"),
@@ -1682,6 +2281,8 @@ def assistant_command():
             return _dismiss(waiting)
 
     context = _context(actor)
+    if client_command_id:
+        context.progress = lambda stage: _report_progress(actor, client_command_id, stage)
     if waiting is not None:
         context.pending_readback = str(waiting["readback"] or "")
         context.pending_intent = str(waiting["intent"] or "")
@@ -1702,61 +2303,66 @@ def assistant_command():
         # but only to somebody who reloads it.
         failure = interpreter_status(hardware_config()).get("error") or ""
         if failure:
-            question += f" (The interpreter did not answer: {failure}.)"
-        _remember(actor, text, "", question, "not_understood")
-        return jsonify({"ok": True, "status": NOT_UNDERSTOOD, "question": question})
+            # Not "I did not understand that": nothing was read at all. After a
+            # "yes" to its own offer the page answered with the built-in hints --
+            # "try 'status'" -- to a sentence that had simply timed out.
+            slow = "timed out" in failure.lower() or "timeout" in failure.lower()
+            question = ("The interpreter did not answer in time, so nothing was read and nothing "
+                        "was done. Say it again." if slow else
+                        f"The interpreter did not answer ({failure}), so nothing was read and "
+                        "nothing was done. Say it again.")
+        _remember(actor, text, "", question, "not_understood",
+                  resolved={"looked_up": context.looked_up})
+        return jsonify({"ok": True, "status": NOT_UNDERSTOOD, "question": question,
+                        **_still_waiting(actor)})
     if answer.status == ANSWERED:
         # Words. Nothing is pending, nothing can be confirmed, and there is no
         # branch anywhere that could execute this.
-        _remember(actor, text, ANSWER, answer.answer, "answered")
-        return jsonify({"ok": True, "status": ANSWERED, "answer": answer.answer})
+        courses = offered_courses()
+        _remember(actor, text, ANSWER, answer.answer, "answered",
+                  resolved={"looked_up": context.looked_up, "courses": courses})
+        return jsonify({"ok": True, "status": ANSWERED, "answer": answer.answer,
+                        "courses": courses, **_still_waiting(actor)})
     if answer.status == NEEDS_CLARIFICATION:
+        # What the reply to this question will be added to: usually what the
+        # parser produced, but a plan folded into one new race asks about the
+        # folded race, and the answer belongs there.
+        asked_about = answer.arguments or (dict(intent.arguments) if intent else {})
         _remember(actor, text, answer.intent, answer.question, "asked",
-                  resolved={"arguments": dict(intent.arguments) if intent else {},
+                  resolved={"arguments": asked_about, "looked_up": context.looked_up,
                             "field": answer.clarify_field, "options": answer.options})
         return jsonify({"ok": True, "status": NEEDS_CLARIFICATION, "intent": answer.intent,
-                        "question": answer.question, "options": answer.options})
+                        "question": answer.question, "options": answer.options,
+                        **_still_waiting(actor)})
 
+    if client_command_id:
+        _report_progress(actor, client_command_id, "checking")
     resolved, error, field = _check_against_the_race(answer.intent, dict(answer.resolved))
     if error:
+        # A plan is answered step by step (`answer_to_question`), so it keeps the
+        # steps as the parser gave them rather than as they were checked.
+        asked_about = (dict(intent.arguments) if answer.intent == PLAN and intent
+                       else resolved)
         _remember(actor, text, answer.intent, error, "asked",
-                  resolved={"arguments": resolved, "field": field, "options": []})
+                  resolved={"arguments": asked_about, "looked_up": context.looked_up,
+                            "field": field, "options": []})
         return jsonify({"ok": True, "status": NEEDS_CLARIFICATION, "intent": answer.intent,
-                        "question": error})
+                        "question": error, **_still_waiting(actor)})
 
-    readback = answer.readback
-    # A name matched against the club's own records is read back in the club's
-    # spelling, not as it was typed: "add mojito" is agreed to as "Add Mojito",
-    # which is the boat that will actually be entered.
-    # The read-back must say which rounding, on a course that passes the mark
-    # more than once: "shorten at 4" on a course with three 4s is three
-    # different finishes, and the label is the only thing that tells them apart.
-    if answer.intent == "shorten_course" and resolved.get("at_label"):
-        typed = str(answer.resolved.get("at_mark") or "")
-        label = str(resolved["at_label"])
-        if typed and label and typed != label:
-            readback = readback.replace(f"mark {typed}", f"mark {label}", 1)
-        if resolved.get("ambiguous_rounding"):
-            readback += (" This course passes it more than once; this is the next one the fleet "
-                         "comes to.")
-    for field in ("series_name", "at_mark"):
-        typed = str(answer.resolved.get(field) or "")
-        matched = str(resolved.get(field) or "")
-        if typed and matched and typed != matched:
-            readback = readback.replace(typed, matched, 1)
-    for typed, matched in zip(answer.resolved.get("boat_names") or [],
-                              resolved.get("boat_names") or []):
-        if typed and matched and typed != matched:
-            readback = readback.replace(typed, matched, 1)
-    if answer.intent == "create_race":
-        suggestion = _suggested_course(resolved.get("target_length_min")
-                                       or resolved.get("pursuit_duration_min") or 60.0)
-        if suggestion:
-            resolved["suggested_course_no"] = suggestion["course_no"]
-            readback += (f" Course {suggestion['course_no']}"
-                         + (f" ({suggestion['length_nm']} nm)" if suggestion.get("length_nm") else "")
-                         + f", chosen for the wind now ({suggestion['twd']}°T, "
-                         f"{suggestion['tws']} kn). Say no if you would rather pick your own.")
+    if answer.intent == PLAN:
+        # Each step read back exactly as it would be read alone, then numbered.
+        steps = []
+        for typed_step, step in zip(answer.resolved.get("steps") or [], resolved["steps"]):
+            said, checked = _checked_readback(step["intent"], typed_step["readback"],
+                                              typed_step.get("resolved") or {},
+                                              dict(step.get("resolved") or {}))
+            steps.append(dict(step, resolved=checked, readback=said))
+        resolved = dict(resolved, steps=steps)
+        readback = "In this order: " + " ".join(f"({n}) {step['readback']}"
+                                                for n, step in enumerate(steps, 1))
+    else:
+        readback, resolved = _checked_readback(answer.intent, answer.readback,
+                                               answer.resolved, resolved)
 
     if answer.intent in READ_ONLY_INTENTS:
         try:
@@ -1765,9 +2371,21 @@ def assistant_command():
             return _fail(exc.message)
         # In the thread like everything else: "and how many are still out?" is a
         # perfectly ordinary thing to say after a status report.
-        _remember(actor, text, answer.intent, result.get("message", ""), "done")
+        courses = offered_courses()
+        _remember(actor, text, answer.intent, result.get("message", ""), "done",
+                  resolved={"looked_up": context.looked_up, "courses": courses})
         return jsonify({"ok": True, "status": "done", "intent": answer.intent,
-                        "header": _header_for(result), **result})
+                        "header": _header_for(result), "courses": courses, **result,
+                        **_still_waiting(actor)})
+
+    # A made-up course is read back mark by mark, and drawn with its legs and wind
+    # angles too: those are what the race officer is agreeing to.
+    courses = []
+    if answer.intent == "set_custom_course":
+        card = card_for_sequence(resolved.get("marks") or [])
+        courses = [dict(card, choosable=False)] if card else []
+    if courses:
+        resolved = dict(resolved, courses=courses)
 
     now = datetime.now()
     token = "pc_" + secrets.token_urlsafe(16)
@@ -1781,7 +2399,9 @@ def assistant_command():
             "INSERT INTO assistant_commands (token, client_command_id, actor, text, intent,"
             " resolved_json, readback, status, created_at, expires_at)"
             " VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)",
-            (token, client_command_id, actor, text, answer.intent, json.dumps(resolved),
+            (token, client_command_id, actor, text, answer.intent,
+             json.dumps(dict(resolved, looked_up=context.looked_up) if context.looked_up
+                        else resolved),
              readback, now.isoformat(timespec="seconds"),
              (now + timedelta(seconds=PENDING_TTL_SECONDS)).isoformat(timespec="seconds")),
         )
@@ -1793,13 +2413,47 @@ def assistant_command():
     _supersede_pending(actor, new_id)
     audit("assistant command proposed", f"{answer.intent} · {text[:120]}")
     return jsonify({"ok": True, "status": NEEDS_CONFIRMATION, "intent": answer.intent,
-                    "readback": readback, "resolved": resolved,
-                    "pending_token": token, "warnings": answer.warnings})
+                    "readback": readback, "resolved": resolved, "courses": courses,
+                    "pending_token": token, "pending_readback": readback,
+                    "warnings": answer.warnings})
 
 
 # ---------------------------------------------------------------------------
 # Confirm
 # ---------------------------------------------------------------------------
+
+@app.route("/api/assistant/progress")
+@app.route("/admin/api/assistant/progress")
+def assistant_progress():
+    """What the interpreter is doing with this person's command right now."""
+    refused = _refuse_without_permission()
+    if refused:
+        return refused
+    command_id = str(request.args.get("id") or "").strip()
+    found = _progress_for(current_actor(), command_id) if command_id else {}
+    response = jsonify({"ok": True, **found})
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@app.route("/api/assistant/header")
+@app.route("/admin/api/assistant/header")
+def assistant_header():
+    """The race strip as it is now, for the page to keep itself current.
+
+    The strip only ever changed when this page's own reply carried a new one, so
+    a course changed, a start moved or a course shortened on the race sheet left
+    the page showing the old course, the old board and the old chart -- while
+    every other page in the app followed the change. It is asked for rather than
+    reloaded into: a reload on a boat throws away whatever was half typed.
+    """
+    refused = _refuse_without_permission()
+    if refused:
+        return refused
+    response = jsonify({"ok": True, "header": _header_for({})})
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
 
 def _dismiss(row):
     with get_db() as db:
@@ -1836,6 +2490,17 @@ def _carry_out(row):
     try:
         result = _execute(row["intent"], resolved, row["actor"] or current_actor())
     except RaceValidationError as exc:
+        # Closed, and kept in the conversation. A refused Yes used to leave the
+        # proposal waiting and unrecorded, so the interpreter went on offering
+        # the same AP-down that had just been refused and telling the race
+        # officer to press Yes on it.
+        with get_db() as db:
+            db.execute("UPDATE assistant_commands SET status = 'failed', result_json = ?,"
+                       " executed_at = ? WHERE id = ?",
+                       (json.dumps({"message": f"That could not be done: {exc.message}"}),
+                        datetime.now().isoformat(timespec="seconds"), row["id"]))
+            db.commit()
+        audit("assistant command refused", f"{row['intent']} · {exc.message[:160]}")
         return _fail(exc.message)
 
     with get_db() as db:
@@ -1914,6 +2579,7 @@ def onwater_page():
         assistant_status=interpreter_status(hardware_config()),
         thread=_thread_for(actor),
         pending_token=str(waiting["token"]) if waiting is not None else "",
+        pending_readback=str(waiting["readback"] or "") if waiting is not None else "",
         # The two things somebody on the water looks at without asking: how long
         # until the gun, and what course the fleet is being sent round.
         header=_header_state(race),

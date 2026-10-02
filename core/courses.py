@@ -571,34 +571,225 @@ def course_announcement_text(race: Dict[str, Any], course: Dict[str, Any]) -> st
     return intro
 
 
+def analysed_leg(leg: Dict[str, Any], twd: float, tws: float, polar_rows: List[Dict[str, Any]],
+                 sail_chart: Dict[str, Any]) -> Dict[str, Any]:
+    """One leg's TWA, point of sail, sail, target speed and predicted time.
+
+    The one place a leg is timed. `course_leg_analysis` calls it for every leg of
+    a course, and the made-up course suggester below for every pair of marks it
+    considers, so a suggested course and the same course analysed on the race
+    sheet cannot come out at different times.
+    """
+    if leg["distance_nm"] is None or leg["bearing_deg"] is None:
+        return {**leg, "twa": None, "side": "—", "point_of_sail": "—", "sail": "—",
+                "sail_twa": None, "target": None, "leg_minutes": None}
+    twa = angular_diff(float(leg["bearing_deg"]), twd)
+    target = target_speed_info_for(twa, tws, polar_rows)
+    leg_minutes = None
+    if target and target.get("cmg", 0) > 0:
+        leg_minutes = float(leg["distance_nm"]) / float(target["cmg"]) * 60.0
+    # For VMG legs the boat is not actually sailing the leg TWA.
+    # Upwind it sails at the polar minimum TWA and tacks; deep downwind it
+    # sails at the best downwind VMG angle and gybes.  The sail chart must
+    # therefore be looked up using the polar/sailed TWA, not the course-made
+    # good leg TWA.  Otherwise a leg at, for example, 166° may show no sail
+    # even though the target says to sail 139° where the chart has a valid
+    # kite selection.
+    sail_lookup_twa = float(target.get("polar_twa", twa)) if target else twa
+    return {
+        **leg,
+        "twa": twa,
+        "side": leg_side(float(leg["bearing_deg"]), twd),
+        "point_of_sail": point_of_sail(twa),
+        "sail": sail_for(sail_lookup_twa, tws, sail_chart),
+        "sail_twa": sail_lookup_twa,
+        "target": target,
+        "leg_minutes": leg_minutes,
+    }
+
+
 def course_leg_analysis(course: Dict[str, Any], twd: float, tws: float, polar_rows: List[Dict[str, Any]], sail_chart: Dict[str, Any], marks: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     """Analyse every leg for TWA, sail choice, target speed and predicted time."""
-    analysed = []
-    for leg in course_legs(course, marks=marks):
-        if leg["distance_nm"] is None or leg["bearing_deg"] is None:
-            analysed.append({**leg, "twa": None, "side": "—", "point_of_sail": "—", "sail": "—", "sail_twa": None, "target": None, "leg_minutes": None})
+    return [analysed_leg(leg, twd, tws, polar_rows, sail_chart)
+            for leg in course_legs(course, marks=marks)]
+
+
+# ---------------------------------------------------------------------------
+# Suggesting a made-up course
+# ---------------------------------------------------------------------------
+#
+# The club's 67 fixed courses are drawn for sixteen wind bands, and a race
+# officer on the water often wants something the sheet does not have: a proper
+# windward-leeward in a breeze that sits between two bands, or an hour's racing
+# when every course for the wind is two. The marks are all there, with their
+# positions, and the app already times any leg on the polar -- so it can search
+# the sequences a race officer would consider and time every one the same way
+# the race sheet would.
+#
+# The shapes follow the club's own courses: they start from the line at O, round
+# everything to port, and finish back at O.
+
+COURSE_SHAPES = ("windward_leeward", "triangle", "reaching", "any")
+# A made-up course keeps within this of the line. The Causeway is 11.5 nm off:
+# a passage mark, not somewhere to send an evening race round and back.
+MADE_UP_REACH_NM = 6.0
+# Legs shorter than this bunch the fleet at the mark and are no race at all.
+SHORTEST_LEG_NM = 0.3
+
+
+def made_up_course_marks(start: str = "O", within_nm: float = MADE_UP_REACH_NM,
+                         marks: Optional[Dict[str, Any]] = None) -> List[str]:
+    """The marks a made-up course may use: every mark with a position of its
+    own, within reach of the line -- not only the ones the fixed courses round.
+
+    Waypoints are left out (nobody rounds them) and so are compound marks and
+    their corners, whose rounding order depends on the hand and belongs on a
+    course somebody drew deliberately.
+    """
+    at = appstate.MARKS if marks is None else marks
+    origin = at.get(start) or {}
+    if origin.get("lat") is None:
+        return []
+    usable = []
+    for key, row in at.items():
+        if key == start or row.get("lat") is None or row.get("lon") is None:
             continue
-        twa = angular_diff(float(leg["bearing_deg"]), twd)
-        target = target_speed_info_for(twa, tws, polar_rows)
-        leg_minutes = None
-        if target and target.get("cmg", 0) > 0:
-            leg_minutes = float(leg["distance_nm"]) / float(target["cmg"]) * 60.0
-        # For VMG legs the boat is not actually sailing the leg TWA.
-        # Upwind it sails at the polar minimum TWA and tacks; deep downwind it
-        # sails at the best downwind VMG angle and gybes.  The sail chart must
-        # therefore be looked up using the polar/sailed TWA, not the course-made
-        # good leg TWA.  Otherwise a leg at, for example, 166° may show no sail
-        # even though the target says to sail 139° where the chart has a valid
-        # kite selection.
-        sail_lookup_twa = float(target.get("polar_twa", twa)) if target else twa
-        analysed.append({
-            **leg,
-            "twa": twa,
-            "side": leg_side(float(leg["bearing_deg"]), twd),
-            "point_of_sail": point_of_sail(twa),
-            "sail": sail_for(sail_lookup_twa, tws, sail_chart),
-            "sail_twa": sail_lookup_twa,
-            "target": target,
-            "leg_minutes": leg_minutes,
-        })
-    return analysed
+        if row.get("waypoint") or row.get("compound") or row.get("component_of"):
+            continue
+        if haversine_nm(origin["lat"], origin["lon"], row["lat"], row["lon"]) > within_nm:
+            continue
+        usable.append(key)
+    return sorted(usable, key=mark_sort_key)
+
+
+def _laps_to_try(shape: str, start: str, table: Dict[Tuple[str, str], Dict[str, Any]],
+                 candidates: List[str]) -> List[List[str]]:
+    """Every lap of this shape, each a list of marks ending back at the start."""
+    def twa(a, b):
+        leg = table.get((a, b)) or {}
+        return leg.get("twa")
+
+    laps: List[List[str]] = []
+    if shape == "windward_leeward":
+        # Between any two marks with one upwind of the other, not only back to
+        # the line: in a northerly nothing within reach lies upwind of O, because
+        # the land does, and "no windward-leeward is possible" was wrong -- 9 and
+        # 4 make one. The course then finishes back at O.
+        for leeward in [start] + candidates:
+            for windward in candidates:
+                beat = twa(leeward, windward) if windward != leeward else None
+                if beat is not None and beat <= 30:
+                    laps.append([windward, leeward])
+    elif shape == "triangle":
+        for windward in candidates:
+            beat = twa(start, windward)
+            if beat is None or beat > 45:
+                continue
+            for wing in candidates:
+                reach = twa(windward, wing) if wing != windward else None
+                if reach is not None and 50 <= reach <= 140:
+                    laps.append([windward, wing, start])
+    else:
+        for a in candidates:
+            laps.append([a, start])
+            for b in candidates:
+                if b == a:
+                    continue
+                laps.append([a, b, start])
+                for c in candidates:
+                    if c not in (a, b):
+                        laps.append([a, b, c, start])
+    return laps
+
+
+def suggest_made_up_courses(twd: float, tws: float, target_minutes: float,
+                            polar_rows: List[Dict[str, Any]], sail_chart: Dict[str, Any],
+                            shape: str = "any", limit: int = 3, start: str = "O",
+                            marks: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    """The made-up courses closest to `target_minutes` in this wind, best first.
+
+    Every leg between every pair of usable marks is timed once with
+    `analysed_leg`, and each candidate course is then the sum of its legs --
+    thousands of courses in a fraction of a second, all on the same arithmetic
+    the race sheet uses. Ranked on how near the time is to the target, then on
+    the things a race officer would object to: a first leg that is not a beat
+    (the club's courses start upwind), a leg too short to race, and sail changes.
+
+    Each suggestion carries the full sequence, with the laps written out, which
+    is what `set_custom_course` takes.
+    """
+    shape = shape if shape in COURSE_SHAPES else "any"
+    at = appstate.MARKS if marks is None else marks
+    candidates = made_up_course_marks(start, marks=at)
+    if not candidates or target_minutes <= 0:
+        return []
+    points = [start] + candidates
+    table: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    for a in points:
+        for b in points:
+            if a == b:
+                continue
+            one, two = at[a], at[b]
+            table[(a, b)] = analysed_leg({
+                "from": mark_display_code(a), "to": mark_display_code(b),
+                "from_mark": a, "to_mark": b,
+                "distance_nm": haversine_nm(one["lat"], one["lon"], two["lat"], two["lon"]),
+                "bearing_deg": bearing_deg(one["lat"], one["lon"], two["lat"], two["lon"]),
+            }, twd, tws, polar_rows, sail_chart)
+
+    fixed = {tuple((m.get("mark"), str(m.get("rounding", ""))[:1]) for m in c.get("marks") or []):
+             c.get("course_no") for c in appstate.COURSES}
+    found: Dict[Tuple[str, ...], Dict[str, Any]] = {}
+    for lap in _laps_to_try(shape, start, table, candidates):
+        for laps in range(1, 7):
+            sequence = lap * laps + ([] if lap[-1] == start else [start])
+            legs, prev = [], start
+            for mark in sequence:
+                legs.append(table[(prev, mark)])
+                prev = mark
+            if any(leg.get("leg_minutes") is None for leg in legs):
+                break
+            minutes = sum(float(leg["leg_minutes"]) for leg in legs)
+            if minutes > target_minutes * 1.6:
+                break                      # another lap only makes it longer
+            if minutes < target_minutes * 0.5:
+                continue
+            first_twa = float(legs[0]["twa"])
+            reaches = sum(1 for leg in legs if 55 <= float(leg["twa"]) <= 135)
+            if shape == "reaching" and not reaches:
+                continue
+            sails = [leg.get("sail") for leg in legs if leg.get("sail") and leg.get("sail") != "—"]
+            sail_changes = sum(1 for x, y in zip(sails, sails[1:]) if x != y)
+            short = sum(1 for leg in legs if float(leg["distance_nm"]) < SHORTEST_LEG_NM)
+            # Beyond three laps the legs are short and the fleet spends the race
+            # rounding marks: allowed, but only when nothing longer fits.
+            score = (abs(minutes - target_minutes) / target_minutes * 100.0
+                     + max(0.0, first_twa - 45.0) * 0.6
+                     + (first_twa * 0.3 if shape == "windward_leeward" else 0.0)
+                     + sail_changes * 2.0 + short * 15.0 + max(0, laps - 3) * 6.0
+                     # Asked for reaching, more of it is better -- up to a point:
+                     # a course of nothing but reaches has no beat to start on.
+                     - (min(reaches, 3) * 5.0 if shape == "reaching" else 0.0))
+            key = tuple(sequence)
+            if key in found and found[key]["score"] <= score:
+                continue
+            tokens = tuple((mark, "p") for mark in sequence)
+            found[key] = {
+                "lap": list(lap), "laps": laps,
+                "sequence": [{"mark": mark, "rounding": "port"} for mark in sequence],
+                "minutes": minutes,
+                "length_nm": sum(float(leg["distance_nm"]) for leg in legs),
+                "first_twa": first_twa, "sail_changes": sail_changes,
+                "legs": legs, "score": score,
+                "same_as_course": fixed.get(tokens),
+            }
+    ranked = sorted(found.values(), key=lambda item: (item["score"], item["minutes"]))
+    chosen: List[Dict[str, Any]] = []
+    for item in ranked:
+        # Three variations on one windward mark are one suggestion, not three.
+        if any(item["lap"] == other["lap"] for other in chosen):
+            continue
+        chosen.append(item)
+        if len(chosen) >= limit:
+            break
+    return chosen

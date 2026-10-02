@@ -80,6 +80,9 @@ DEFAULT_HARDWARE_CONFIG = {
     "assistant_api_key": os.environ.get("RO_ASSISTANT_API_KEY", "").strip(),
     "assistant_model": os.environ.get("RO_ASSISTANT_MODEL", "").strip(),
     "assistant_base_url": os.environ.get("RO_ASSISTANT_BASE_URL", "").strip(),
+    # Where the Virtual Race Officer looks up a weather forecast (core.forecast).
+    # Empty means Open-Meteo's forecast at the club's own position.
+    "forecast_url": os.environ.get("RO_FORECAST_URL", "").strip(),
     "traccar_base_url": os.environ.get("RO_TRACCAR_BASE_URL", "").strip(),
     "traccar_token": os.environ.get("RO_TRACCAR_TOKEN", "").strip(),
     "track_poll_seconds": int(os.environ.get("RO_TRACK_POLL_SECONDS", "5")),
@@ -221,6 +224,7 @@ def save_hardware_config(settings: Dict[str, Any]) -> str:
         "assistant_api_key": str(settings.get("assistant_api_key", "") or "").strip(),
         "assistant_model": str(settings.get("assistant_model", "") or "").strip(),
         "assistant_base_url": str(settings.get("assistant_base_url", "") or "").strip(),
+        "forecast_url": str(settings.get("forecast_url", "") or "").strip(),
         "traccar_base_url": str(settings.get("traccar_base_url", "")).strip(),
         "traccar_token": str(settings.get("traccar_token", "")).strip(),
         "track_poll_seconds": str(int_in_range(settings.get("track_poll_seconds"), 5, 2, 60)),
@@ -310,6 +314,7 @@ def hardware_config() -> Dict[str, Any]:
         cfg["assistant_api_key"] = str(overrides.get("assistant_api_key", cfg["assistant_api_key"]) or "").strip()
         cfg["assistant_model"] = str(overrides.get("assistant_model", cfg["assistant_model"]) or "").strip()
         cfg["assistant_base_url"] = str(overrides.get("assistant_base_url", cfg["assistant_base_url"]) or "").strip()
+        cfg["forecast_url"] = str(overrides.get("forecast_url", cfg["forecast_url"]) or "").strip()
     if cfg["horn_line"] not in ("RTS", "DTR"):
         cfg["horn_line"] = PROLOG_HORN_OUTPUT_LINE
     if cfg.get("horn_input_enabled"):

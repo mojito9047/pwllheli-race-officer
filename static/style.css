@@ -2977,112 +2977,374 @@ body.replay-fullscreen-open { overflow: hidden; }
 
 /* ---------------------------------------------------------------------------
    On the water: the command page, built for one hand on a phone.
-   Big targets, a readable thread, and the answer buttons where a thumb is.
-   --------------------------------------------------------------------------- */
-.onwater-body { margin: 0; padding: 0.9rem; background: #eef2f7; }
-.onwater { max-width: 42rem; margin-inline: auto; display: grid; gap: 0.75rem; }
-.onwater-head h2 { margin: 0 0 0.15rem; }
 
-/* The status strip. Two lines and a rolled-up chart, and it has to stay two
-   lines: every row here is a row of conversation pushed off a phone screen.
-   The race sheet's header alone is taller than this whole page has to spare. */
+   Laid out as a chat: the race strip pinned to the top of the screen, the
+   conversation filling everything between and scrolling on its own, and the
+   box to type in pinned to the bottom where a thumb is, with Yes and No docked
+   just above it while something waits for an answer. Before, the thread was a
+   box half the height of the phone inside a page that also scrolled, so the
+   newest reply and the buttons that answered it were seldom on screen at once.
+
+   It is an instrument, not a document (static/theme_race_document.css): the
+   strip is near-black with the clock in big tabular figures, and colour means
+   state -- blue for the race officer and for a read-back waiting, green for
+   done, red for a problem -- and nothing else. The tokens are the theme's, with
+   fallbacks so the page still stands without it.
+   --------------------------------------------------------------------------- */
+.onwater-body {
+  margin: 0; padding: 0;
+  height: 100vh; height: 100dvh;
+  overflow: hidden;
+  background: var(--paper-sunk, #efeade);
+}
+.onwater {
+  max-width: 44rem; margin-inline: auto;
+  height: 100%;
+  display: flex; flex-direction: column;
+  background: var(--paper, #f7f4ec);
+}
+@media (min-width: 46rem) {
+  .onwater { border-inline: 1px solid var(--rule, #cfc7b4); }
+}
+
+/* The strip. It has to stay short: every row here is a row of conversation
+   pushed off a phone screen, and the race sheet's header alone is taller than
+   this whole page has to spare. An opened chart scrolls inside it rather than
+   squeezing the conversation to nothing. */
+.onwater-head {
+  flex: 0 0 auto;
+  max-height: 55%; overflow-y: auto;
+  padding: 0.5rem 1rem 0.6rem;
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+  background: var(--panel, #10120f); color: var(--panel-ink, #e8e6dd);
+  border-bottom: 1px solid var(--panel-rule, #333831);
+}
+.ow-mast {
+  display: flex; justify-content: space-between; gap: 0.6rem; margin: 0;
+  font-family: var(--narrow, "Arial Narrow", system-ui, sans-serif);
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: #9d998c;
+}
+.ow-mast a { color: inherit; text-decoration: none; }
+.ow-mast a::after { content: " \2192"; }
+.ow-mast a:hover { color: var(--panel-ink, #e8e6dd); }
 .ow-now {
   display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem;
-  margin-top: 0.35rem;
+  margin-top: 0.3rem;
 }
 .ow-now-race { min-width: 0; }                 /* so the name truncates, not the clock */
 .ow-now-name {
-  display: block; font-weight: 700; font-size: 1.05rem; color: #0f314e;
+  display: block; font-weight: 600; font-size: 1.08rem; line-height: 1.2;
+  color: var(--panel-ink, #e8e6dd);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.ow-now-state { font-size: 0.82rem; color: #55637a; }
+.ow-now-state {
+  font-family: var(--narrow, "Arial Narrow", system-ui, sans-serif);
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+  color: #9d998c;
+}
 .ow-now-clock {
-  font-size: 1.7rem; font-weight: 700; line-height: 1; color: #0f314e;
+  font-family: var(--mono, Consolas, monospace);
+  font-size: 1.85rem; font-weight: 500; line-height: 1; color: var(--panel-ink, #e8e6dd);
   font-variant-numeric: tabular-nums;         /* so it does not jitter each second */
   white-space: nowrap;
 }
 /* The last five minutes, when the sequence is running and nobody should have to
-   read a number to know it. */
-.ow-imminent { color: #b42318; }
+   read a number to know it. Amber, the instrument's one warning colour: the
+   flag red is unreadable on near-black. */
+.ow-imminent { color: var(--panel-amber, #ffb000); }
 .ow-now-course {
   display: flex; justify-content: space-between; gap: 0.6rem;
-  font-size: 0.92rem; color: #1f2937; margin-top: 0.1rem;
+  font-size: 0.9rem; color: var(--panel-ink, #e8e6dd); margin-top: 0.25rem;
 }
-.ow-now-wind { color: #55637a; white-space: nowrap; }
+.ow-now-wind { color: #9d998c; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ow-chart { margin-top: 0.35rem; }
-.ow-chart > summary {
-  cursor: pointer; font-size: 0.9rem; color: #0d5bd8; padding: 0.15rem 0;
+.onwater-head .ow-chart > summary {
+  cursor: pointer; padding: 0.15rem 0; color: #9d998c;
+  font-family: var(--narrow, "Arial Narrow", system-ui, sans-serif);
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
 }
-.ow-chart .course-map { height: 46vw; max-height: 15rem; margin-top: 0.35rem; }
+.ow-chart .course-map {
+  height: 46vw; max-height: 15rem; margin-top: 0.35rem;
+  background: var(--paper-2, #fffdf7);
+}
 .ow-chart .course-map svg { width: 100%; height: 100%; }
 /* Here the plotted-marks drawing is the design and not a failure to load tiles,
    so the note that says so would be telling somebody at sea about a problem
    they do not have. */
 .ow-chart .course-map-fallback-note { display: none; }
-.ow-mast { margin: 0; font-size: 0.8rem; color: #55637a; }
+.ow-interpreter {
+  margin: 0.45rem 0 0; padding: 0.45rem 0.6rem;
+  background: #2a2412; border: 1px solid #6b5a1e; color: #f3dca0;
+  font-size: 0.88rem; line-height: 1.35;
+}
+.ow-interpreter a { color: inherit; }
 /* No interpreter, no page: said once, in the colour of a thing that is off
    rather than a thing that is broken. */
-.ow-unavailable { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
-
+.ow-unavailable { background: var(--panel-2, #1a1d19); border-color: var(--panel-rule, #333831);
+  color: var(--panel-ink, #e8e6dd); }
 
 /* The course board. The same marks and hands the race sheet and the clubhouse
-   display show — the thing that gets read out over the VHF — but sized for a
+   display show -- the thing that gets read out over the VHF -- but sized for a
    phone, where the full-size chips would take two rows on their own. */
 .ow-board { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.35rem; }
 .ow-board:empty { display: none; }
 .ow-board .mark {
-  font-size: 0.78rem; padding: 2px 5px; min-width: 26px; border-radius: 5px;
+  font-size: 0.78rem; padding: 2px 5px; min-width: 26px;
   box-shadow: none;
 }
-.ow-interpreter {
-  margin: 0.4rem 0 0; padding: 0.5rem 0.65rem; border-radius: 8px;
-  background: #fff8e6; border: 1px solid #f0d48a; color: #6b4e0e;
-  font-size: 0.9rem; line-height: 1.35;
-}
+
+/* The conversation. Short, it sits at the bottom next to the box, as in any
+   chat, rather than at the top of an empty screen. */
 .onwater-thread {
-  display: grid; gap: 0.55rem; padding: 0.65rem;
-  background: #f6f8fb; border: 1px solid #d4dce9; border-radius: 10px;
-  min-height: 9rem; max-height: 52vh; overflow-y: auto;
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; overscroll-behavior: contain;
+  position: relative;                           /* offsetTop for reveal() */
+  display: flex; flex-direction: column; gap: 0.5rem;
+  padding: 1rem 1rem 0.75rem;
 }
-.ow-msg { padding: 0.6rem 0.75rem; border-radius: 10px; }
-.ow-msg p { margin: 0; font-size: 1.05rem; line-height: 1.4; }
-.ow-you { background: #0f314e; color: #fff; justify-self: end; max-width: 85%; }
-.ow-app { background: #fff; border: 1px solid #d4dce9; justify-self: start; max-width: 95%; }
-.ow-ask { border-color: #b9d0ff; background: #eef5ff; }
-.ow-done { border-color: #a8d5b5; background: #eefaf1; }
-.ow-problem { border-color: #f2b8b5; background: #fff1f0; }
+.onwater-thread > :first-child { margin-top: auto; }
+/* A flex column that scrolls shrinks its children to fit before it scrolls, and
+   the cards' row, which scrolls sideways, shrank to a hairline. */
+.onwater-thread > * { flex-shrink: 0; }
+.ow-note {
+  align-self: center; max-width: 32rem; margin: 0 0 0.4rem; text-align: center;
+  font-size: 0.86rem; line-height: 1.45; color: var(--ink-faint, #7d776a);
+}
+.ow-note strong { color: var(--ink-2, #4a463c); font-weight: 600; }
+
+.ow-msg { max-width: 86%; padding: 0.5rem 0.75rem 0.35rem; overflow-wrap: break-word; }
+.ow-msg p { margin: 0; font-size: 1.02rem; line-height: 1.42; }
+/* A reply in lines and lists (static/onwater.js formatted()): three suggested
+   courses read as three lines, not one paragraph. */
+.ow-msg p + p, .ow-msg p + .ow-list, .ow-msg .ow-list + p { margin-top: 0.45rem; }
+.ow-list { margin: 0.35rem 0 0; padding-left: 1.4rem; font-size: 1.02rem; line-height: 1.42; }
+.ow-list li + li { margin-top: 0.35rem; }
+.ow-msg strong { font-weight: 700; }
+/* The race officer on the right in the flag blue; the app on the left on paper,
+   ruled. A turn is a question and its answer, so a little air above each
+   question shows where one ends. */
+.ow-you {
+  align-self: flex-end; max-width: 80%; margin-top: 0.45rem;
+  background: var(--flag-blue, #003478); color: #fff;
+}
+.ow-app {
+  align-self: flex-start;
+  background: var(--paper-2, #fffdf7); color: var(--ink, #1c1a15);
+  border: 1px solid var(--rule, #cfc7b4);
+}
+/* What kind of reply it is, told by the rule down its left edge. */
+.ow-ask { border-left: 3px solid var(--flag-blue, #003478); }
+.ow-done { border-left: 3px solid var(--flag-green, #00843d); }
+.ow-problem { border-left: 3px solid var(--flag-red, #c8102e); background: #fcefec; }
+.ow-time {
+  display: block; margin-top: 0.15rem; text-align: right;
+  font-family: var(--mono, Consolas, monospace); font-size: 0.66rem; line-height: 1.2;
+  color: var(--ink-faint, #7d776a); font-variant-numeric: tabular-nums;
+}
+.ow-you .ow-time { color: rgba(255, 255, 255, 0.68); }
+.ow-new { animation: ow-in 0.18s ease-out; }
+@keyframes ow-in { from { opacity: 0; transform: translateY(6px); } }
+
+/* While the hut works: what it is doing and for how long (static/onwater.js working()). */
+.ow-working { color: var(--ink-2, #4a463c); border-style: dashed; padding-bottom: 0.5rem; }
+.ow-working p { font-size: 0.95rem; }
+.ow-typing { display: inline-flex; gap: 3px; margin-right: 0.5rem; vertical-align: 0.15em; }
+.ow-typing i {
+  width: 6px; height: 6px; background: var(--flag-blue, #003478); opacity: 0.3;
+  animation: ow-bob 1.1s ease-in-out infinite;
+}
+.ow-typing i:nth-child(2) { animation-delay: 0.15s; }
+.ow-typing i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes ow-bob {
+  0%, 70%, 100% { transform: translateY(0); opacity: 0.3; }
+  35% { transform: translateY(-4px); opacity: 1; }
+}
+.ow-working-secs { color: var(--ink-faint, #7d776a); font-variant-numeric: tabular-nums; }
+.ow-working-note { color: #8a5a00; }
+.ow-dots::after { content: "…"; animation: ow-pulse 1.2s ease-in-out infinite; }
+@keyframes ow-pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .ow-dots::after, .ow-typing i, .ow-new { animation: none; }
+  .ow-typing i { opacity: 0.7; }
+}
+
+/* Courses drawn rather than described, under the reply that offered them. Two
+   or more side by side, swiped through, with the edge of the next one showing
+   so it is plain there is a next one. */
+.ow-cards {
+  align-self: stretch;
+  display: flex; gap: 0.6rem; align-items: stretch;
+  overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory; scroll-padding-inline: 1rem;
+  margin: 0 -1rem; padding: 0 1rem 0.2rem;
+  scrollbar-width: thin;                      /* a mouse in the hut cannot swipe */
+}
+.ow-cards > .ow-card { flex: 0 0 min(20rem, 84%); scroll-snap-align: start; }
+.ow-cards-one > .ow-card { flex-basis: min(26rem, 100%); }
+.ow-card {
+  display: flex; flex-direction: column;
+  background: var(--paper-2, #fffdf7); border: 1px solid var(--rule, #cfc7b4);
+  padding: 0.55rem 0.65rem 0.65rem;
+}
+.ow-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.55rem; }
+.ow-card-head .ow-board { margin-top: 0; }
+.ow-card-title {
+  font-family: var(--narrow, "Arial Narrow", system-ui, sans-serif);
+  font-weight: 700; font-size: 0.9rem; letter-spacing: 0.05em; text-transform: uppercase;
+}
+.ow-card-number {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 1.55rem; height: 1.55rem;
+  background: var(--flag-blue, #003478); color: #fff;
+  font-family: var(--mono, Consolas, monospace); font-weight: 600; font-size: 0.85rem;
+}
+.ow-card-sum {
+  flex-basis: 100%;
+  font-family: var(--mono, Consolas, monospace); font-weight: 500; font-size: 0.85rem;
+  color: var(--ink-2, #4a463c); font-variant-numeric: tabular-nums;
+}
+/* Every table in the app is a headed card of its own; this one sits inside a
+   card already, so it is reset to a plain grid. */
+.ow-legs { width: 100%; border-collapse: collapse; margin-top: 0.4rem; font-size: 0.9rem;
+  font-variant-numeric: tabular-nums; border: 0; box-shadow: none;
+  background: transparent; overflow: visible; }
+/* The phone-width rule scrolls every table sideways (table:not(.stack-table)); five short
+   columns fit a phone, and a scrolling one inside a card is a card that moves. */
+table.ow-legs:not(.stack-table) { display: table; }
+.ow-legs th {
+  text-align: left; padding: 0.1rem 0.3rem; background: transparent; color: var(--ink-faint, #7d776a);
+  border-bottom: 1px solid var(--rule, #cfc7b4);
+  font-family: var(--narrow, "Arial Narrow", system-ui, sans-serif);
+  font-weight: 700; font-size: 0.7rem; letter-spacing: 0.07em; text-transform: uppercase;
+}
+.ow-legs td { padding: 0.22rem 0.3rem; border-bottom: 1px solid var(--paper-sunk, #efeade); white-space: nowrap; }
+.ow-legs tr:last-child td { border-bottom: 0; }
+.ow-legs th:nth-child(n+4), .ow-legs .ow-num { text-align: right; }
+.ow-legs .ow-num, .ow-legs .ow-twa, .ow-leg { font-family: var(--mono, Consolas, monospace); }
+.ow-leg { font-weight: 600; }
+.ow-tack { display: inline-block; margin-left: 0.3rem; min-width: 1.1rem; text-align: center;
+  font-family: var(--mono, Consolas, monospace); font-size: 0.7rem; font-weight: 600; color: #fff;
+  padding: 0 0.2rem; }
+.ow-tack-p { background: var(--port); }
+.ow-tack-s { background: var(--starboard); }
+.ow-card-foot { margin: 0.35rem 0 0.55rem !important; font-size: 0.76rem !important;
+  line-height: 1.35; color: var(--ink-faint, #7d776a); }
+/* Pinned to the foot of the card, so the buttons on cards side by side line up. */
+.onwater .ow-card-use {
+  margin-top: auto; width: 100%; padding: 0.6rem 0.8rem;
+  background: transparent; color: var(--flag-blue, #003478);
+  border: 1.5px solid var(--flag-blue, #003478);
+  font-family: var(--narrow, "Arial Narrow", system-ui, sans-serif);
+  font-size: 0.85rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.onwater .ow-card-use:hover, .onwater .ow-card-use:active {
+  background: var(--flag-blue, #003478); color: #fff; border-color: var(--flag-blue, #003478);
+}
 
 /* The answers to a question the app asked, as taps. Typing "standard" one-handed
    on a tiller is exactly the moment the page should ask for less. */
-.ow-options { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
-.ow-options button {
-  font-size: 1rem; padding: 0.55rem 1rem; border-radius: 999px;
-  background: #fff; border: 1px solid #7ba3e0; color: #0f314e;
+.ow-options { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.55rem; }
+.onwater .ow-options button {
+  padding: 0.5rem 0.9rem; background: transparent; color: var(--flag-blue, #003478);
+  border: 1.5px solid var(--flag-blue, #003478);
+  font-family: var(--text-face, system-ui, sans-serif);
+  font-size: 0.98rem; font-weight: 600; letter-spacing: 0; text-transform: none;
 }
-.ow-options button:disabled { opacity: 0.45; }
+.onwater .ow-options button:hover { background: var(--flag-blue, #003478); color: #fff; }
+.onwater .ow-options button:disabled { opacity: 0.45; background: transparent; color: var(--flag-blue, #003478); }
+
+/* The dock: everything a thumb presses, at the bottom of the screen. */
+.onwater-dock {
+  flex: 0 0 auto;
+  display: grid; gap: 0.5rem;
+  padding: 0.55rem 1rem 0.6rem;
+  padding-bottom: max(0.6rem, env(safe-area-inset-bottom));
+  background: var(--paper-2, #fffdf7);
+  border-top: 1px solid var(--rule, #cfc7b4);
+}
+/* With no interpreter there is no box, and nothing waiting: no empty band. */
+.onwater-dock:not(:has(> :not([hidden]))) { display: none; }
 
 /* Only on screen when there is something to answer, so the buttons never
    become scenery to be pressed out of habit. */
-.onwater-answer { display: grid; grid-template-columns: 2fr 1fr; gap: 0.6rem; }
+.onwater-answer {
+  display: grid; grid-template-columns: 2fr 1fr; gap: 0.5rem;
+  padding: 0.5rem 0.55rem 0.55rem;
+  background: var(--paper, #f7f4ec);
+  border: 1px solid var(--rule, #cfc7b4); border-left: 3px solid var(--flag-blue, #003478);
+}
 /* `display: grid` on the class beats the browser's own [hidden] rule, so the
    Yes button sat on screen with nothing to say yes to -- exactly the button
    that must never be pressable out of habit. */
 .onwater-answer[hidden] { display: none; }
-.onwater-answer button { font-size: 1.25rem; padding: 0.9rem 1rem; border-radius: 10px; border: 0; }
-.ow-yes { background: #157347; color: #fff; }
-.ow-no { background: #e9ecef; color: #1f2937; }
-
-.onwater-say { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; }
-.onwater-say input { font-size: 1.1rem; padding: 0.8rem 0.75rem; }
-.onwater-say button { font-size: 1.1rem; padding: 0.8rem 1.2rem; }
-.onwater-quick { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.onwater-quick button {
-  font-size: 0.95rem; padding: 0.55rem 0.8rem; border-radius: 999px;
-  background: #fff; border: 1px solid #d4dce9; color: #1f2937;
+.ow-waiting-label {
+  grid-column: 1 / -1; margin: 0;
+  font-family: var(--narrow, "Arial Narrow", system-ui, sans-serif);
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--flag-blue, #003478);
 }
-@media (max-width: 560px) {
-  .onwater-thread { max-height: 46vh; }
-  .onwater-say input, .onwater-say button { font-size: 1.05rem; }
+/* What the Yes and No buttons are waiting on (static/onwater.js awaitAnswer):
+   two lines at most, because the whole read-back is in the thread above. */
+.ow-waiting {
+  grid-column: 1 / -1; margin: -0.3rem 0 0.1rem;
+  font-size: 0.9rem; line-height: 1.35; color: var(--ink, #1c1a15);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ow-waiting[hidden] { display: none; }
+.onwater .onwater-answer button {
+  padding: 0.7rem 1rem;
+  font-family: var(--narrow, "Arial Narrow", system-ui, sans-serif);
+  font-size: 1.15rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.onwater button.ow-yes,
+.onwater button.ow-yes:hover { background: var(--flag-green, #00843d); border: 1.5px solid var(--flag-green, #00843d); color: #fff; }
+.onwater button.ow-yes:active { background: #006b31; border-color: #006b31; }
+.onwater button.ow-no,
+.onwater button.ow-no:hover { background: transparent; border: 1.5px solid var(--rule-strong, #a89f89); color: var(--ink, #1c1a15); }
+.onwater button.ow-no:active { background: var(--paper-sunk, #efeade); }
+.onwater .onwater-answer button:disabled { opacity: 0.45; }
+
+/* Shortcuts, one swipeable row: suggested replies, as a chat offers them. */
+.onwater-quick {
+  display: flex; gap: 0.4rem;
+  overflow-x: auto; scrollbar-width: none;
+  margin: 0 -1rem; padding: 0 1rem;
+}
+.onwater-quick::-webkit-scrollbar { display: none; }
+/* Put away while something waits for a yes: that is the one decision on the
+   screen, and the conversation above it needs the room more. */
+.onwater-answer:not([hidden]) ~ .onwater-quick { display: none; }
+.onwater .onwater-quick button {
+  flex: 0 0 auto; white-space: nowrap;
+  padding: 0.4rem 0.75rem;
+  background: transparent; color: var(--ink-2, #4a463c);
+  border: 1px solid var(--rule-strong, #a89f89);
+  font-family: var(--text-face, system-ui, sans-serif);
+  font-size: 0.9rem; font-weight: 500; letter-spacing: 0; text-transform: none;
+}
+.onwater .onwater-quick button:hover { background: var(--paper-sunk, #efeade); color: var(--ink, #1c1a15);
+  border-color: var(--ink, #1c1a15); }
+
+.onwater-say { display: flex; gap: 0.5rem; align-items: stretch; }
+/* 16px or more: iOS zooms the whole page into a smaller box when it is focused. */
+.onwater-say input {
+  flex: 1 1 auto; min-width: 0;
+  font-size: 1.05rem; padding: 0.75rem 0.8rem;
+  background: var(--paper, #f7f4ec); border: 1px solid var(--rule-strong, #a89f89);
+}
+.onwater .onwater-say button {
+  flex: 0 0 3.25rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0;
+  background: var(--flag-blue, #003478); border: 1.5px solid var(--flag-blue, #003478); color: #fff;
+}
+.onwater .onwater-say button:hover { background: #00275a; border-color: #00275a; }
+.onwater-say button svg { width: 1.35rem; height: 1.35rem; }
+.onwater .onwater-say button:disabled { opacity: 0.45; }
+.onwater-say button[aria-busy="true"] svg { animation: ow-pulse 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .onwater-say button[aria-busy="true"] svg { animation: none; }
 }
 /* The signal plan under AP. A held signal is one the app will not make while
    the flag flies -- shown rather than removed, because a race officer looking

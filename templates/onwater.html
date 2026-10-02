@@ -12,7 +12,12 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  {# resizes-content: on Android the keyboard shrinks the page rather than
+     sliding over it, so the box being typed in stays above the keyboard. #}
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  {# The phone's own status bar in the strip's colour, so the strip reads as the
+     top of the screen rather than a band across it. #}
+  <meta name="theme-color" content="#10120f">
   <title>Virtual Race Officer · Pwllheli</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
@@ -28,7 +33,7 @@
          conversation pushed off a phone screen -- the race sheet's own header
          is taller than this whole page has to spare. The page's own name is a
          third of a line rather than a heading for the same reason. #}
-      <p class="ow-mast">Virtual Race Officer · <a href="{{ url_for('index') }}">Race office</a></p>
+      <p class="ow-mast"><span>Virtual Race Officer</span><a href="{{ url_for('index') }}">Race office</a></p>
       <div class="ow-now">
         <div class="ow-now-race">
           <span class="ow-now-name" id="owRace">{{ header.race_name }}</span>
@@ -93,45 +98,60 @@
     </div>
 
     <div class="onwater-thread" id="thread" aria-live="polite">
-      <div class="ow-msg ow-app">
-        {# The reassurance that used to sit in the header. It belongs in the
-           thread: it is about what happens when you type, and it costs the top
-           of the page nothing here. #}
+      {# The reassurance that used to sit in the header. It belongs in the
+         thread: it is about what happens when you type, and it costs the top
+         of the page nothing here. A note, not a message: nobody said it. #}
+      <p class="ow-note">
         {% if assistant_status.grammar_only %}
-        <p>Nothing can be read here until an interpreter is configured.</p>
+        Nothing can be read here until an interpreter is configured.
         {% else %}
-        <p>Ready — nothing happens until you say yes. Try <em>“create a race at 11am”</em>,
-           <em>“add all the boats”</em>, <em>“status”</em> or <em>“shorten at mark 4”</em>.</p>
+        <strong>Nothing happens until you say yes.</strong> Try <em>“create a race at 11am”</em>,
+        <em>“suggest a course for an hour”</em>, <em>“status”</em> or <em>“shorten at mark 4”</em>.
         {% endif %}
-      </div>
+      </p>
       {# What was said before this page was loaded. A refresh on a boat is a
          dropped signal or a locked phone, not a decision to start again. #}
       {% for turn in thread %}
-      <div class="ow-msg ow-you"><p>{{ turn.you }}</p></div>
-      {% if turn.app %}<div class="ow-msg ow-app {{ turn.kind }}"><p>{{ turn.app }}</p></div>{% endif %}
+      <div class="ow-msg ow-you"><p>{{ turn.you }}</p>{% if turn.at %}<span class="ow-time">{{ turn.at }}</span>{% endif %}</div>
+      {% if turn.app %}<div class="ow-msg ow-app {{ turn.kind }}"{% if turn.courses %} data-courses='{{ turn.courses|tojson }}'{% endif %}><p class="ow-text">{{ turn.app }}</p>{% if turn.at %}<span class="ow-time">{{ turn.at }}</span>{% endif %}</div>{% endif %}
       {% endfor %}
     </div>
 
-    <div class="onwater-answer" id="answer" hidden>
-      <button type="button" class="ow-yes" id="btnYes">Yes</button>
-      <button type="button" class="ow-no" id="btnNo">No</button>
-    </div>
+    {# Pinned to the bottom of the screen, where a thumb is: Yes and No while
+       something waits for an answer, the shortcuts, and the box. #}
+    <div class="onwater-dock">
+      <div class="onwater-answer" id="answer" hidden>
+        {# What the buttons are for, so they still make sense with other turns
+           between them and the read-back they answer. #}
+        <p class="ow-waiting-label">Waiting for your yes</p>
+        <p class="ow-waiting" id="answerWhat"></p>
+        <button type="button" class="ow-yes" id="btnYes">Yes</button>
+        <button type="button" class="ow-no" id="btnNo">No</button>
+      </div>
 
-    {# No box at all with no interpreter: a disabled one still invites typing,
-       and the answer would be the same refusal every time. #}
-    {% if not assistant_status.grammar_only %}
-    <form class="onwater-say" id="sayForm" autocomplete="off">
-      <input id="sayText" name="text" placeholder="Say what to do…"
-             autocapitalize="sentences" enterkeyhint="send" required>
-      <button type="submit" id="btnSay">Send</button>
-    </form>
+      {# No box at all with no interpreter: a disabled one still invites typing,
+         and the answer would be the same refusal every time. #}
+      {% if not assistant_status.grammar_only %}
+      <div class="onwater-quick">
+        {# No "Add all boats": most of the boat database is not racing on any
+           given day. A new race in a series is entered with that series' boats,
+           and a boat can still be added by name. #}
+        <button type="button" data-say="status">Status</button>
+        <button type="button" data-say="shorten at mark ">Shorten…</button>
+      </div>
 
-    <div class="onwater-quick">
-      <button type="button" data-say="status">Status</button>
-      <button type="button" data-say="add all the boats">Add all boats</button>
-      <button type="button" data-say="shorten at mark ">Shorten…</button>
+      <form class="onwater-say" id="sayForm" autocomplete="off">
+        <input id="sayText" name="text" placeholder="Say what to do…" aria-label="Say what to do"
+               autocapitalize="sentences" enterkeyhint="send" required>
+        <button type="submit" id="btnSay" aria-label="Send" title="Send">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 20V5M5.5 11.5 12 5l6.5 6.5" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="square"/>
+          </svg>
+        </button>
+      </form>
+      {% endif %}
     </div>
-    {% endif %}
   </div>
 
   {# The postponement wording, and the rule for whether AP is still up. #}
@@ -145,7 +165,11 @@
     window.OnWater.start({
       commandUrl: {{ url_for('assistant_command')|tojson }},
       confirmUrl: {{ url_for('assistant_command_confirm')|tojson }},
-      pendingToken: {{ pending_token|tojson }}
+      progressUrl: {{ url_for('assistant_progress')|tojson }},
+      headerUrl: {{ url_for('assistant_header')|tojson }},
+      initialHeader: {{ header|tojson }},
+      pendingToken: {{ pending_token|tojson }},
+      pendingReadback: {{ pending_readback|tojson }}
     });
     {% endif %}
   </script>

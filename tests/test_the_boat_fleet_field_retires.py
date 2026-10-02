@@ -159,7 +159,8 @@ class TestTheFleetScopeWentWithIt:
         from core.assistant import TOOLS
         add = next(t for t in TOOLS if t["name"] == "add_entries")
         assert "fleet" not in add["arguments"]
-        assert "'fleet' for one class" not in add["arguments"]["scope"]
+        assert "fleet" not in add["arguments"]["scope"].get("enum", [])
+        assert "'fleet' for one class" not in add["arguments"]["scope"]["description"]
 
     def test_add_the_fleet_now_means_every_active_boat(self):
         """A race officer saying "add the fleet" means the boats that are

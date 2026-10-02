@@ -6,7 +6,7 @@ Split out of app.py into the routes/ package. Registered on the shared Flask
 read off the running app module (routes.app_module) so it works whether app.py
 was started with ``python app.py`` (module ``__main__``) or imported.
 """
-from core.raceadmin import EntryScope, RaceValidationError, add_entries
+from core.raceadmin import EntryScope, RaceValidationError, add_entries, finish_entry_now
 from routes import app_module
 
 _app = app_module()
@@ -20,12 +20,10 @@ audit = _app.audit
 current_actor = _app.current_actor
 datetime = _app.datetime
 dt_display = _app.dt_display
-fire_horn = _app.fire_horn
 flash = _app.flash
 get_boat = _app.get_boat
 get_db = _app.get_db
 get_race = _app.get_race
-hardware_config = _app.hardware_config
 is_finish_assignable_event = _app.is_finish_assignable_event
 is_pursuit_race = _app.is_pursuit_race
 legacy_entry_rating_value = _app.legacy_entry_rating_value
@@ -37,7 +35,6 @@ recompute_pursuit_start_times = _app.recompute_pursuit_start_times
 redirect = _app.redirect
 request = _app.request
 row_get = _app.row_get
-schedule_video_clip = _app.schedule_video_clip
 confirm_proposal = _app.confirm_proposal
 dismiss_proposal = _app.dismiss_proposal
 course_rounding_sequence = _app.course_rounding_sequence
@@ -127,28 +124,22 @@ def add_all_active_entries(race_id: int):
 @app.route("/race/<int:race_id>/entry/<int:entry_id>/finish_now", methods=["POST"])
 @app.route("/admin/race/<int:race_id>/entry/<int:entry_id>/finish_now", methods=["POST"])
 def finish_now(race_id: int, entry_id: int):
-    # In production this machine should use GPS/NTP disciplined time.
-    """Record an immediate finish, sound the horn and schedule a finish clip."""
-    now = datetime.now().isoformat(timespec="seconds")
-    with get_db() as db:
-        entry = db.execute("SELECT * FROM entries WHERE id = ? AND race_id = ?", (entry_id, race_id)).fetchone()
-        if not entry:
-            flash("Entry not found.", "error")
-            return redirect(url_for("race_detail", race_id=race_id) + "#tab-admin")
-        db.execute(
-            "UPDATE entries SET finish_time = ?, finish_source = 'manual-now', status = 'FINISHED' WHERE id = ? AND race_id = ?",
-            (now, entry_id, race_id),
-        )
-        db.commit()
-    label_parts = [entry["boat_name"]]
-    if entry["sail_no"]:
-        label_parts.append(str(entry["sail_no"]))
-    finish_label = f"Finish now + horn: {' — '.join(label_parts)} at {dt_display(now)}"
-    horn_result = fire_horn(hardware_config()["horn_duration_ms"])
-    log_event(race_id, "finish", finish_label, "finish-now", {"entry_id": entry_id, "finish_time": now, "horn": horn_result})
-    schedule_video_clip(race_id, "finish", now, entry_id=entry_id, label=finish_label)
-    audit("finish recorded", f"race #{race_id} · {entry['boat_name']}")
-    flash(f"Recorded finish for {entry['boat_name']} and fired horn: {horn_result['message']}", "success" if horn_result.get("ok") else "error")
+    """Record an immediate finish, sound the horn and schedule a finish clip.
+
+    The work is `finish_entry_now`, which a finish agreed to from the water
+    calls too, so the button and the Virtual Race Officer cannot drift apart.
+    """
+    race = get_race(race_id)
+    try:
+        if race is None:
+            raise RaceValidationError("Entry not found.")
+        with get_db() as db:
+            done = finish_entry_now(db, race, entry_id, actor=current_actor())
+    except RaceValidationError as exc:
+        flash(exc.message, "error")
+        return redirect(url_for("race_detail", race_id=race_id) + "#tab-admin")
+    flash(f"Recorded finish for {done.boat_name} and fired horn: {done.horn.get('message', '')}",
+          "success" if done.horn.get("ok") else "error")
     return redirect(url_for("race_detail", race_id=race_id) + "#tab-admin")
 
 

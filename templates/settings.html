@@ -257,18 +257,16 @@
   <div class="status-box {{ 'ok' if assistant_status.model and not assistant_status.error else 'warn' }}">
     <strong>Interpreter:</strong> {{ assistant_status.text }}
   </div>
-  <p class="muted small">A model is optional. Without one the app uses its own small grammar, which
-    handles <code>status</code>, <code>create a race at 11</code>, <code>add all the boats</code>,
-    <code>use course 4</code> and <code>shorten at mark 4</code> &mdash; and answers
-    &ldquo;I did not understand that&rdquo; to anything else. That is deliberate as a fallback:
-    it is what still works when the hut can reach nothing. It is not meant to be the everyday
-    interpreter.</p>
+  <p class="muted small">It needs a model. Without one the page says it is unavailable and the
+    racing is run from the race sheet: a page whose whole premise is &ldquo;type what you want to
+    do&rdquo; answering half a dozen sentence shapes read as an app that simply did not
+    understand.</p>
   <div class="three-col">
     <label>API key
       <input form="settingsSaveForm" type="password" name="assistant_api_key"
              value="{{ config.assistant_api_key }}" placeholder="sk-..." autocomplete="off"
              autocapitalize="none" spellcheck="false">
-      <span class="small muted">Empty means grammar only.</span>
+      <span class="small muted">Empty means the VRO is unavailable.</span>
     </label>
     <label>Model
       <input form="settingsSaveForm" type="text" name="assistant_model"
@@ -281,10 +279,21 @@
       <span class="small muted">Point this at a gateway for logging and rate limits.</span>
     </label>
   </div>
+  <label>Weather forecast URL
+    <input form="settingsSaveForm" type="url" name="forecast_url"
+           value="{{ config.forecast_url }}"
+           placeholder="Empty: Open-Meteo's forecast at the club (UK Met Office model)"
+           autocapitalize="none" spellcheck="false">
+    <span class="small muted">Where the VRO looks when asked what the wind will do. Empty uses
+      Open-Meteo at the start line, which gives it the wind hour by hour: direction, speed and
+      gusts. An <code>api.open-meteo.com</code> URL of your own is read the same way. Any other
+      page is read for its words only &mdash; a windy.app spot page, for instance, carries a
+      day-by-day summary for kitesurfing, because its hourly forecast is drawn in the browser.</span>
+  </label>
   <p class="muted small">The model only ever picks a command and its arguments. The five minutes
     between the warning signal and the gun, whether a mark is on the course, whether a series
     exists &mdash; all of that is applied afterwards in Python, and nothing happens until the
-    read-back is confirmed. If a model cannot be reached, the grammar answers instead.</p>
+    read-back is confirmed. If the model cannot be reached, the page says so and nothing is done.</p>
 </details>
 
 <details class="card settings-section" id="server">

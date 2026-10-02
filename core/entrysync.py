@@ -252,6 +252,30 @@ def sync_series_entries_into_race(db: sqlite3.Connection, race_id: int, series_i
     return added
 
 
+def series_boat_names(db: sqlite3.Connection, series_id: Optional[int]) -> List[str]:
+    """The boats a new race in this series would be entered with, by name.
+
+    The same selection `sync_series_entries_into_race` makes -- one per database
+    boat, one per race-only boat and sail number -- so a read-back that says
+    "entering its 12 boats" is saying what the sync will then do.
+    """
+    if not series_id:
+        return []
+    names: List[str] = []
+    seen: set = set()
+    for entry in db.execute(
+            "SELECT e.boat_id, e.boat_name, e.sail_no FROM entries e JOIN races r ON r.id = e.race_id"
+            " WHERE r.series_id = ? ORDER BY e.boat_name COLLATE NOCASE, e.id", (series_id,)):
+        key = (("boat", int(entry["boat_id"])) if entry["boat_id"] is not None else
+               ("manual", str(entry["boat_name"] or "").strip().upper(),
+                str(entry["sail_no"] or "").strip().upper()))
+        if key in seen:
+            continue
+        seen.add(key)
+        names.append(str(entry["boat_name"] or ""))
+    return names
+
+
 def sync_race_entries_to_series(db: sqlite3.Connection, race_id: int, series_id: Optional[int]) -> int:
     """Ensure every entry in one race also exists in all other races in the series."""
     if not series_id:

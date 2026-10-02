@@ -29,7 +29,7 @@ The normal deployment is a Windows Scheduled Task called **Pwllheli Race Officer
 From the unzipped project folder:
 
 ```bash
-cd pwllheli_race_officer_v1_010
+cd pwllheli_race_officer_v1_011
 python -m venv .venv
 ```
 
@@ -154,6 +154,7 @@ The environment variables below are first-run defaults for a scripted deployment
 - `RO_VIDEO_RTSP_TIMEOUT_S` — how long FFmpeg waits on a silent camera before giving up (default `10` seconds; `0` disables it and restores the old behaviour). Left to itself FFmpeg waits indefinitely: it stays running, holds the segment it was writing open, and records nothing, which is how a two-minute scheduled camera reboot at three in the morning cost the club the video for a whole race. Ten seconds is far longer than any gap between frames on a working camera. Raise it only for a camera on a genuinely slow link, and expect the recorder watchdog to restart the recorder shortly after the timeout fires — that is the recovery.
 - `RO_ASSISTANT_MODEL` — model name (default `claude-sonnet-5`).
 - `RO_ASSISTANT_BASE_URL` — the endpoint to call. Point it at a gateway (for example Cloudflare AI Gateway) to get logging, rate limiting and model fallback without an app change. If you enable caching there, key it on the whole request: "start a race at 11" means a different time tomorrow.
+- `RO_FORECAST_URL` — where the Virtual Race Officer looks up a weather forecast (Settings → Virtual Race Officer → *Weather forecast URL*). Empty means Open-Meteo's hourly forecast at the start line on the UK Met Office model, which needs no account. An `api.open-meteo.com` URL is read hour by hour; any other page is read for its words only. See [`VIRTUAL_RACE_OFFICER.md`](VIRTUAL_RACE_OFFICER.md#the-forecast).
 
 The model only ever chooses a command and its arguments. Every rule — the five minutes between the warning signal and the gun, whether a mark is on the course, whether a series exists — is applied afterwards in Python, and nothing happens until the read-back is confirmed.
 
