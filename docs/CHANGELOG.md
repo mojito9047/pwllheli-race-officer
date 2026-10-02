@@ -19,7 +19,7 @@ courses for a length; made-up courses from **any** of the club's marks for a
 length and shape; any course timed leg by leg on any polar; a boat's polar.
 `scripts/eval_vro.py` measures it against a sanitised copy of the newest hut
 backup with every answer checked against the app's own — 25 of 42 at v1.010,
-72 of 72 before this release's last additions.
+76 of 76 at this release.
 
 **Courses are drawn, not described.** A suggested, timed or recommended course
 is a card: its board, length and time, and a row a leg with the wind angle, the
