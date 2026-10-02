@@ -994,11 +994,18 @@ story.append(Paragraph(
     "for a race officer with a phone in one hand and a tiller in the other. Type a sentence, read back what "
     "it would do, agree to it. Every command goes through the same code the race sheet uses.", styles["Body"]))
 story.append(bullets([
-    "<i>“create a race called Sunday Points at 11am, in the summer series”</i> — a race sheet "
-    "with its first gun and its series, and a course chosen for the wind at that moment if you agree to it.",
+    "<i>“create a race at 11am”</i> — it asks which series the race is in, suggesting the "
+    "series the last race was in, and what it is called, suggesting the last race’s name. A race in a "
+    "series is entered with the boats already racing in it, and the read-back names them. A course is "
+    "chosen for the wind at that moment if you agree to it.",
     "<i>“put the start back ten minutes”</i>, <i>“use course 4”</i>.",
-    "<i>“add all the boats”</i>, <i>“enter the IRC 1 fleet”</i>, <i>“add "
-    "Mojito and Sgrech Bach”</i>, <i>“the same boats as last time”</i>.",
+    "<i>“add Mojito and Sgrech Bach”</i>, <i>“the same boats as last time”</i> — and every "
+    "active boat in the database only when you ask for that, because most of them are not racing.",
+    "<i>“Mojito’s finished”</i> — the race sheet’s <b>Finish</b> button: the finish is "
+    "recorded the moment you press <b>Yes</b>, and the horn sounds.",
+    "<i>“where’s Mojito?”</i>, <i>“how fast are they going?”</i>, <i>“where was "
+    "Jackdaw at 19:20?”</i> — from the trackers.",
+    "<i>“will the wind build during the race?”</i> — from a weather forecast on the internet.",
     "<i>“make me a windward-leeward twice round, O to 4”</i> — a made-up course, read back "
     "mark by mark before it is set, and changed the same way.",
     "<i>“how many courses are there?”</i>, <i>“where is mark 4?”</i>, "
@@ -1014,10 +1021,11 @@ story += note_box(
     "five minutes, and saying the same thing twice does it once.")
 story.append(Paragraph(
     "It is a permission of its own — <b>VRO</b>, ticked per account in <b>Settings → "
-    "Users</b> — and no role grants it, administrators included. It cannot fly AP, signal a recall or "
-    "abandon a race; asked, it says so and offers to move the start instead. There is no <i>arm</i> step "
-    "to withhold: with start automation on the horn sequence follows the race’s stored warning signal, "
-    "so moving that time from the water moves the horn.", styles["Body"]))
+    "Users</b> — and no role grants it, administrators included. It flies AP and lowers it, but it "
+    "cannot signal a recall or abandon a race, and it never sounds the horn on its own — only for a "
+    "finish, a shortened course or a postponement, exactly as the race sheet does. There is no <i>arm</i> "
+    "step to withhold: with start automation on the horn sequence follows the race’s stored warning "
+    "signal, so moving that time from the water moves the horn.", styles["Body"]))
 story.append(Paragraph(
     "It reads ordinary English, and a <b>model must be configured</b> for it to read anything at all: "
     "with none, the page says the feature is not available and offers no box to type in. The app’s own "

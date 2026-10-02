@@ -1,5 +1,84 @@
 # Change log
 
+## v1.011
+
+**The Virtual Race Officer was said not to seem very smart. It was not the model.**
+Every failure traced back to what the model was given: a list of facts written by
+hand, one round trip, and no way to look anything up. Asked how far it was from O
+to the Causeway it said four times that it could not work it out, while holding
+both positions. This release lets it think with the app's own data, and lets it
+do most of what a race officer does on the race sheet.
+
+**It looks things up before it answers.** A look-up runs through the same code
+the page uses and its result goes back to the model, up to three rounds in 45
+seconds; a change still ends the turn as a read-back, and several changes in one
+sentence are one read-back and one Yes. New look-ups: results with finish,
+elapsed and corrected times; series standings; the race log; a boat's season;
+the entries; GPS finishes waiting; the trackers; the wind record; the club's
+courses for a length; made-up courses from **any** of the club's marks for a
+length and shape; any course timed leg by leg on any polar; a boat's polar.
+`scripts/eval_vro.py` measures it against a sanitised copy of the newest hut
+backup with every answer checked against the app's own — 25 of 42 at v1.010,
+72 of 72 before this release's last additions.
+
+**Courses are drawn, not described.** A suggested, timed or recommended course
+is a card: its board, length and time, and a row a leg with the wind angle, the
+tack, the sail, the distance and the minutes. Several are numbered to match the
+words and sit side by side to be swiped through, each with a **Use this** button
+that types the choice for you — read back and agreed to like anything else.
+
+**It finishes boats.** *"Mojito's finished"* is the race sheet's **Finish**
+button, through the same code (`finish_entry_now`, moved out of the route so the
+two cannot drift): the finish recorded at the moment Yes is pressed, the horn,
+the race-log entry and the finish clip. By name or sail number against the
+race's own entries; refused before the start or under AP; a second finish is
+read back as replacing the first; a horn that fails is said to have failed.
+
+**A new race is asked its series and its name.** It suggests the series the last
+race was in, then what the last race in that series was called. A race in a
+series is entered with the boats already racing in it, and the read-back names
+them. **The Add all boats button is gone**: most of the boat database is not
+racing on any given day. *Club Race* is no longer anybody's name.
+
+**It knows where the boats are.** From the trackers: each boat's position in the
+terms a race officer uses (*0.3 nm SW of mark 4*), speed and heading, the age of
+the fix, the next mark's distance and bearing and the distance still to sail;
+the fleet as it stood at any moment; or one boat's track, with distance sailed
+and average and top speed.
+
+**It can read a forecast.** *Settings → Virtual Race Officer → Weather forecast
+URL*; left empty it reads Open-Meteo at the start line on the UK Met Office
+model, hour by hour. Any other page is read for its words only — a windy.app
+spot page gives a daily kitesurfing summary, because its hourly forecast is
+drawn in the browser.
+
+**The page is a chat.** The race strip pinned at the top, the conversation
+filling the screen, the box and the Yes button at the thumb, a typing indicator
+that says what it is doing, and every message timed — in the club's own square,
+flag-coloured theme. The strip now follows changes made anywhere in the app
+within five seconds: a course changed on the race sheet used to leave this page
+showing the old course and chart.
+
+**Fixed along the way**, each from the dev box's own conversation log:
+
+- *"Race #660 updated: course 64"*, three times, and nothing changed — a made-up
+  course outranks a number, and the save keeps it. Choosing a numbered course
+  now clears the made-up one, and the reply is read back from the race.
+- A wind reading two days old was given as *the wind now*. It is called old.
+- *AP down* was proposed 30 seconds ahead and refused on Yes as too soon to
+  announce; it now takes the first minute that can be announced.
+- The Yes button vanished when a question was asked in between.
+- AP flying was invisible to it; the race's own polar could not be set; it
+  forgot the length it had been asked for two turns later.
+- The built-in grammar is gone from the page. Measured, it never once caught a
+  command the model missed, and every time it acted it turned *course N* in a
+  question into a proposal to set it.
+
+**The course API says what the race officer has decided** (`/api/current_race_course`):
+whether a course has been chosen, whether AP is flying, and the course as it is
+being sailed after a shortening. A waypoint is no longer reported as a port
+rounding. `docs/PUBLIC_API.md` is a field-by-field reference for it.
+
 ## v1.010
 
 **A manual backup that included the power history returned a gateway time-out.

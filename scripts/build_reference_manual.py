@@ -2121,12 +2121,21 @@ story.append(Paragraph(
     "boat. The <b>Virtual Race Officer</b> at <b>/vro</b> is one page — a box to type in, a "
     "thread of conversation and a <b>Yes</b> "
     "button — for a race officer with a phone in one hand and a tiller in the other. It creates races, "
-    "sets starts and courses, enters boats, shortens courses and answers questions about the racing, and it "
-    "does all of it by calling the same code the race sheet calls. There is no second way to run a race.",
+    "sets starts and courses, enters boats, flies AP, shortens courses, finishes boats and answers questions "
+    "about the racing, and it does all of it by calling the same code the race sheet calls. There is no "
+    "second way to run a race.",
     styles["Body"]))
+story.append(Paragraph(
+    "It is laid out as a chat, filling the screen: the race strip pinned to the top, the conversation "
+    "scrolling between, and the box to type in pinned to the bottom where a thumb is, with <b>Yes</b> and "
+    "<b>No</b> docked above it while something waits for an answer. The race officer’s messages are on the "
+    "right in blue and the app’s on the left, each with its time; a rule down the left edge says a reply "
+    "is a read-back or question (blue), something done (green) or a problem (red).", styles["Body"]))
 story.append(figure("onwater_page.png",
-                    "The on-the-water page: the race and the countdown to the gun above, the conversation "
-                    "below, and a read-back waiting for Yes.", max_h=13 * cm))
+                    "Two screens from one conversation on a phone. Left: three courses offered as numbered "
+                    "cards, each with a Use this button. Right: the second chosen, read back and "
+                    "waiting for Yes.",
+                    max_h=13 * cm))
 
 story.append(Paragraph("Who may use it", styles["H2"]))
 story.append(Paragraph(
@@ -2145,8 +2154,8 @@ story.append(numbered([
     "You type a sentence — <i>“create a race called Sunday Points at 11am, in the summer "
     "series”</i>.",
     "The app says back exactly what it would do, in full: <i>“Create ‘Sunday Points’ as a "
-    "standard race, first warning signal 10:55, first gun 11:00, in series Summer Series 2026. Course 29 "
-    "(4.0 nm), chosen for the wind now (131°T, 12.0 kn).”</i>",
+    "standard race, first warning signal 10:55, first gun 11:00, in series Summer Series 2026, entering its "
+    "12 boat(s): … Course 29 (4.0 nm), chosen for the wind now (131°T, 12.0 kn).”</i>",
     "Nothing happens until you press <b>Yes</b>, or type one — <i>yes</i>, <i>ok</i>, "
     "<i>go ahead</i>, <i>do it</i>.",
 ]))
@@ -2164,11 +2173,22 @@ story += note_box(
 
 story.append(Paragraph("What it will do", styles["H2"]))
 story += field_table([
-    ("create a race", "A race sheet with its first gun, its type and its series. A course is suggested for "
-                      "the wind at that moment and set if you agree."),
+    ("create a race", "A race sheet with its first gun, its type and its series. It asks which series the "
+                      "race is in, suggesting the one the last race was in, and what it is called, "
+                      "suggesting what the last race in that series was called; a race in a series is "
+                      "entered with the boats already racing in it, and the read-back names them. A course "
+                      "is suggested for the wind at that moment and set if you agree."),
     ("set the start / the course", "<i>“use course 4”</i>, <i>“put the start back ten "
                                    "minutes”</i>, <i>“bring it forward five”</i>."),
-    ("add entries", "Every active boat, one fleet, or one named boat — <i>“add Mojito”</i>."),
+    ("add entries", "Boats by name — <i>“add Mojito and Sgrech Bach”</i> — or the same boats "
+                    "as another race. Every active boat in the database only when you ask for that: "
+                    "there is no <b>Add all boats</b> button, because most of them are not racing."),
+    ("finish a boat", "<i>“Mojito’s finished”</i>, by name or sail number: the race sheet’s "
+                      "<b>Finish</b> button, through the same code — the finish recorded at the moment you "
+                      "press Yes, the horn, the race-log entry and the finish clip. Refused before the start "
+                      "or under AP; a second finish for the same boat is read back as replacing the first."),
+    ("postpone", "AP up with two horn blasts; <i>“lower AP”</i> brings it down at the first minute "
+                 "that can still be announced, and the warning signal follows a minute later."),
     ("shorten the course", "At a mark the fleet is already sailing to. Two horn blasts and the spoken "
                            "announcement, after you confirm."),
     ("status / results", "How the race is going, or the finishing order of a race already sailed."),
@@ -2178,6 +2198,16 @@ story += field_table([
     ("look something up", "The club’s own data: where a mark is, a course’s legs and their "
                           "distances, how many courses there are, the boat database, the series, "
                           "recent races, where the fleet has got to, the polar and its sail chart."),
+    ("suggest a course", "Made-up courses from any of the club’s marks for a length and a shape "
+                         "(windward-leeward, triangle, reaching), timed leg by leg on the polar, and drawn as "
+                         "numbered cards with each leg’s wind angle and tack. <b>Use this</b> on a card "
+                         "types the choice for you, read back like anything else."),
+    ("where the boats are", "From the trackers: each boat’s position as <i>0.3 nm SW of mark 4</i>, its "
+                            "speed and heading, how old the fix is, the next mark’s distance and bearing "
+                            "and the distance still to sail; the fleet as it stood at any moment; or one "
+                            "boat’s track over a period, with distance sailed and average and top speed."),
+    ("the forecast", "<i>“will the wind build during the race?”</i> — the wind hour by hour over the "
+                     "race, from the internet (see <i>The forecast</i> below)."),
     ("a boat’s rating", "IRC and YTC, by name or sail number — from the boat database, and from "
                         "the RORC IRC listing and the YTC sheet when the boat is not in it. It "
                         "offers to add a boat the club does not have, and <b>never overwrites an "
@@ -2195,18 +2225,20 @@ story += note_box(
 story.append(Paragraph(
     "It will also answer questions in words, from what the app itself knows: the wind now and how it has "
     "shifted over the last hour, which boats are entered, how long a course should take round, which course "
-    "would give more reaching, and whether the trackers are reporting.", styles["Body"]))
+    "would give more reaching, results and series standings, the race log, a boat’s season, and whether "
+    "the trackers are reporting.", styles["Body"]))
 
 story.append(Paragraph("What it will not do", styles["H2"]))
 story.append(bullets([
-    "<b>Sound a horn on command.</b> There is no <i>arm</i> step and no <i>fire now</i>. With "
+    "<b>Sound a horn on its own.</b> It sounds for a finish, a shortened course and a postponement, "
+    "as the race sheet does — never on command. There is no <i>arm</i> step and no <i>fire now</i>. With "
     "start automation switched on in Settings the app fires the warning, preparatory and start "
     "signals itself, off the race’s stored warning signal — so <b>setting or moving a start time "
     "from the water moves the horn with it</b>, and the read-back says so. With start automation "
     "off, nothing sounds by itself whatever time is set.",
     "<b>Signal a recall.</b> The club starts races with nobody watching the line and reviews the "
     "video afterwards, so there is nothing for it to signal.",
-    "<b>Abandon a race, or record a finish.</b>",
+    "<b>Abandon a race.</b>",
 ]))
 story.append(Paragraph(
     "Asked for any of these it says so plainly and offers the nearest thing it can actually do. It never "
@@ -2219,8 +2251,10 @@ story.append(Paragraph(
     "There is nothing behind it: <b>without one the page is unavailable and says so</b>, offering no box "
     "to type in, and both command endpoints refuse in the same words.", styles["Body"]))
 story += note_box(
-    "The app does have a small built-in grammar — about six sentence shapes — and until v0.264 it "
-    "answered when no model was configured or one could not be reached. On a page whose whole premise is "
+    "The app does have a small built-in grammar — about six sentence shapes. Until v0.264 it "
+    "answered when no model was configured, and until v1.011 it stood behind the model to catch what the "
+    "model missed: measured, it never once caught a command, and each time it acted it turned <i>course "
+    "N</i> in a question into a proposal to set it. It is gone from the page. On a page whose whole premise is "
     "<i>type what you want to do</i>, that reads as an app that understands nothing, and somebody on the "
     "water cannot tell a sentence it will not understand from one it has misunderstood. The club’s "
     "decision is that the feature does not exist until an interpreter is configured and answering. What it "
@@ -2241,20 +2275,26 @@ story.append(bullets([
     "<b>A refresh does not lose it.</b> On a boat that is a dropped signal or a locked phone, not a decision "
     "to start again — the page reloads the conversation, and a proposal still waiting comes back with "
     "its Yes button live.",
+    "When a reply offers several courses, the cards carry the numbers the words give them, so "
+    "<i>“the second one”</i> is the second card.",
+    "While it works, a bubble with three moving dots says what it is doing — <i>Reading that</i>, "
+    "<i>Searching the marks for a course</i>, <i>Fetching the forecast</i> — and counts the seconds.",
 ]))
 
 story.append(Paragraph("The strip at the top", styles["H2"]))
 story.append(Paragraph(
     "Two lines and a rolled-up chart, because every line there is a line of conversation pushed off a phone "
     "screen: the race the conversation is about and what it is doing; the <b>countdown to the first gun</b>, "
-    "which turns red inside the last five minutes; the course with its length and about how long it should "
+    "which turns amber inside the last five minutes; the course with its length and about how long it should "
     "take round in this wind, and the wind itself; and the <b>course board</b> \u2014 the same marks and hands "
     "the race sheet and the clubhouse display show, and the thing you read out over the VHF, sized for a "
     "phone. <b>Chart</b> stays closed until you open it and then draws "
     "the marks and legs from the page itself — no map tiles and no requests, over the same 4G the hut is "
     "using. It moves with every command, so a start put back twenty minutes moves the countdown that was the "
     "reason for moving it \u2014 and so does the board, the chart and the expected time when the course "
-    "changes.", styles["Body"]))
+    "changes. A change made anywhere else in the app \u2014 a course chosen, a start moved or a course "
+    "shortened on the race sheet \u2014 reaches it within five seconds while the phone\u2019s screen is on, "
+    "applied in place so that nothing half typed is lost.", styles["Body"]))
 story += note_box(
     "A command names one or two things, and everything else about the race is left exactly as it was. "
     "That is worth stating because it was not always true: the Course &amp; start <i>form</i> saves every "
@@ -2271,7 +2311,20 @@ story.append(Paragraph(
     "records its finish as it crosses the line. Both are the ordinary tick boxes on the "
     "<b>Entries &amp; finish times</b> tab and can be turned off there. GPS gives the approximate "
     "time and order; the finish video remains the arbiter, and every recorded finish stays editable "
-    "(Chapter 24).", styles["Body"]))
+    "(Chapter 24). A finish can also be given by hand \u2014 <i>\u201cMojito\u2019s finished\u201d</i> "
+    "\u2014 exactly as the race sheet\u2019s <b>Finish</b> button gives it.", styles["Body"]))
+
+story.append(Paragraph("The forecast", styles["H2"]))
+story.append(Paragraph(
+    "The club\u2019s instrument says what the wind is doing now; a weather forecast on the internet is the "
+    "only thing that says what it will do next. With nothing set up the page reads Open-Meteo\u2019s forecast "
+    "at the start line from the UK Met Office model \u2014 direction, speed and gusts, hour by hour, in "
+    "knots \u2014 and asked about the race it reads the race\u2019s own hours. <b>Settings \u2192 Virtual "
+    "Race Officer \u2192 Weather forecast URL</b> chooses another source: an Open-Meteo address is read the "
+    "same way, and any other page is read for its words only. A windy.app spot page, for one, gives a "
+    "day-by-day summary written for kitesurfers, because its hour-by-hour forecast is drawn in the browser "
+    "and never reaches a program that fetches the page. A forecast is fetched at most once every half hour.",
+    styles["Body"]))
 
 story.append(Paragraph("A course nobody has chosen", styles["H2"]))
 story.append(Paragraph(

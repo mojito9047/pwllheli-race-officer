@@ -38,7 +38,7 @@ fresh clone. Run them from the repo root, e.g. `python scripts/build_release_zip
 | `capture_pursuit_screens.py` | Pursuit race/console/public screenshots. |
 | `capture_power_screens.py` | Hut-power dashboard card / history / settings. |
 | `capture_entries_tab.py` | The entries tab screenshot. |
-| `capture_onwater_screens.py` | The `/onwater` page → `ref_screens/`. Its own script because the figure needs a conversation in it to be worth looking at, and the page is behind a per-user permission no role grants: the script grants **On the water** to `admin`, captures at phone width, and takes it away again in a `finally`, so a screenshot cannot quietly leave an account able to start races from a phone. The commands are sent through the built-in grammar deliberately, so the figure does not depend on a provider account. |
+| `capture_onwater_screens.py` | The Virtual Race Officer page → `ref_screens/`, as two phone screens of one conversation: three courses offered as numbered cards, then the second chosen and read back, waiting for Yes. Needs **no running app** and writes to no database of yours: it runs the app in-process against a sanitised copy of the newest backup in `HutData/` (the same copy `eval_vro.py` uses) and answers the browser's every request from it. The interpreter is a script returning what a model would for those sentences, so the figure costs nothing and comes out the same every time; the look-up, the cards, the checks and the read-back are the app's own. |
 
 ### Simulate & verify
 

@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.010
+# Pwllheli Race Officer v1.011
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -6,6 +6,19 @@ Race-office support software. It does not decide anything: official race decisio
 
 
 ## Recent releases
+
+### v1.011 update
+
+- **The Virtual Race Officer looks things up before it answers** &mdash; results, standings,
+  the race log, a boat's season, the trackers, the wind record &mdash; and draws courses as
+  numbered cards with each leg's wind angle and a **Use this** button.
+- **It finishes boats.** *"Mojito's finished"* is the race sheet's Finish button: the time is
+  the Yes, and the horn sounds.
+- **A new race is asked its series and its name**, suggesting the last race's, and is entered
+  with that series' boats. The **Add all boats** button is gone.
+- **It knows where the boats are** from the trackers, now or at any moment, and reads a
+  **weather forecast** (Open-Meteo at the start line unless Settings names another).
+- **The page is a chat**, and its race strip follows changes made on the race sheet.
 
 ### v1.010 update
 
@@ -61,16 +74,6 @@ Race-office support software. It does not decide anything: official race decisio
   width of the tables, so widening the browser could not help it.
 - **The 3D replay and the start video are buttons now**, side by side, instead of two stacked
   rows of small blue text.
-
-### v1.006 update
-
-- **Between finishes the film now watches the fleet**, not an empty finish line. A club fleet
-  finishes over twenty minutes; the replay used to cut to the line for the leader and stay
-  there. Each boat now gets the line for its run-in and crossing, and the boats still racing
-  get the screen in between &mdash; on one of this weekend's races, sixty-four seconds of fleet
-  where there had been thirty-four seconds of empty water.
-- **Two boats finishing seconds apart share one shot**, rather than cutting away and straight
-  back, because the wait is judged in seconds of film rather than seconds of racing.
 
 ## Main features
 
