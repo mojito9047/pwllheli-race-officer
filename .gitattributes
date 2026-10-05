@@ -1,0 +1,54 @@
+# Binary formats are stored and checked out byte for byte.
+#
+# Without this file git guessed text or binary from content, and ReportLab
+# writes the built guides in docs/ as 7-bit ASCII (every stream ASCII85
+# encoded), so they were taken for text. With core.autocrlf=true a checkout
+# turned each LF into CRLF, moving every byte offset the xref table records:
+# a fresh clone's guides were refused by pypdf as "Broken xref table".
+#
+# Text line endings are deliberately not set here. They stay with
+# core.autocrlf as before. Every text blob in the index is LF already, so
+# `* text=auto` would rewrite nothing stored, but it would change what a
+# Windows clone with autocrlf=false checks out (CRLF where it gets LF today),
+# and that wants its own change with eol=lf for the deploy scripts.
+
+# Git for Windows gives PDFs and Word files a text diff through pdftotext in
+# its system gitattributes (diff=astextplain). `binary` on its own would
+# switch that off; where no such driver exists git uses its own diff.
+*.pdf binary diff=astextplain
+*.docx binary diff=astextplain
+*.doc binary diff=astextplain
+*.xlsx binary
+*.xls binary
+*.pptx binary
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.bmp binary
+*.webp binary
+*.tif binary
+*.tiff binary
+
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+
+*.zip binary
+*.gz binary
+*.7z binary
+
+*.mp4 binary
+*.mov binary
+*.mkv binary
+*.webm binary
+*.wav binary
+*.mp3 binary
+
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
