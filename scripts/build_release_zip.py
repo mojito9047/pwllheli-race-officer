@@ -2,6 +2,7 @@ import os
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _REPO = os.path.dirname(_HERE)
 import os
+import subprocess
 import zipfile
 from pathlib import Path
 
@@ -12,7 +13,11 @@ OUT = SRC / f"{TOP_FOLDER}.zip"
 
 # deploy/ ships in the release (deploy/windows install scripts + deploy/live_stream
 # relay setup). Only the usual runtime/build junk is excluded.
-EXCLUDE_DIRS = {".venv", ".claude", "runtime", "__pycache__", ".pytest_cache", ".git", "video_clips", "odm_frames"}
+# HutData is where copies of the hut's own backups and the relay's live config
+# are dropped for diagnosis. v1.011 shipped HutData/Caddyfile -- the relay's real
+# Caddyfile, with the bcrypt hash of its /stats password -- in a public release.
+EXCLUDE_DIRS = {".venv", ".claude", "runtime", "__pycache__", ".pytest_cache", ".git", "video_clips", "odm_frames",
+                "HutData"}
 # scripts/ is developer tooling -- PDF builders, screenshot capture, one-off
 # analysis -- and does not ship. With one exception: scripts/replay3d is the 3D
 # replay renderer, and a render machine is built from a release ZIP like
@@ -84,43 +89,75 @@ excluded_files_hit = []
 if OUT.exists():
     OUT.unlink()
 
-with zipfile.ZipFile(OUT, "w", zipfile.ZIP_DEFLATED) as zf:
-    for root, dirs, files in os.walk(SRC):
-        rel_root = Path(root).relative_to(SRC)
-        # prune excluded directories in-place so os.walk doesn't descend into them
-        pruned = []
-        for d in list(dirs):
-            rel_dir = str(rel_root / d) if str(rel_root) != "." else d
-            if d in EXCLUDE_DIRS or rel_dir in EXCLUDE_REL_DIRS:
-                pruned.append(d)
-                dirs.remove(d)
-            elif _within(rel_dir, PARTLY_EXCLUDED_DIRS) and not _leads_to_kept(rel_dir):
-                pruned.append(d)
-                dirs.remove(d)
-        for d in pruned:
-            excluded_dirs_hit.add(str(rel_root / d))
+def git_ignored(paths):
+    """Of these repo-relative paths, the ones git ignores -- or None without git.
 
-        for f in files:
-            rel_path = rel_root / f if str(rel_root) != "." else Path(f)
-            rel_str = str(rel_path)
-            # We now walk into scripts/ for the renderer, so the files sitting
-            # directly in it have to be turned away by name rather than by
-            # never being reached.
-            if (_within(str(rel_root), PARTLY_EXCLUDED_DIRS)
-                    and not _within(str(rel_root), KEEP_REL_DIRS)):
-                excluded_files_hit.append(rel_str)
-                continue
-            if rel_str in EXCLUDE_FILES:
-                excluded_files_hit.append(rel_str)
-                continue
-            if (f in EXCLUDE_FILENAMES or f.endswith(EXCLUDE_FILE_SUFFIXES)
-                    or any(part in f for part in EXCLUDE_NAME_CONTAINS)):
-                excluded_files_hit.append(rel_str)
-                continue
-            abs_path = SRC / rel_path
-            arcname = str(Path(TOP_FOLDER) / rel_path)
-            zf.write(abs_path, arcname)
-            included.append(rel_str)
+    Not committed and not published are different questions, and the rules in
+    this file have answered the second one alone since renderer.env shipped in
+    v1.002. They also failed twice for want of a name nobody had listed: that
+    file, and the relay's Caddyfile in v1.011. Both were in .gitignore, so a
+    file git ignores is a file somebody decided was not part of the app, and it
+    does not ship either -- on top of the rules, never instead of them.
+    """
+    try:
+        listed = "\n".join(p.replace(os.sep, "/") for p in paths)
+        result = subprocess.run(["git", "check-ignore", "--stdin", "--no-index"], cwd=SRC,
+                                input=listed, capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode not in (0, 1):            # 1 is "nothing ignored"
+        return None
+    return {line.strip().replace("/", os.sep) for line in result.stdout.splitlines() if line.strip()}
+
+
+# Every file the rules let through, before git is asked about any of them.
+candidates = []
+for root, dirs, files in os.walk(SRC):
+    rel_root = Path(root).relative_to(SRC)
+    # prune excluded directories in-place so os.walk doesn't descend into them
+    pruned = []
+    for d in list(dirs):
+        rel_dir = str(rel_root / d) if str(rel_root) != "." else d
+        if d in EXCLUDE_DIRS or rel_dir in EXCLUDE_REL_DIRS:
+            pruned.append(d)
+            dirs.remove(d)
+        elif _within(rel_dir, PARTLY_EXCLUDED_DIRS) and not _leads_to_kept(rel_dir):
+            pruned.append(d)
+            dirs.remove(d)
+    for d in pruned:
+        excluded_dirs_hit.add(str(rel_root / d))
+
+    for f in files:
+        rel_path = rel_root / f if str(rel_root) != "." else Path(f)
+        rel_str = str(rel_path)
+        # We now walk into scripts/ for the renderer, so the files sitting
+        # directly in it have to be turned away by name rather than by
+        # never being reached.
+        if (_within(str(rel_root), PARTLY_EXCLUDED_DIRS)
+                and not _within(str(rel_root), KEEP_REL_DIRS)):
+            excluded_files_hit.append(rel_str)
+            continue
+        if rel_str in EXCLUDE_FILES:
+            excluded_files_hit.append(rel_str)
+            continue
+        if (f in EXCLUDE_FILENAMES or f.endswith(EXCLUDE_FILE_SUFFIXES)
+                or any(part in f for part in EXCLUDE_NAME_CONTAINS)):
+            excluded_files_hit.append(rel_str)
+            continue
+        candidates.append(rel_path)
+
+ignored = git_ignored([str(c) for c in candidates])
+if ignored is None:
+    print("WARNING: git could not be asked which files it ignores; packaging on the rules alone.")
+    ignored = set()
+with zipfile.ZipFile(OUT, "w", zipfile.ZIP_DEFLATED) as zf:
+    for rel_path in candidates:
+        rel_str = str(rel_path)
+        if rel_str in ignored:
+            excluded_files_hit.append(rel_str + " (git-ignored)")
+            continue
+        zf.write(SRC / rel_path, str(Path(TOP_FOLDER) / rel_path))
+        included.append(rel_str)
 
 print(f"VERSION: {VERSION}")
 print(f"Top folder: {TOP_FOLDER}")

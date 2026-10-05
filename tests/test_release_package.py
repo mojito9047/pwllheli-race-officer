@@ -244,3 +244,18 @@ class TestNoCredentialsShip:
                 found.append(str(rel) + ": " + match.group(1) + "=...")
         assert not found, ("the release would carry credentials:" + chr(10)
                            + chr(10).join(found))
+
+
+class TestNothingGitIgnoresShips:
+    """v1.011 shipped HutData/Caddyfile -- the relay's live config, with the
+    bcrypt hash of its /stats password -- in a public release, the second
+    credential to leave this way after renderer.env in v1.002. Both were in
+    .gitignore; the packaging never asked."""
+
+    def test_the_folder_of_hut_copies_is_excluded(self):
+        assert "HutData" in _rules()["EXCLUDE_DIRS"]
+
+    def test_and_anything_git_ignores_is_left_out(self):
+        source = _SCRIPT.read_text(encoding="utf-8")
+        assert '"check-ignore", "--stdin", "--no-index"' in source
+        assert "(git-ignored)" in source, "an ignored file is reported as left out, not dropped quietly"
