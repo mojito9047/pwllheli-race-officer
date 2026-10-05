@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.011
+# Pwllheli Race Officer v1.012
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -6,6 +6,18 @@ Race-office support software. It does not decide anything: official race decisio
 
 
 ## Recent releases
+
+### v1.012 update
+
+- **Public start and finish videos were coming out a few seconds long** &mdash; race 96's
+  start video was five seconds and never reached the start &mdash; and the 3D replay froze on
+  those finishes. With the start line on, two clips built seconds apart shared one line image
+  and the second cut the first one's encode short. 17 of the season's 84 public copies were
+  short; the evidence videos were always whole.
+- **A public copy is now checked for length** and is never published short.
+- **Settings &rarr; Video Recording &rarr; Save and retry failed public video uploads rebuilds
+  the short ones** from their evidence. Press it once after racing, then queue the 3D replay
+  again for the races affected. Update the render machine too.
 
 ### v1.011 update
 
@@ -57,23 +69,6 @@ Race-office support software. It does not decide anything: official race decisio
   screen reader read out. They are named now.
 - **One sponsor's logo hung out of the banner.** Wrapping a logo in a link lost its height
   cap, so a near-square logo grew to 143px. Nothing was wrong with the file.
-
-### v1.007 update
-
-- **The films name their series**, on the opening title card and the closing results card,
-  so a film still says what it is a season later.
-- **A made-up course is called one.** The title card was announcing "Course 1" for a course
-  built on the day, because setting a made-up course leaves the number untouched.
-- **Every boat's finish is filmed from its own camera.** One camera framed on the
-  leader left the third boat a third in shot and the fourth out of the picture.
-- **The finish is filmed down each boat's own track**, not square to the line, so the
-  boat sails at the camera instead of sitting in the corner of the frame.
-- **The start line is red until the gun and green on it**, and the finish shot no longer
-  draws every leg the fleet has sailed across the boat that is finishing.
-- **The sponsor logos fit on one line** on the published results. The banner was capped at the
-  width of the tables, so widening the browser could not help it.
-- **The 3D replay and the start video are buttons now**, side by side, instead of two stacked
-  rows of small blue text.
 
 ## Main features
 

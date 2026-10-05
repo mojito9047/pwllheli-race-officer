@@ -116,7 +116,7 @@ Configure:
 - Public live image source: served by the hut app or uploaded to R2 as one refreshed JPEG.
 - R2 account/endpoint, bucket, access key, saved secret, public base URL and object prefix. **These also drive publishing a series' results** (v0.281): *Publish to website* on the series page uploads into `results/series-<id>/` in the same bucket, and the button is hidden until this section is filled in. See [`WEBSITE_PUBLISHING.md`](WEBSITE_PUBLISHING.md).
 
-When Cloudflare R2 public-video publishing is enabled, the app keeps the full-quality evidence clip in `data/video_clips/`, creates a smaller H.264 web copy in `data/video_clips/public/`, and uploads that copy to R2. Use **Save and test R2 upload** after entering credentials. Use **Save and retry failed public video uploads** if a clip shows **Public video error** but the local public copy or evidence clip exists.
+When Cloudflare R2 public-video publishing is enabled, the app keeps the full-quality evidence clip in `data/video_clips/`, creates a smaller H.264 web copy in `data/video_clips/public/`, and uploads that copy to R2. Use **Save and test R2 upload** after entering credentials. Use **Save and retry failed public video uploads** if a clip shows **Public video error** but the local public copy or evidence clip exists. The same button rebuilds, from the evidence clip, any published copy that is shorter than it — under a new address, because the bucket serves race videos as cached for a year. A public copy is also checked for length before it is published, and one that comes out short is never published (see TROUBLESHOOTING.md, *Public video is a few seconds long*).
 
 ### Camera zoom / PTZ presets
 

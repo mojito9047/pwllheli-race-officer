@@ -1,5 +1,58 @@
 # Change log
 
+## v1.012
+
+**Race 96's public start video was five seconds long and never reached the
+start; MOJITO BACH's finish video was ten seconds and never reached the finish;
+and in the 3D replay the finish of two boats close together was one frozen
+frame.** The hut's evidence videos were whole. One fault behind all three, and
+it was not race 96's alone: **17 of the season's 84 public copies were short**,
+in races 68 to 96, every one marked ready.
+
+With **Draw the start line on public start/finish videos** on, every clip's line
+image was saved under the same name — the app's process number — and the encode
+that makes the public copy read it as a looped input, re-reading it every frame,
+into an overlay told to stop when that input ended. When two clips were built
+seconds apart — the start, and the horn four seconds after it; two boats
+finishing 21 seconds apart — the second rewrote the image under the first one's
+encode, and the first public copy stopped there. **FFmpeg reported success**, so
+the short copy was marked ready and uploaded. Reproduced on the hut's own
+footage: a 40-second copy came out 15.7 seconds long when the image was
+rewritten four seconds in, with no error at all.
+
+The 3D replay is made from the public copies, because a render machine cannot
+reach the hut, and it held the last frame it had for the rest of each clip's
+window: MOJITO BACH's finish was the same picture 2,055 times. The film's start
+inset was frozen the same way.
+
+- **The line image is read once and held** for the whole clip, so nothing that
+  happens to the file afterwards can touch the encode — and a 4K image is no
+  longer decoded fifteen times a second. Each clip's frame and line images are
+  its own, in a scratch folder that is removed afterwards; they used to pile up
+  in the public folder and go into every backup.
+- **A public copy is checked for length before it is published**, from the MP4's
+  own header. One shorter than its evidence clip is encoded once more without
+  the start line, and if it is still short it is marked as an error, never
+  uploaded.
+- **Settings → Video Recording → Save and retry failed public video uploads**
+  now also rebuilds every published copy that is shorter than its evidence,
+  from the evidence, under a new name — the bucket serves race videos as
+  cached for a year, so a rebuild at the old address could go on being served
+  short. Each one is written to the activity log as *public video rebuilt*.
+- **The render machine leaves out footage that stops before its own event**,
+  and ends an inset where its footage ends instead of freezing it.
+
+**After installing:** press the retry button once, after racing — the 17
+rebuilds run one at a time in the background, a few minutes each, and each goes
+up over the 4G — then queue the 3D replay again for any race whose film was made
+from a short copy. **Update the render machine as well as the hut.**
+
+**The release ZIP no longer includes the `HutData/` folder, or any file git
+ignores.** The packaging walks the working folder and had only ever consulted its
+own list of exclusions, so v1.011's ZIP picked up a copy of the relay's live
+configuration dropped there for diagnosis. Anything in `.gitignore` is now left out
+as well, on top of those rules.
+
 ## v1.011
 
 **The Virtual Race Officer was said not to seem very smart. It was not the model.**

@@ -1283,7 +1283,17 @@ story.append(Paragraph(
     "<b>Save and test R2 upload</b> writes a small test file and checks it's publicly reachable; if the "
     "upload succeeds but the public check fails, check the <b>Public base URL</b> rather than the access "
     "keys. <b>Save and retry failed public video uploads</b> re-attempts any clips that didn't make it to "
-    "R2 the first time.", styles["Body"]))
+    "R2 the first time, and rebuilds from the evidence clip any public copy that is shorter than it, "
+    "under a new address so a cached short copy cannot go on being served.", styles["Body"]))
+story += note_box(
+    "<b>A public copy is checked for length before it is published.</b> It has to run as long as its "
+    "evidence clip; one that comes out shorter is made again without the start line, and if it is still "
+    "short it is marked as an error rather than uploaded. FFmpeg reports success for an encode that stopped "
+    "early, and until v1.012 that let 17 of a season's 84 public copies go out cut short and marked ready "
+    "— a start video five seconds long, a finish ten — when two clips were built seconds apart with the "
+    "start line on. The evidence clips were never affected. After installing v1.012, press the retry "
+    "button once after racing to rebuild them, then queue the 3D replay again for any race whose film was "
+    "made from a short copy.")
 
 story.append(Paragraph("Public live camera stream", styles["H2"]))
 story.append(Paragraph(
@@ -2435,7 +2445,8 @@ story.append(bullets([
     "<b>The start line and the finish line.</b> For an ISORA passage race these are not the same line, "
     "and the film uses both.",
     "<b>The hut camera</b>, cut in at the start and at each finish, locked to the same clock as the 3D "
-    "view so the picture and the boats agree.",
+    "view so the picture and the boats agree. A clip whose footage stops before its own start or finish is "
+    "left out rather than shown as one frozen frame, and one that stops partway ends its inset there.",
     "<b>A race clock, the course board and the true wind</b>, in the app's own typefaces.",
     "<b>Each boat's name and its speed over the ground</b> on a plate above the rig, with a line "
     "down to the boat. The speed is the tracker's own, the same figure the race office sees.",

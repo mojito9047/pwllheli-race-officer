@@ -432,6 +432,14 @@ watchable when the replay around it is running 30x; `0` makes the footage follow
 clock instead, fast-forwarding the whole two minutes into a few seconds. Overlapping clips
 are trimmed and duplicates of the same finish dropped, so only one is ever on screen.
 
+**Footage shorter than its window is not held.** `prepare_video_frames.py` leaves out a clip
+whose footage stops before its own event, and lets an inset run at most a second
+(`FOOTAGE_HOLD_S`) past the end of its footage before it ends. It used to hold the last
+frame for the whole window: race 96's MOJITO BACH finish was a public copy cut off at
+10.9 s of a clip whose finish is at 80 s, and the film showed one frame of it 2,055 times,
+over the boat that was actually finishing. The copies were short at the hut (fixed in
+v1.012, which also rebuilds them); this is the render side's own guard.
+
 ### Boat models
 
 `--boat-model hull.glb` (also `.gltf`, `.fbx`, `.obj`) replaces the procedural hull with an
