@@ -31,6 +31,27 @@ from replay_time import (  # noqa: E402
 )
 
 
+# How long past the end of its footage a clip may hold its last frame. Long
+# enough to cover a clip that ends a beat before its window; short enough that a
+# truncated file can never hold a frozen picture over a finish.
+FOOTAGE_HOLD_S = 1.0
+
+
+def footage_seconds(path: str) -> float:
+    """How long the file actually is, or 0 when that cannot be told."""
+    try:
+        import av
+        with av.open(path) as container:
+            if container.duration:
+                return float(container.duration) / 1e6
+            stream = container.streams.video[0]
+            if stream.duration and stream.time_base:
+                return float(stream.duration * stream.time_base)
+    except Exception:
+        pass
+    return 0.0
+
+
 def extract_clip(clip: Dict[str, Any], base: str, warp: TimeWarp,
                  width: int = 720, quality: int = 86) -> Optional[Dict[str, Any]]:
     """Write one image per film frame of this clip's window. Returns the sequence info.
@@ -51,15 +72,31 @@ def extract_clip(clip: Dict[str, Any], base: str, warp: TimeWarp,
     f0, f1 = warp.frame_of(t_start), warp.frame_of(t_end)
     event_at = float(clip.get("footage_offset_s") if clip.get("footage_offset_s") is not None
                      else t_event - t_start)
-    duration_s = float(clip.get("duration_s") or 0.0)
+    duration_s = float(clip.get("duration_s") or 0.0) or footage_seconds(path)
 
-    # The video second each film frame should show.
+    # Footage that stops before its own event is not a picture of it. A public
+    # copy cut short at the hut -- race 96's MOJITO BACH finish was 10.9 s of a
+    # 160 s clip -- used to become a minute of one held frame in the film,
+    # covering the boat that was actually finishing. Leave it out instead.
+    if duration_s and event_at > duration_s + FOOTAGE_HOLD_S:
+        print(f"  {clip['file']}: the footage ends at {duration_s:.1f} s, before its event at "
+              f"{event_at:.1f} s; skipped rather than shown frozen")
+        return None
+
+    # The video second each film frame should show. A window that runs a moment
+    # past the footage holds the last frame; one that runs further ends the inset
+    # where the footage ends, rather than freezing it.
     wanted: List[float] = []
     for f in range(f0, f1 + 1):
         secs = event_at + (warp.time_at(f) - t_event)
         if duration_s:
-            secs = max(0.0, min(secs, duration_s - 0.05))
+            if secs > duration_s + FOOTAGE_HOLD_S:
+                break
+            secs = min(secs, duration_s - 0.05)
         wanted.append(max(0.0, secs))
+    if not wanted:
+        print(f"  {clip['file']}: no footage inside its window, skipped")
+        return None
 
     out_dir = os.path.join(os.path.dirname(path), f"frames_{clip.get('id', 0)}")
     os.makedirs(out_dir, exist_ok=True)
@@ -91,7 +128,8 @@ def extract_clip(clip: Dict[str, Any], base: str, warp: TimeWarp,
             last_img = frame
             if idx >= len(wanted) or t > hi + 1.0:
                 break
-        # The tail can run past the end of the footage; hold the last frame.
+        # The tail can run a moment past the end of the footage; hold the last
+        # frame for that moment only (the list above stops at the hold).
         while idx < len(wanted) and last_img is not None:
             img = last_img.to_image()
             if width and img.width > width:

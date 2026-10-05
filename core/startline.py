@@ -20,6 +20,7 @@ data/startline_config.json (falls back to the built-in defaults).
 from __future__ import annotations
 
 import os
+import secrets
 import subprocess
 import sys
 from typing import Optional, Tuple
@@ -75,7 +76,13 @@ def build_startline_spec(ffmpeg: str, evidence_path: str, clip_type: str,
     """
     if not _AVAILABLE:
         return None, "skipped: Pillow/numpy not installed"
-    frame = os.path.join(out_dir, f".odm_frame_{os.getpid()}.jpg")
+    # Named for this clip alone. They were named for the app's process, so every
+    # clip it built shared one green PNG: a finish 21 s behind another rewrote it
+    # while the first clip's encode was still reading it, and that encode stopped
+    # there -- race 96's start copy came out 5 s long and two finishes 10 s and
+    # 96 s, all "ready". Two clips could also swap detections through the frame.
+    token = secrets.token_hex(6)
+    frame = os.path.join(out_dir, f".odm_frame_{token}.jpg")
     try:
         cfg = load_startline_config()
         at = min(1.0, max(0.5, float(event_offset or 0)))
@@ -88,11 +95,11 @@ def build_startline_spec(ffmpeg: str, evidence_path: str, clip_type: str,
             return None, (f"skipped: no confident buoy (best conf {det.conf:.2f}"
                           f"{'' if det.fx is None else f' near {det.fx:.2f},{det.fy:.2f}'})")
         is_start = str(clip_type) == "start"
-        green = os.path.join(out_dir, f".odm_green_{os.getpid()}.png")
+        green = os.path.join(out_dir, f".odm_green_{token}.png")
         odm.render_line_overlay(cfg, w, h, green, det.fx, det.fy, color=GREEN)
         spec = {"green": green, "red": None, "offset": float(event_offset or 0), "is_start": is_start}
         if is_start:
-            red = os.path.join(out_dir, f".odm_red_{os.getpid()}.png")
+            red = os.path.join(out_dir, f".odm_red_{token}.png")
             odm.render_line_overlay(cfg, w, h, red, det.fx, det.fy, color=RED)
             spec["red"] = red
             reason = (f"drawn at ({det.fx:.3f},{det.fy:.3f}) conf {det.conf:.2f}, "
@@ -131,13 +138,18 @@ def line_filter_chain(spec: dict, logo_count: int) -> Tuple[list, str]:
     with the video in the same encode.
     """
     green_idx = logo_count + 1
-    inputs = ["-loop", "1", "-i", spec["green"]]
-    # shortest=1 stops the overlay when the (finite) video ends; without it the
-    # looped -loop 1 PNG input is infinite and the encode never terminates.
-    ov = "overlay=0:0:format=auto:shortest=1"
+    # Each line is read ONCE and held for the whole clip (eof_action=repeat),
+    # rather than looped. A looped image is re-read from disk every frame, and
+    # the overlay was told to stop the moment that input ended -- so anything
+    # that rewrote or removed the file mid-encode ended the public copy there,
+    # silently, with FFmpeg exiting 0. Read once, nothing that happens to the
+    # file afterwards can touch the encode, and a 4K PNG is no longer decoded
+    # fifteen times a second. The overlay ends with the video, as before.
+    inputs = ["-i", spec["green"]]
+    ov = "overlay=0:0:format=auto:eof_action=repeat"
     if spec.get("is_start") and spec.get("red"):
         red_idx = logo_count + 2
-        inputs += ["-loop", "1", "-i", spec["red"]]
+        inputs += ["-i", spec["red"]]
         off = f"{max(0.0, float(spec['offset'])):.2f}"
         chain = (f"[0:v][{red_idx}:v]{ov}:enable='lt(t\\,{off})'[la];"
                  f"[la][{green_idx}:v]{ov}:enable='gte(t\\,{off})'[lined]")

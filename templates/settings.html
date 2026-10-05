@@ -587,6 +587,7 @@
 The evidence clips and any public copies are kept — only publishing is given up on, and Retry can queue them again later.')">Give up on stuck public video uploads</button>
     </div>
     <p class="muted small">The test writes <code>{{ video.video_public_r2_prefix or 'race-videos' }}/test/race-officer-r2-test.txt</code>. If upload works but the public check fails, check the Public base URL/custom domain rather than the access keys.</p>
+    <p class="muted small"><strong>Retry</strong> also rebuilds, from the evidence clip, any public video that came out shorter than it, under a new address so a cached short copy cannot go on being served. A 3D replay already made from a short copy is not redone; queue that race's render again afterwards.</p>
     <p class="muted small">When <strong>Public live image</strong> is set to R2, the hut uploads one branded JPEG to <code>{{ video.video_public_r2_prefix or 'race-videos' }}/live/latest_public.jpg</code> every few seconds. Competitor browsers then refresh that Cloudflare URL rather than repeatedly requesting camera images through the hut 4G link.</p>
     <div class="settings-status-stack">
       {% if r2_test_result %}

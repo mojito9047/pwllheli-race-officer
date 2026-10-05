@@ -402,6 +402,35 @@ Other things to check, in order:
 
 A boat is only finished once it has rounded every course mark in order and then crossed the line, so a mid-course pass of the ODM does not finish it. If a finish is not detected, check the tracker is reporting frequently enough and that the race was **armed** for GPS auto-finish on the *Entries & finish times* tab. GPS finishes are proposals to confirm against the finish video; the mark-rounding radius is adjustable in Settings.
 
+## Public video is a few seconds long, or the 3D replay freezes on a finish
+
+> The public start video is 5 s long and never reaches the start; a boat's finish
+> video stops after 10 s; the evidence video on the hut is fine. In the 3D replay
+> the finish picture of two boats finishing close together is one frozen frame.
+
+All one fault, fixed in v1.012. With **Draw the start line on public start/finish
+videos** on, every clip's line image was the same file, and the encode re-read it
+every frame. When two clips were built close together — the start and the horn a
+few seconds after it, or two boats finishing seconds apart — the second rewrote
+the image under the first one's encode, and that public copy stopped there.
+FFmpeg reported success, so the short copy was marked ready and uploaded. The 3D
+replay is made from the public copies (a render machine cannot reach the hut), so
+it held the last frame it had for the rest of the clip's window.
+
+The evidence clips were never affected. To repair the copies already published:
+
+1. After racing, press **Settings → Video Recording → Save and retry failed public
+   video uploads**. It finds every public copy shorter than its evidence clip and
+   rebuilds it from the evidence, one at a time — a few minutes each on the hut,
+   and each goes up over the 4G — under a new address. Each is written to the
+   activity log as *public video rebuilt*.
+2. Then queue the 3D replay again for any race whose film was made from a short
+   copy.
+
+From v1.012 a public copy that comes out short is never published, and a render
+machine leaves out a clip whose footage stops before its own event instead of
+freezing it. Update the render machine as well as the hut.
+
 ## Public video will not upload to Cloudflare R2
 
 > `Could not upload public video after 4 attempts: Built-in upload failed: Network

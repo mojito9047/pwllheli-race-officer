@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -81,3 +82,65 @@ def test_render_colour_is_applied(tmp_path):
     assert drawn.size > 0
     # Red channel dominates green on the drawn line pixels.
     assert drawn[:, 0].mean() > drawn[:, 1].mean()
+
+
+# ---------------------------------------------------------------------------
+# Race 96: public copies cut short by a shared, looped line image
+# ---------------------------------------------------------------------------
+
+def _clip_frame(ffmpeg, path, at_seconds, dest):
+    """Stand-in for the frame grab: the synthetic buoy, wherever it is asked for."""
+    _synthetic_frame(Path(dest))
+    return True
+
+
+def test_each_clip_gets_line_images_of_its_own(tmp_path, monkeypatch):
+    """They were named for the app's process, so every clip it built shared one
+    green PNG -- and the next finish rewrote it under the last one's encode."""
+    monkeypatch.setattr(startline, "_grab_frame", _clip_frame)
+    # The synthetic frame is tuned for the built-in detector settings, not the club's.
+    monkeypatch.setattr(startline, "load_startline_config", lambda: odm.load_config(None))
+    first, _ = startline.build_startline_spec("ffmpeg", "a.mp4", "manual_horn", 60.0, str(tmp_path))
+    second, _ = startline.build_startline_spec("ffmpeg", "b.mp4", "manual_horn", 60.0, str(tmp_path))
+    assert first and second
+    assert first["green"] != second["green"]
+    start, _ = startline.build_startline_spec("ffmpeg", "c.mp4", "start", 64.0, str(tmp_path))
+    assert start["red"] not in (first["green"], second["green"])
+    for spec in (first, second, start):
+        startline.cleanup_spec(spec)
+    assert not list(tmp_path.glob(".odm_*")), "the frame and every line image are removed"
+
+
+def test_the_line_is_read_once_and_held(tmp_path):
+    """A looped image is re-read every frame, and the overlay stopped the moment
+    that input ended: rewriting the file mid-encode ended the public copy there,
+    with FFmpeg exiting 0."""
+    spec = {"green": str(tmp_path / "g.png"), "red": str(tmp_path / "r.png"), "offset": 64.0,
+            "is_start": True}
+    inputs, chain = startline.line_filter_chain(spec, logo_count=2)
+    assert "-loop" not in inputs
+    assert inputs == ["-i", spec["green"], "-i", spec["red"]]
+    assert "shortest=1" not in chain
+    assert chain.count("eof_action=repeat") == 2
+    assert "[0:v][4:v]" in chain and "[la][3:v]" in chain      # red is input 4, green 3
+
+
+def test_a_held_line_lasts_the_whole_clip(tmp_path):
+    """The other way to get this wrong: a still image that is not looped and not
+    held gives a public copy one frame long."""
+    import shutil
+    import subprocess
+    if not shutil.which("ffmpeg"):
+        pytest.skip("needs ffmpeg")
+    clip = tmp_path / "clip.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=640x360:rate=10",
+                    "-t", "6", "-pix_fmt", "yuv420p", str(clip)], check=True)
+    line = tmp_path / ".odm_green_test.png"
+    Image.new("RGBA", (640, 360), (0, 235, 0, 120)).save(line)
+    spec = {"green": str(line), "red": None, "offset": 3.0, "is_start": False}
+    out = tmp_path / "public.mp4"
+    cmd = ro.build_public_video_transcode_command("ffmpeg", clip, out, {"video_public_quality": "720p"},
+                                                  startline_spec=spec)
+    subprocess.run(cmd, check=True)
+    from core.video import mp4_duration_seconds
+    assert abs(mp4_duration_seconds(out) - 6.0) < 0.2

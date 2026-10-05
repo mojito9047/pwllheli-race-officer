@@ -2173,11 +2173,86 @@ def public_video_transcode_args(quality: str) -> Tuple[str, str]:
     return "scale=-2:720:force_original_aspect_ratio=decrease", "27"
 
 
-def public_clip_output_path(clip: sqlite3.Row) -> Path:
-    """Return the local public-web-video path for a clip."""
+def public_clip_output_path(clip: sqlite3.Row, revision: str = "") -> Path:
+    """Return the local public-web-video path for a clip.
+
+    ``revision`` names a rebuilt copy. The name becomes the R2 key and the URL,
+    and the bucket serves race videos as immutable for a year, so a rebuilt copy
+    uploaded under the old name could go on being served as the old one by any
+    cache that already had it.
+    """
     public_dir = appstate.VIDEO_CLIPS_DIR / "public"
     safe_type = secure_filename(str(clip["clip_type"] or "clip")) or "clip"
-    return public_dir / f"race{clip['race_id']}_{safe_type}_{clip['id']}_public.mp4"
+    suffix = f"_{secure_filename(revision)}" if revision else ""
+    return public_dir / f"race{clip['race_id']}_{safe_type}_{clip['id']}_public{suffix}.mp4"
+
+
+def mp4_duration_seconds(path: Path) -> Optional[float]:
+    """How long an MP4 is, from its movie header, or None when that cannot be read.
+
+    Read here rather than with ffprobe, which the hut need not have: the header
+    is a few bytes near the front of a +faststart file, so this costs nothing
+    worth measuring even across every clip of a season.
+    """
+    import struct
+
+    def atoms(f, start: int, end: int):
+        pos = start
+        while pos + 8 <= end:
+            f.seek(pos)
+            head = f.read(16)
+            if len(head) < 8:
+                return
+            size, kind = struct.unpack(">I4s", head[:8])
+            header = 8
+            if size == 1:
+                if len(head) < 16:
+                    return
+                size, header = struct.unpack(">Q", head[8:16])[0], 16
+            elif size == 0:
+                size = end - pos
+            if size < header:
+                return
+            yield kind, pos + header, pos + size
+            pos += size
+
+    try:
+        with open(path, "rb") as f:
+            total = os.fstat(f.fileno()).st_size
+            for kind, body, end in atoms(f, 0, total):
+                if kind != b"moov":
+                    continue
+                for inner, start, _stop in atoms(f, body, end):
+                    if inner != b"mvhd":
+                        continue
+                    f.seek(start)
+                    version = f.read(4)[0]
+                    if version == 1:
+                        f.seek(16, 1)
+                        timescale, duration = struct.unpack(">IQ", f.read(12))
+                    else:
+                        f.seek(8, 1)
+                        timescale, duration = struct.unpack(">II", f.read(8))
+                    return float(duration) / timescale if timescale else None
+    except (OSError, ValueError, IndexError, struct.error):
+        return None
+    return None
+
+
+# A public copy shorter than its evidence by more than this is not a copy of it.
+# Re-encoding changes the length by a frame or two at most.
+PUBLIC_COPY_SHORT_BY_S = 2.0
+
+
+def public_copy_is_short(public_path: Path, evidence_path: Path) -> Optional[Tuple[float, float]]:
+    """(public seconds, evidence seconds) when the public copy stops short, else None."""
+    public_s = mp4_duration_seconds(public_path)
+    evidence_s = mp4_duration_seconds(evidence_path)
+    if public_s is None or evidence_s is None:
+        return None
+    if public_s < evidence_s - max(PUBLIC_COPY_SHORT_BY_S, evidence_s * 0.02):
+        return public_s, evidence_s
+    return None
 
 
 def r2_object_key_for_clip(clip: sqlite3.Row, public_path: Path, cfg: Dict[str, Any]) -> str:
@@ -2560,18 +2635,105 @@ def abandon_stuck_public_video_uploads() -> int:
         return int(cursor.rowcount or 0)
 
 
+def short_public_copies(limit: int = 500) -> List[Tuple[sqlite3.Row, float, float]]:
+    """Published clips whose public copy stops short of their evidence.
+
+    The evidence is the club's record and was whole; only the web copy was cut.
+    Each comes back with (public seconds, evidence seconds).
+    """
+    init_db()
+    with get_db() as db:
+        clips = db.execute(
+            "SELECT * FROM video_clips WHERE status = 'ready' AND COALESCE(public_status, '') = 'ready'"
+            " ORDER BY id DESC LIMIT ?", (int(limit),)).fetchall()
+    found = []
+    for clip in clips:
+        public_path = existing_public_video_path(clip)
+        evidence_path = evidence_video_path_for_clip(clip)
+        if not public_path or not evidence_path:
+            continue
+        short = public_copy_is_short(public_path, evidence_path)
+        if short:
+            found.append((clip, short[0], short[1]))
+    return found
+
+
+def rebuild_short_public_copies(cfg: Optional[Dict[str, Any]] = None) -> int:
+    """Rebuild every public copy that stops short of its evidence, and say how many.
+
+    A rebuilt copy is published under a new name, so the year-long cache on the
+    old URL cannot go on serving the short one, and the race page and the 3D
+    replay pick up the new URL from the clip. The short file is removed once its
+    replacement is up. A film already rendered from a short copy is not redone:
+    queue the race's render again for that.
+    """
+    cfg = cfg or video_config()
+    ffmpeg = ffmpeg_executable(cfg)
+    if not ffmpeg:
+        return 0
+    rebuilt = 0
+    for clip, public_s, evidence_s in short_public_copies():
+        old_path = existing_public_video_path(clip)
+        evidence_path = evidence_video_path_for_clip(clip)
+        log_activity("public video rebuilt",
+                     f"clip #{clip['id']} (race #{clip['race_id']}): the public copy was {public_s:.0f} s "
+                     f"of {evidence_s:.0f} s of evidence", user="system")
+        publish_public_video_clip(int(clip["id"]), evidence_path, cfg, ffmpeg,
+                                  revision=datetime.now().strftime("%Y%m%d%H%M%S"))
+        with get_db() as db:
+            after = db.execute("SELECT * FROM video_clips WHERE id = ?", (clip["id"],)).fetchone()
+        new_path = existing_public_video_path(after) if after is not None else None
+        if after is not None and row_get(after, "public_status") == "ready" and new_path and old_path \
+                and new_path.resolve() != old_path.resolve():
+            try:
+                old_path.unlink()
+            except OSError:
+                pass
+            rebuilt += 1
+    return rebuilt
+
+
+def remove_stray_overlay_images(older_than_s: float = 3600.0) -> int:
+    """Delete the start-line frames and PNGs the old code left in the public folder.
+
+    They were written there under the app's process id and never removed, so
+    every backup has carried a pile of them. Only the ``.odm_*`` names that code
+    used, and only ones old enough that nothing can still be reading them.
+    """
+    public_dir = appstate.VIDEO_CLIPS_DIR / "public"
+    removed = 0
+    cutoff = time.time() - older_than_s
+    try:
+        candidates = list(public_dir.glob(".odm_*"))
+    except OSError:
+        return 0
+    for path in candidates:
+        try:
+            if path.is_file() and path.suffix.lower() in (".png", ".jpg") and path.stat().st_mtime < cutoff:
+                path.unlink()
+                removed += 1
+        except OSError:
+            continue
+    return removed
+
+
 def retry_public_video_uploads_once(cfg: Optional[Dict[str, Any]] = None, limit: int = 50) -> Dict[str, int]:
     """Retry failed or stuck R2 public-video uploads using existing local files.
 
     This is used by the Settings retry button and is safe to run after a race:
     if the smaller public copy already exists, it uploads that file directly; if
-    only the evidence clip exists it recreates the public copy first.
+    only the evidence clip exists it recreates the public copy first. It also
+    rebuilds any published copy that stops short of its evidence (see
+    ``rebuild_short_public_copies``) -- the repair for race 96, whose short
+    copies were all marked ready and so were never retried.
     """
     init_db()
     cfg = cfg or video_config()
-    summary = {"checked": 0, "uploaded": 0, "republished": 0, "skipped": 0, "errors": 0}
+    summary = {"checked": 0, "uploaded": 0, "republished": 0, "skipped": 0, "errors": 0, "rebuilt": 0}
     if normalise_video_public_provider(cfg.get("video_public_provider")) != "r2" or not video_public_r2_ready(cfg):
         return summary
+    remove_stray_overlay_images()
+    summary["rebuilt"] = rebuild_short_public_copies(cfg)
     with get_db() as db:
         clips = db.execute(
             """
@@ -2688,8 +2850,13 @@ def build_public_video_transcode_command(ffmpeg: str, evidence_path: Path, out_p
     return cmd
 
 
-def publish_public_video_clip(clip_id: int, evidence_path: Path, cfg: Dict[str, Any], ffmpeg: str) -> None:
-    """Create the smaller, branded web copy and hand it to the serialised R2 uploader."""
+def publish_public_video_clip(clip_id: int, evidence_path: Path, cfg: Dict[str, Any], ffmpeg: str,
+                              revision: str = "") -> None:
+    """Create the smaller, branded web copy and hand it to the serialised R2 uploader.
+
+    ``revision`` rebuilds a copy already published, under a new name (see
+    ``public_clip_output_path``).
+    """
     if normalise_video_public_provider(cfg.get("video_public_provider")) != "r2":
         update_video_clip_public_status(clip_id, "off", "Public video publishing is off.")
         return
@@ -2701,14 +2868,18 @@ def publish_public_video_clip(clip_id: int, evidence_path: Path, cfg: Dict[str, 
     if not clip:
         return
 
-    out_path = public_clip_output_path(clip)
+    out_path = public_clip_output_path(clip, revision)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     branding_note = " with public logo overlay" if branding_assets().get("enabled") else ""
     # Optional: draw the ODM start line on the public copy only (best-effort;
     # detected once per clip and burned in during the same transcode). The raw
     # evidence clip is never touched. Start clips switch red->green at the start
-    # signal; finish clips stay green.
+    # signal; finish clips stay green. Its frame and line images go in a folder
+    # of this clip's own, removed afterwards: they used to be written into the
+    # public folder under the app's process id, shared by every clip it built,
+    # and were never removed.
     startline_spec = None
+    work = None
     if startline.startline_overlay_enabled(cfg):
         try:
             event_dt = parse_dt(clip["event_time"])
@@ -2721,25 +2892,54 @@ def publish_public_video_clip(clip_id: int, evidence_path: Path, cfg: Dict[str, 
                 first = video_segment_start(segs[0]) if segs else None
                 if first:
                     event_offset = (event_dt - first).total_seconds()
+            scratch = appstate.VIDEO_RUNTIME_DIR / "public_work"
+            scratch.mkdir(parents=True, exist_ok=True)
+            work = Path(tempfile.mkdtemp(prefix=f"clip{clip_id}_", dir=str(scratch)))
             startline_spec, reason = startline.build_startline_spec(
-                ffmpeg, str(evidence_path), clip["clip_type"], event_offset, out_path.parent)
+                ffmpeg, str(evidence_path), clip["clip_type"], event_offset, str(work))
             log_activity("start line", f"clip #{clip_id} ({clip['clip_type']}): {reason}", user="system")
             branding_note += " + start line" if startline_spec else ""
         except Exception as exc:
             log_activity("start line", f"clip #{clip_id}: error {exc}", user="system")
             startline_spec = None
     update_video_clip_public_status(clip_id, "processing", f"Creating {normalise_video_public_quality(cfg.get('video_public_quality'))} public web video{branding_note}...")
-    cmd = build_public_video_transcode_command(ffmpeg, evidence_path, out_path, cfg, startline_spec=startline_spec)
     try:
+        cmd = build_public_video_transcode_command(ffmpeg, evidence_path, out_path, cfg, startline_spec=startline_spec)
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=600)
         if not out_path.exists() or out_path.stat().st_size <= 0:
             raise RuntimeError("FFmpeg created no public video file.")
-        rel_public = str(out_path.relative_to(appstate.BASE_DIR))
+        # FFmpeg exits 0 for an encode that stopped early, so "it ran" is not
+        # "it is all there". Race 96's public copies were marked ready at 5 s and
+        # 11 s of 140 s and 160 s clips. A copy that comes out short is tried once
+        # more without the start line, the one optional input, and is never
+        # published short.
+        short = public_copy_is_short(out_path, evidence_path)
+        if short and startline_spec:
+            log_activity("public video", f"clip #{clip_id}: came out {short[0]:.0f} s of {short[1]:.0f} s; "
+                                         "encoding again without the start line", user="system")
+            cmd = build_public_video_transcode_command(ffmpeg, evidence_path, out_path, cfg)
+            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=600)
+            short = public_copy_is_short(out_path, evidence_path)
+        if short:
+            raise RuntimeError(f"the public copy came out {short[0]:.0f} s long against {short[1]:.0f} s "
+                               "of evidence, so it was not published")
+        try:
+            rel_public = str(out_path.relative_to(appstate.BASE_DIR))
+        except ValueError:
+            rel_public = str(out_path)
         object_key = r2_object_key_for_clip(clip, out_path, cfg)
         update_video_clip_public_status(clip_id, "uploading", "Uploading public video to Cloudflare R2...", rel_public, object_key)
+        # Read back, so the upload takes the key just recorded: a rebuild has a
+        # new one, and the row read at the top still holds the old.
+        with get_db() as db:
+            clip = db.execute("SELECT * FROM video_clips WHERE id = ?", (clip_id,)).fetchone() or clip
         upload_public_video_file_with_retries(clip_id, clip, out_path, cfg)
     except Exception as exc:
         update_video_clip_public_status(clip_id, "error", f"Could not create public video: {exc}")
+    finally:
+        startline.cleanup_spec(startline_spec)
+        if work is not None:
+            shutil.rmtree(work, ignore_errors=True)
 
 
 def build_video_clip_after_delay(clip_id: int) -> None:
