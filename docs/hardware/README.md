@@ -59,5 +59,7 @@ the collection grows.
 - `Wiring-Diagram-5025_5030.pdf` — component wiring diagram
 
 > Source of these files: the club Dropbox `Hut_Shared/Manuals` folder. Vendor
-> manuals/datasheets are third-party copyright, kept here for the club's own
-> maintenance use in this private repository.
+> manuals/datasheets are third-party copyright, so `.gitignore` excludes the PDFs in
+> this folder: they sit in local working copies for the club's own maintenance use
+> but are not published in this public repository. The two club drawings — the hut
+> wiring diagram and the horn control box — are the only PDFs here that are tracked.
