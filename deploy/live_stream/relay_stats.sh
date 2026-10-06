@@ -20,13 +20,18 @@
 # Run from cron, e.g. every 10 minutes:
 #   */10 * * * * /opt/relay/relay_stats.sh 2>/dev/null
 #
+# Caddy names a rolled log after the file with a timestamp before the extension
+# (access-2026-10-03T11-59-06.036-size.log.gz, not access.log.1.gz), so the
+# glob must not start "access.log": that matches only the current file, and
+# the report would cover a few hours instead of everything Caddy has kept.
+#
 # Overridable via environment:
-#   RELAY_LOG_GLOB   default /var/log/caddy/access.log*   (current + rolled .gz)
+#   RELAY_LOG_GLOB   default /var/log/caddy/access*.log*   (current + rolled .gz)
 #   RELAY_STATS_OUT  default /opt/relay/site/stats.html
 #   RELAY_GEOIP_DIR  default /opt/relay/geoip
 set -euo pipefail
 
-LOG_GLOB="${RELAY_LOG_GLOB:-/var/log/caddy/access.log*}"
+LOG_GLOB="${RELAY_LOG_GLOB:-/var/log/caddy/access*.log*}"
 OUT="${RELAY_STATS_OUT:-/opt/relay/site/stats.html}"
 GEOIP_DIR="${RELAY_GEOIP_DIR:-/opt/relay/geoip}"
 
