@@ -249,6 +249,7 @@ Detailed documentation is in the `docs/` folder:
 - [`docs/SETTINGS_AND_ADMIN.md`](docs/SETTINGS_AND_ADMIN.md) — settings sections and administration.
 - [`docs/CLASSES_AND_STARTS.md`](docs/CLASSES_AND_STARTS.md) — IRC/YTC rating-band classes, start plans and series entry synchronisation.
 - [`docs/HARDWARE_HORN_AUDIO.md`](docs/HARDWARE_HORN_AUDIO.md) — serial horn output, manual horn input and VHF audio.
+- [`docs/SYSTEM_COSTS.md`](docs/SYSTEM_COSTS.md) — what the hut kit, the trackers and the running services cost, and how to cut the running costs.
 - [`docs/FLAGS_AND_START_SEQUENCE.md`](docs/FLAGS_AND_START_SEQUENCE.md) — dynamic flag model and scheduled signal plan.
 - [`docs/VIDEO_RECORDING.md`](docs/VIDEO_RECORDING.md) — FFmpeg, camera setup, live preview and video troubleshooting.
 - [`docs/TRACKING.md`](docs/TRACKING.md) — GPS yacht tracking, *Position on the water* and automated finishes.
