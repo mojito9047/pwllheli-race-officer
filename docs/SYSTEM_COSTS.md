@@ -97,6 +97,20 @@ The known services cost about £403 a year, or £34 a month. The hut data SIM is
 
 Free services: Open-Meteo forecasts, Mapbox (within its free tier), Traccar (self-hosted on the relay), Victron VRM and MaxMind GeoLite2.
 
+## Software
+
+The software costs nothing to license. The race officer app and everything around it are published and documented on GitHub at [github.com/mojito9047/pwllheli-race-officer](https://github.com/mojito9047/pwllheli-race-officer), to be released under the MIT licence so anyone can use them, and every part they rely on is free.
+
+| Part | Software | Licence |
+| --- | --- | --- |
+| Race officer app (hut PC) | Python with Flask, Waitress, pySerial, pyttsx3, Pillow, NumPy, Markdown and pyzipper; FFmpeg for video; Leaflet for the charts | Free and open source |
+| Typefaces | Archivo, Archivo Narrow, IBM Plex Mono | SIL Open Font Licence |
+| Relay | Debian, Caddy, cloudflared, MediaMTX, Traccar, GoAccess | Free and open source |
+| 3D films (render machine) | Blender, PyAV, tifffile, fonttools | Free and open source |
+| Map and weather data | OpenStreetMap and OpenSeaMap charts, Open-Meteo forecasts, Copernicus terrain, Mapbox imagery, MaxMind GeoLite2 | Free with attribution: Open-Meteo for non-commercial use, Mapbox within its free tier |
+
+The only paid software is Windows, which came with the hut PC and is in its price. The Virtual Race Officer's model use is a running cost, not a licence, and building the app with Claude Code is covered under [Development with Claude](#development-with-claude).
+
 ## Reducing running costs
 
 Seasonal changes to the two SIM plans save money without losing anything during the season. The relay server can be cut further when its contract renews in July 2027.
