@@ -160,7 +160,7 @@ Wind samples inside a race window are exempt from the normal 24-hour history pur
 
 Once a race has been rendered as a [3D replay film](RACE_REPLAY_3D.md), a link to it appears by itself: a **3D replay** button beside *Open* in the races list, and **Watch the 3D replay** in the race page header under the entry counts. It is also in each race's section of a published results document.
 
-Nothing appears until the film is actually in the bucket, so an unrendered race looks exactly as it did before, and race day is unchanged — a film exists days after the racing, not on the water. The link goes straight to the storage bucket rather than through the hut, so it plays whether or not the clubhouse PC is switched on and a large download never crosses the hut's 4G connection.
+Nothing appears until the film is actually in the bucket, so an unrendered race looks exactly as it did before, and race day is unchanged — a film exists about an hour after the racing, usually by the time the crews are ashore, not on the water. The link goes straight to the storage bucket rather than through the hut, so it plays whether or not the clubhouse PC is switched on and a large download never crosses the hut's 4G connection.
 
 ## Phones and tablets
 

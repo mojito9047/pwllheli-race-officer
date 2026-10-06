@@ -11,8 +11,8 @@ Competitors reach it from the public pages. The race office presses one button.
 ## The one thing to understand
 
 **The hut PC does not make the film.** It cannot: a single replay is around eleven thousand
-frames, a couple of hours of work for a machine with a graphics card, and the hut PC is a
-fanless box that is also running the race.
+frames, about an hour of work for the club's render machine with its graphics card, and the
+hut PC is a fanless box that is also running the race.
 
 So it doesn't try. Pressing **Render a 3D film** writes a *job* into the same Cloudflare R2
 bucket the club's race videos already use. A **render machine** somewhere else — a desktop
@@ -58,10 +58,12 @@ already shared.
 
 ### How long it takes
 
-The race office should treat this as *this evening*, not *in a minute*. An eight-minute film
-of a three-boat race took two hours on a modest graphics card and about twenty minutes on a
-good one. The page shows a percentage and an estimate, both of which are honest but move in
-steps, because the work is divided into a handful of unequal pieces.
+About an hour per race on the club's render machine. Pressed when the racing ends, the film
+is usually ready by the time the boats are packed away and the crews are in the bar, which is
+where it gets watched. A slower graphics card takes longer: an eight-minute film of a
+three-boat race took two hours on a modest one. The page shows a percentage and an estimate,
+both of which are honest but move in steps, because the work is divided into a handful of
+unequal pieces.
 
 The first of those pieces draws nothing, and the card says **placing names and marks** while
 it runs. That is the render working out where every boat and mark falls on screen for every

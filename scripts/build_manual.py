@@ -924,8 +924,9 @@ story.append(bullets([
     "race. Pressing the button queues the job, and a separate render machine picks it up and does the work. "
     "Nothing happens at all until that machine is switched on, which is what the dashboard's <b>3D replay</b> "
     "card is there to tell you.",
-    "<b>Think this evening, not this minute.</b> An eight-minute film takes between twenty minutes and a "
-    "couple of hours depending on the machine. The page shows how far it has got.",
+    "<b>Allow about an hour.</b> A race takes about an hour on the club's render machine, so a film asked "
+    "for when the racing ends is usually ready by the time the boats are packed away and the crews are in "
+    "the bar. The page shows how far it has got.",
     "<b>Publish the race videos first</b> if you want the hut camera in it. The film is made either way; it "
     "simply has no camera inset for clips that have not been published, and the button says so before you "
     "press it.",

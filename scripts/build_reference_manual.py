@@ -2376,8 +2376,9 @@ story.append(figure("replay3d_film.png",
 
 story.append(Paragraph("The hut PC does not make the film", styles["H2"]))
 story.append(Paragraph(
-    "It cannot. A single replay is around eleven thousand frames, which is a couple of hours of work for a "
-    "machine with a graphics card, and the race-office PC is a fanless box that is also running the race. "
+    "It cannot. A single replay is around eleven thousand frames, which is about an hour of work for the "
+    "club's render machine with its graphics card, and the race-office PC is a fanless box that is also "
+    "running the race. "
     "So it does not try. Pressing <b>Render a 3D film</b> writes a <i>job</i> into the same Cloudflare R2 "
     "bucket the club's race videos already use. A separate <b>render machine</b> &#8212; a desktop at home, "
     "switched on when there is something to make &#8212; picks the job up, makes the film, and puts it back "
@@ -2412,9 +2413,10 @@ story.append(bullets([
 ]))
 story.append(Paragraph(
     "The same strip then shows progress and finally <b>Watch the film</b>. <b>Render it again</b> replaces "
-    "the film everywhere, including on links already shared. Treat a render as <i>this evening</i> rather "
-    "than <i>in a minute</i>: an eight-minute film of a three-boat race took two hours on a modest "
-    "graphics card and about twenty minutes on a good one.", styles["Body"]))
+    "the film everywhere, including on links already shared. Allow about an hour per race on the club's "
+    "render machine: a film asked for when the racing ends is usually ready by the time the boats are "
+    "packed away and the crews are in the bar. A slower graphics card takes longer: an eight-minute film "
+    "of a three-boat race took two hours on a modest one.", styles["Body"]))
 
 story.append(Paragraph("The dashboard card", styles["H2"]))
 story.append(Paragraph(
