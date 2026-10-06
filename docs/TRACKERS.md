@@ -24,16 +24,20 @@ repeat it.
 
 ## The fleet at a glance
 
-| | Teltonika ATC700 | Queclink GL521MG | Jimi LL301 | Teltonika RUTX50 |
-|---|---|---|---|---|
-| Traccar protocol | `teltonika` | `gl200` | `gt06` | `teltonika` |
-| Position CEP50 | **1.9–4.5 m** clear sky\*\* | 8–13 m | 41 m | 0.7 m\* |
-| Position CEP95 | **5.4–20 m** clear sky\*\* | 24–46 m | 138 m | 1.7 m\* |
-| Worst excursion seen | 79 m | **1060 m** | 860 m | 2 m |
-| Reporting, moving | 10 s | 60 s (hard floor) | ~34 s | 60 s |
-| Delivery lag | **1 s** | 45 s | 28 s | **0 s** |
-| Drain, active | **~10 %/h** | ~1 %/h | — | mains |
-| Quality fields sent | hdop, pdop, sat, rssi | hdop only | sat | sat |
+The club runs **five Teltonika ATC700s and two Queclink GL521MGs**, all on Hologram SIMs.
+The RUTX50 is the router on Mojito, kept here as a reference. Four other models were tried
+and dropped; see *Retired trackers* below.
+
+| | Teltonika ATC700 | Queclink GL521MG | Teltonika RUTX50 |
+|---|---|---|---|
+| Traccar protocol | `teltonika` | `gl200` | `teltonika` |
+| Position CEP50 | **1.9–4.5 m** clear sky\*\* | 8–13 m | 0.7 m\* |
+| Position CEP95 | **5.4–20 m** clear sky\*\* | 24–46 m | 1.7 m\* |
+| Worst excursion seen | 79 m | **1060 m** | 2 m |
+| Reporting, moving | 10 s | 60 s (hard floor) | 60 s |
+| Delivery lag | **1 s** | 45 s | **0 s** |
+| Drain, active | **~10 %/h** | ~1 %/h | mains |
+| Quality fields sent | hdop, pdop, sat, rssi | hdop only | sat |
 
 \* The RUTX50 reports an identical position between fixes, so it is almost certainly
 averaging or only re-reporting on movement. Its figure is flattered and not comparable.
@@ -407,12 +411,6 @@ answers in a second.
 AGPS (`AT+GTCFG` field 18) is disabled. It would speed acquisition after a restart; the
 manual warns some operators cannot serve the URL fetch it needs, and the club's SIM roams.
 
-### Jimi LL301
-
-CEP50 41 m, CEP95 138 m, excursions to 860 m, six satellites, and it reports a median
-speed of 0.5 kn while stationary. **Not suitable for GPS finish detection.** Reports no
-hdop.
-
 ### Teltonika RUTX50
 
 The router on Mojito. Mains powered, pushes in real time at zero delay, and reports an
@@ -422,10 +420,24 @@ those were a cellular problem rather than a relay one.
 
 ---
 
+## Retired trackers
+
+Four models were bought in summer 2026, tried, and proved unreliable. None is used now.
+The vendor manuals for the LL301, AT1 and FMP100 are still in `docs/Trackers/`.
+
+| Model | What the trial showed |
+|---|---|
+| Jimi LL301 | CEP50 41 m, CEP95 138 m, excursions to 860 m, six satellites, no hdop, and a median 0.5 kn while stationary. Reported every ~34 s with 28 s lag. **Not suitable for GPS finish detection.** |
+| Queclink GL530MG | Unreliable. |
+| Teltonika FMP100 | Unreliable. |
+| Jimi AT1 | Unreliable. |
+
+---
+
 ## Degraded reporting spells
 
 Sporadically, a quarter to half of all fixes arrive more than a minute late, with p90
-jumping from ~48 s to ~105 s. Observed on the GL units and the LL301 across several days,
+jumping from ~48 s to ~105 s. Observed on the GL units and the LL301 (since retired) across several days,
 day and night, sometimes on two units at once.
 
 It is **not the relay**. Through the worst of it the mains-powered RUTX50 stayed at 0.0%
