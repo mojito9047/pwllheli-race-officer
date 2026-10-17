@@ -2552,3 +2552,62 @@ class TestTheStripFollowsTheRaceSheet:
     def test_it_needs_the_same_permission_as_the_page(self, logged_in_client):
         _grant_on_water(allowed=False)
         assert logged_in_client.get("/admin/api/assistant/header").status_code == 403
+
+
+class TestAFinishPressedAgain:
+    """17 October: with the race sheet slow to answer, ANDROMEDA was finished
+    four times in fifteen seconds -- four horns, four finish videos, four 4K
+    encodes on a hut that was already struggling."""
+
+    @pytest.fixture(autouse=True)
+    def a_horn(self, monkeypatch):
+        from core import raceadmin
+        self.blasts, self.clips = [], []
+        monkeypatch.setattr(raceadmin, "fire_horn", lambda ms=None: self.blasts.append(ms) or {
+            "ok": True, "mode": "serial", "message": "Horn fired."})
+        monkeypatch.setattr(raceadmin, "schedule_video_clip",
+                            lambda *a, **k: self.clips.append((a, k)))
+
+    def _race(self):
+        from datetime import datetime, timedelta
+        warning = datetime.now() - timedelta(minutes=50)
+        with ro.get_db() as db:
+            created = create_race(db, RaceSpec(name="Finish Race"))
+            update_race_settings(db, ro.get_race(created.race_id), RaceSettings(
+                name="Finish Race", course_no=1, start_time=warning.strftime("%Y-%m-%dT%H:%M")))
+        _boat("Twice Test", "GBR 2")
+        _enter(created.race_id, "Twice Test")
+        return created.race_id, next(e["id"] for e in ro.get_entries(created.race_id))
+
+    def test_a_second_press_moments_later_is_the_same_finish(self, client):
+        from core.raceadmin import finish_entry_now
+        race_id, entry_id = self._race()
+        with ro.get_db() as db:
+            first = finish_entry_now(db, ro.get_race(race_id), entry_id)
+            again = finish_entry_now(db, ro.get_race(race_id), entry_id)
+        assert not first.repeat and again.repeat
+        assert again.finish_time == first.finish_time
+        assert len(self.blasts) == 1 and len(self.clips) == 1
+
+    def test_but_not_once_the_moment_has_passed(self, client):
+        from datetime import datetime, timedelta
+        from core.raceadmin import REPEAT_FINISH_S, finish_entry_now
+        race_id, entry_id = self._race()
+        earlier = (datetime.now() - timedelta(seconds=REPEAT_FINISH_S + 5)).isoformat(timespec="seconds")
+        with ro.get_db() as db:
+            db.execute("UPDATE entries SET finish_time = ?, finish_source = 'manual-now', status = 'FINISHED'"
+                       " WHERE id = ?", (earlier, entry_id))
+            db.commit()
+            done = finish_entry_now(db, ro.get_race(race_id), entry_id)
+        assert not done.repeat and len(self.blasts) == 1
+
+    def test_the_race_sheet_says_the_press_was_taken_as_the_same(self, logged_in_client):
+        race_id, entry_id = self._race()
+        with logged_in_client.session_transaction() as sess:
+            sess["_csrf_token"] = TOKEN
+        url = f"/admin/race/{race_id}/entry/{entry_id}/finish_now"
+        for _ in range(2):
+            logged_in_client.post(url, data={"_csrf_token": TOKEN})
+        page = logged_in_client.get(f"/admin/race/{race_id}").get_data(as_text=True)
+        assert "taken as the same finish" in page
+        assert len(self.blasts) == 1

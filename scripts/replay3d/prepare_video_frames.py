@@ -183,7 +183,13 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     total = 0
     for clip in data.get("videos") or []:
-        info = extract_clip(clip, base, warp, args.width)
+        # One clip that cannot be read is that clip left out, never the film:
+        # race 97's render stopped here on every attempt over one bad file.
+        try:
+            info = extract_clip(clip, base, warp, args.width)
+        except Exception as exc:
+            print(f"  {clip.get('file')}: could not be read ({type(exc).__name__}: {exc}); left out")
+            info = None
         if info:
             clip["sequence"] = info
             total += info["count"]

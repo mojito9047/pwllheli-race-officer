@@ -207,7 +207,14 @@ def fetch_clips(scene: Dict[str, Any], work: str) -> int:
     import urllib.parse
     import urllib.request
 
+    def download(url: str, dest: str) -> None:
+        req = urllib.request.Request(url, headers={"User-Agent": "pwllheli-renderer/1.0"})
+        with urllib.request.urlopen(req, timeout=300) as resp, open(dest + ".part", "wb") as f:
+            shutil.copyfileobj(resp, f)
+        os.replace(dest + ".part", dest)
+
     got = 0
+    kept = []
     for clip in scene.get("videos") or []:
         url = clip.get("url") or ""
         if not url:
@@ -216,13 +223,41 @@ def fetch_clips(scene: Dict[str, Any], work: str) -> int:
         dest = os.path.join(work, "video", name)
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         if not os.path.exists(dest) or os.path.getsize(dest) == 0:
-            req = urllib.request.Request(url, headers={"User-Agent": "pwllheli-renderer/1.0"})
-            with urllib.request.urlopen(req, timeout=300) as resp, open(dest + ".part", "wb") as f:
-                shutil.copyfileobj(resp, f)
-            os.replace(dest + ".part", dest)
+            download(url, dest)
+        # A clip that will not open is left out, not the whole film. Race 97's
+        # render failed at the same point on every attempt over one finish video
+        # the hut had uploaded half-written -- and kept here, it was reused on
+        # every retry. It is fetched once more in case this copy is what is wrong.
+        if not playable(dest):
+            os.remove(dest)
+            try:
+                download(url, dest)
+            except Exception as exc:
+                print(f"  clip {clip.get('id')}: could not fetch it again ({exc}); left out", flush=True)
+                continue
+            if not playable(dest):
+                print(f"  clip {clip.get('id')}: {name} is not a video that can be played; left out of "
+                      "the film (rebuild it at the hut with Settings -> Video Recording -> Retry)", flush=True)
+                os.remove(dest)
+                continue
         clip["file"] = os.path.relpath(dest, work).replace("\\", "/")
+        kept.append(clip)
         got += 1
+    scene["videos"] = kept
     return got
+
+
+def playable(path: str) -> bool:
+    """Whether a downloaded clip opens as a video and has a picture in it."""
+    try:
+        import av
+        with av.open(path) as container:
+            stream = container.streams.video[0]
+            for _frame in container.decode(stream):
+                return True
+    except Exception:
+        return False
+    return False
 
 
 def run_job(store: Store, job: Dict[str, Any], who: str, blender: str) -> str:

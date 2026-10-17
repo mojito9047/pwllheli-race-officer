@@ -210,7 +210,7 @@ def settings_video_r2_retry():
     threading.Thread(target=_worker, name="r2-public-video-retry", daemon=True).start()
     audit("public video uploads retried")
     flash("Retrying failed or stuck public video uploads in the background, and rebuilding any "
-          "public video that came out shorter than its evidence clip.", "success")
+          "public video that is short or cannot be played.", "success")
     return redirect(url_for("settings_page") + "#video")
 
 

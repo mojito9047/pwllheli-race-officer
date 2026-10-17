@@ -440,6 +440,13 @@ frame for the whole window: race 96's MOJITO BACH finish was a public copy cut o
 over the boat that was actually finishing. The copies were short at the hut (fixed in
 v1.012, which also rebuilds them); this is the render side's own guard.
 
+**A clip that cannot be played is left out, not the film.** `renderer.fetch_clips` checks
+each download opens and decodes (`playable`), fetches it once more if not, and leaves it
+out of the scene if it still does not, deleting the cached copy so the next attempt does
+not reuse it; `prepare_video_frames.py` skips any clip it fails on. Race 97's render stopped
+at the same point on every attempt over one finish video the hut had uploaded half-written
+(fixed at the hut in v1.013).
+
 ### Boat models
 
 `--boat-model hull.glb` (also `.gltf`, `.fbx`, `.obj`) replaces the procedural hull with an

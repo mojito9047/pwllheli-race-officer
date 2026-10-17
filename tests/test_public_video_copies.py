@@ -72,7 +72,7 @@ def _clip(race_id: int = 96, clip_id: int = 393) -> int:
 def publishing(client, monkeypatch, tmp_path):
     """R2 ready, the start line on, and FFmpeg and the uploader replaced by
     stand-ins that record what they were asked to do."""
-    seen = {"encodes": [], "uploads": [], "public_lengths": []}
+    seen = {"encodes": [], "uploads": [], "public_lengths": [], "served": {}, "running": 0, "most": 0}
     monkeypatch.setattr(video, "video_public_r2_ready", lambda cfg: True)
     monkeypatch.setattr(video.startline, "startline_overlay_enabled", lambda cfg: True)
 
@@ -83,12 +83,24 @@ def publishing(client, monkeypatch, tmp_path):
     monkeypatch.setattr(video.startline, "build_startline_spec", spec)
 
     def encode(cmd, **kwargs):
-        out = Path(cmd[-1])
-        with_line = any(".odm_green_" in str(part) for part in cmd)
-        seen["encodes"].append({"out": out, "with_line": with_line})
-        length = seen["public_lengths"].pop(0) if seen["public_lengths"] else 159.5
-        _mvhd_mp4(out, length)
+        seen["running"] += 1
+        seen["most"] = max(seen["most"], seen["running"])
+        try:
+            out = Path(cmd[-1])
+            with_line = any(".odm_green_" in str(part) for part in cmd)
+            seen["encodes"].append({"out": out, "with_line": with_line, "kwargs": kwargs})
+            length = seen["public_lengths"].pop(0) if seen["public_lengths"] else 159.5
+            if length is None:                         # an encode cut off: no movie header
+                out.write_bytes(b"\x00\x00\x00\x08mdat")
+            else:
+                _mvhd_mp4(out, length)
+            if seen.get("slow"):
+                time.sleep(seen["slow"])
+        finally:
+            seen["running"] -= 1
     monkeypatch.setattr(video.subprocess, "run", encode)
+    # What the club's public address says it serves; nothing is fetched.
+    monkeypatch.setattr(video, "published_size", lambda url, timeout=15.0: seen["served"].get(url))
 
     def upload(clip_id, clip, path, cfg, attempts=3):
         seen["uploads"].append({"clip": clip_id, "key": clip["public_object_key"], "path": path})
@@ -130,7 +142,7 @@ class TestPublishingAPublicCopy:
         row = _status(clip_id)
         assert not seen["uploads"]
         assert row["public_status"] == "error"
-        assert "came out 11 s long against 160 s of evidence" in row["public_message"]
+        assert "is 11 s long against 160 s of evidence, so it was not published" in row["public_message"]
 
     def test_its_line_images_do_not_outlive_it(self, publishing):
         seen, cfg = publishing
@@ -181,3 +193,100 @@ class TestRepairingShortCopies:
         os.utime(keep, (long_ago, long_ago))
         assert video.remove_stray_overlay_images() == 1
         assert not old.exists() and fresh.exists() and keep.exists()
+
+
+
+class TestRace97:
+    """17 October 2026: the hut was restarted in the middle of six finish-clip
+    encodes it was running at once. The retry button then uploaded the
+    half-written files as they were -- five unplayable videos, and a render
+    machine that failed on every attempt -- and two short ones."""
+
+    def test_an_encode_cut_off_is_never_published(self, publishing):
+        seen, cfg = publishing
+        seen["public_lengths"] = [None, None]
+        clip_id = _clip()
+        video.publish_public_video_clip(clip_id, Path(_status(clip_id)["file_path"]), cfg, "ffmpeg")
+        row = _status(clip_id)
+        assert not seen["uploads"] and row["public_status"] == "error"
+        assert "cannot be read as a video" in row["public_message"]
+
+    def test_it_is_written_under_another_name_until_it_is_whole(self, publishing):
+        seen, cfg = publishing
+        seen["public_lengths"] = [10.9, 10.9]
+        clip_id = _clip()
+        final = video.public_clip_output_path(_status(clip_id))
+        video.publish_public_video_clip(clip_id, Path(_status(clip_id)["file_path"]), cfg, "ffmpeg")
+        assert all(e["out"].name.endswith(".part.mp4") for e in seen["encodes"])
+        assert not final.exists(), "nothing ever appears under the name the retry button uploads"
+        assert not list(final.parent.glob("*.part.mp4")), "and the half-made file goes"
+
+    def test_encodes_run_one_at_a_time_below_the_apps_priority(self, publishing):
+        import threading
+        seen, cfg = publishing
+        seen["slow"] = 0.2
+        clips = [_clip(clip_id=n) for n in (399, 400, 401)]
+        threads = [threading.Thread(target=video.publish_public_video_clip,
+                                    args=(n, Path(_status(n)["file_path"]), cfg, "ffmpeg")) for n in clips]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        assert len(seen["encodes"]) == 3 and seen["most"] == 1
+        assert all(set(e["kwargs"]) & {"creationflags", "preexec_fn"} for e in seen["encodes"])
+
+    def test_retry_does_not_upload_a_half_written_copy(self, publishing):
+        seen, cfg = publishing
+        clip_id = _clip()
+        half = video.public_clip_output_path(_status(clip_id))
+        half.parent.mkdir(parents=True, exist_ok=True)
+        half.write_bytes(b"\x00\x00\x00\x08mdat")
+        video.update_video_clip_public_status(clip_id, "processing", "Creating public web video...", str(half))
+        video.retry_public_video_uploads_once(cfg)
+        assert len(seen["encodes"]) == 1, "made again from the evidence"
+        assert seen["uploads"] and seen["uploads"][0]["path"] != half
+        assert not half.exists()
+
+    def test_retry_uploads_a_whole_copy_as_it_is(self, publishing):
+        seen, cfg = publishing
+        clip_id = _clip()
+        whole = video.public_clip_output_path(_status(clip_id))
+        whole.parent.mkdir(parents=True, exist_ok=True)
+        _mvhd_mp4(whole, 159.48)
+        video.update_video_clip_public_status(clip_id, "error", "upload failed", str(whole))
+        video.retry_public_video_uploads_once(cfg)
+        assert not seen["encodes"]
+        assert [u["path"] for u in seen["uploads"]] == [whole]
+
+    def test_a_copy_on_cloudflare_that_is_not_the_hut_copy_is_rebuilt(self, publishing):
+        seen, cfg = publishing
+        clip_id = _clip()
+        whole = video.public_clip_output_path(_status(clip_id))
+        whole.parent.mkdir(parents=True, exist_ok=True)
+        _mvhd_mp4(whole, 159.48)
+        url = "https://assets.example.org/racevideos/race97/" + whole.name
+        video.update_video_clip_public_status(clip_id, "ready", "uploaded", str(whole), "k", url)
+        seen["served"][url] = 8_650_000                  # half of it, uploaded mid-encode
+        found = video.broken_public_copies()
+        assert len(found) == 1 and "uploaded before it was finished" in found[0][1]
+        assert video.rebuild_broken_public_copies(cfg) == 1
+
+    def test_an_unreadable_published_copy_is_rebuilt(self, publishing):
+        seen, cfg = publishing
+        clip_id = _clip()
+        broken = video.public_clip_output_path(_status(clip_id))
+        broken.parent.mkdir(parents=True, exist_ok=True)
+        broken.write_bytes(b"\x00\x00\x00\x08mdat")
+        video.update_video_clip_public_status(clip_id, "ready", "uploaded", str(broken), "k", "https://x/k")
+        assert video.rebuild_broken_public_copies(cfg) == 1
+        assert not broken.exists()
+
+    def test_half_written_copies_left_by_a_restart_are_cleared(self, client):
+        public = appstate.VIDEO_CLIPS_DIR / "public"
+        public.mkdir(parents=True, exist_ok=True)
+        part = public / "race97_finish_400_public.part.mp4"
+        part.write_bytes(b"x")
+        long_ago = time.time() - 7200
+        os.utime(part, (long_ago, long_ago))
+        assert video.remove_stray_overlay_images() == 1 and not part.exists()
+

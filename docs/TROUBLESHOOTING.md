@@ -431,6 +431,42 @@ From v1.012 a public copy that comes out short is never published, and a render
 machine leaves out a clip whose footage stops before its own event instead of
 freezing it. Update the render machine as well as the hut.
 
+## The hut stops answering after the last boats finish
+
+> After the last boat of each race finished the race sheet stopped responding and
+> the hut had to be restarted. Some finish videos would not play afterwards, and a
+> render machine stopped every time with `Invalid data found when processing
+> input: ...race97_finish_400_public.mp4`.
+
+Fixed in v1.013 (17 October 2026). Every finish clip made its public web copy in
+a thread of its own, so a fleet finishing together — race 97's last four boats
+inside a minute, with **Finish** pressed again because the page was slow to
+answer — ran one 4K encode per clip at once. Those encodes, minutes of every core
+the hut has, starved the race sheet. The restart then cut them off, and the retry
+button uploaded the half-written files as they were.
+
+From v1.013:
+
+- **Public copies are encoded one at a time, below the app's own priority**, so
+  the race sheet, the horn and the recorder always come first. A clip waiting its
+  turn says so on the race page (*Waiting for another clip's public web video to
+  be encoded*). The last finish video of a big fleet arrives later; nothing else
+  is slowed down.
+- **A second press of Finish for the same boat within 30 seconds is the same
+  finish** — no second horn and no second video — and the button greys out the
+  moment it is pressed.
+- **An encode is written under another name** and given its real one only when it
+  is whole, so a restart can no longer leave a half-made file for anything to
+  upload.
+- **Retry never uploads a copy without checking it**, and rebuilds from the
+  evidence any published copy that is short, cannot be played, or is not the size
+  the hut's own copy is.
+- **A render machine leaves out a clip it cannot play** rather than stopping.
+
+To repair after installing it: press **Settings → Video Recording → Save and
+retry failed public video uploads** once, after racing, then queue the 3D replay
+again for the races affected. Update the render machine too.
+
 ## Public video will not upload to Cloudflare R2
 
 > `Could not upload public video after 4 attempts: Built-in upload failed: Network

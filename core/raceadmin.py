@@ -605,6 +605,17 @@ class FinishRecorded:
     sail_no: str
     finish_time: str
     horn: Dict[str, Any]
+    # A second press for the same boat moments after the first: the finish
+    # already recorded stands, and nothing else happened.
+    repeat: bool = False
+
+
+# A boat finishes once. A second press of Finish for the same boat this soon
+# after the first is the same finish pressed again -- on 17 October, with the
+# race sheet slow to answer, ANDROMEDA was finished four times in fifteen
+# seconds and MOJITO BACH twice, each press a horn, a finish clip and a 4K encode
+# on a hut that was already struggling.
+REPEAT_FINISH_S = 30
 
 
 def finish_entry_now(db: sqlite3.Connection, race: sqlite3.Row, entry_id: int,
@@ -626,11 +637,19 @@ def finish_entry_now(db: sqlite3.Connection, race: sqlite3.Row, entry_id: int,
                        (int(entry_id), race_id)).fetchone()
     if not entry:
         raise RaceValidationError("Entry not found.", field="entry_id")
+    sail_no = str(entry["sail_no"] or "")
+    previous = parse_dt(str(row_get(entry, "finish_time", "") or ""))
+    if (str(row_get(entry, "finish_source", "") or "") == "manual-now" and previous is not None
+            and 0 <= (datetime.now() - previous).total_seconds() < REPEAT_FINISH_S):
+        log_activity("finish press repeated",
+                     f"race #{race_id} · {entry['boat_name']} · already finished at {previous:%H:%M:%S}",
+                     user=actor)
+        return FinishRecorded(entry_id=int(entry_id), boat_name=str(entry["boat_name"]), sail_no=sail_no,
+                              finish_time=previous.isoformat(timespec="seconds"), horn={}, repeat=True)
     now = datetime.now().isoformat(timespec="seconds")
     db.execute("UPDATE entries SET finish_time = ?, finish_source = 'manual-now', status = 'FINISHED'"
                " WHERE id = ? AND race_id = ?", (now, int(entry_id), race_id))
     db.commit()
-    sail_no = str(entry["sail_no"] or "")
     label_parts = [str(entry["boat_name"])] + ([sail_no] if sail_no else [])
     label = f"Finish now + horn: {' — '.join(label_parts)} at {dt_display(now)}"
     horn = fire_horn(hardware_config()["horn_duration_ms"])

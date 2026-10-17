@@ -846,7 +846,13 @@ class TestCloudflareR2UploadDiagnostics:
         public_dir = video_root / "public"
         public_dir.mkdir(parents=True)
         public_file = public_dir / "race1_finish_1_public.mp4"
-        public_file.write_bytes(b"public-video")
+        # A whole copy, as far as the retry check can tell: ftyp, then a 60 s
+        # moov/mvhd. Retry no longer uploads a file it cannot read as a video.
+        import struct
+        mvhd_body = bytes(4) + struct.pack(">IIII", 0, 0, 1000, 60000) + bytes(80)
+        mvhd = struct.pack(">I4s", 8 + len(mvhd_body), b"mvhd") + mvhd_body
+        public_file.write_bytes(struct.pack(">I4s", 16, b"ftyp") + b"isom\x00\x00\x02\x00"
+                                + struct.pack(">I4s", 8 + len(mvhd), b"moov") + mvhd)
         monkeypatch.setattr(ro.appstate, "VIDEO_CLIPS_DIR", video_root)
 
         calls = []

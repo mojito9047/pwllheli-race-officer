@@ -138,6 +138,10 @@ def finish_now(race_id: int, entry_id: int):
     except RaceValidationError as exc:
         flash(exc.message, "error")
         return redirect(url_for("race_detail", race_id=race_id) + "#tab-admin")
+    if done.repeat:
+        flash(f"{done.boat_name} was finished at {done.finish_time[11:19]} a moment ago, so that press was "
+              "taken as the same finish: no second horn and no second video.", "warning")
+        return redirect(url_for("race_detail", race_id=race_id) + "#tab-admin")
     flash(f"Recorded finish for {done.boat_name} and fired horn: {done.horn.get('message', '')}",
           "success" if done.horn.get("ok") else "error")
     return redirect(url_for("race_detail", race_id=race_id) + "#tab-admin")

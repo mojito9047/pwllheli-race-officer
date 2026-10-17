@@ -1957,6 +1957,10 @@ def _execute(intent: str, resolved: dict, actor: str) -> dict:
         with get_db() as db:
             done = finish_entry_now(db, get_race(race_id), int(resolved["entry_id"]), actor=actor)
         label = done.boat_name + (f" ({done.sail_no})" if done.sail_no else "")
+        if done.repeat:
+            return {"message": f"{label} was finished at {done.finish_time[11:19]} a moment ago; that stands, "
+                               "and nothing was recorded again -- no second horn.",
+                    "race_id": race_id, "entry_id": done.entry_id}
         horn = done.horn or {}
         message = f"{label} finished at {done.finish_time[11:19]}."
         if not horn.get("ok"):
