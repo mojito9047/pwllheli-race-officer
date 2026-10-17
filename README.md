@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.012
+# Pwllheli Race Officer v1.013
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -6,6 +6,16 @@ Race-office support software. It does not decide anything: official race decisio
 
 
 ## Recent releases
+
+### v1.013 update
+
+- **The hut stopped answering after the last boats finished**, because every finish clip made
+  its 4K web copy at once. They are now made one at a time, below the race sheet's priority.
+- **A second press of Finish for the same boat within 30 seconds is the same finish** &mdash; no
+  second horn or video &mdash; and the button greys out when pressed.
+- **A half-made video can no longer be uploaded.** Retry checks every copy first and rebuilds the
+  broken ones; press it once after racing, then queue races 97 and 98's 3D replays again.
+- **A render machine leaves out a clip it cannot play** instead of stopping. Update it too.
 
 ### v1.012 update
 
@@ -57,18 +67,6 @@ Race-office support software. It does not decide anything: official race decisio
 - **The first-warning field suggests a time when you open it**, at least six minutes ahead, and
   no longer pre-fills &mdash; saving a new race's course must not give it a start time nobody chose.
 - **The race log no longer claims to be empty** while a start sequence fills it.
-
-### v1.008 update
-
-- **The sponsors' logos on the published results are links.** Record a **Website** against
-  a sponsor in Settings &rarr; Public branding and its logo opens the sponsor's site in a
-  new tab. Only http and https addresses are accepted, and a bare domain is taken as https.
-- **The banner says so**, in small white text in its bottom right corner &mdash; and only
-  when a sponsor actually has an address saved.
-- **Every sponsor was captioned "Sponsor"** on the published page, which is also what a
-  screen reader read out. They are named now.
-- **One sponsor's logo hung out of the banner.** Wrapping a logo in a link lost its height
-  cap, so a near-square logo grew to 143px. Nothing was wrong with the file.
 
 ## Main features
 

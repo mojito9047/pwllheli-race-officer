@@ -1,5 +1,55 @@
 # Change log
 
+## v1.013
+
+**On 17 October the hut stopped answering after the last boats of each race
+finished, and had to be restarted. Some finish videos would not play afterwards,
+and the render machine stopped on race 97 every time with "Invalid data found
+when processing input".**
+
+Every finish clip made its public web copy in a thread of its own. Race 97's last
+four boats finished inside a minute, and with the race sheet slow to answer,
+**Finish** was pressed again — ANDROMEDA four times in fifteen seconds, MOJITO
+BACH twice — so six clips were made, and six 4K encodes ran at once. Each is
+minutes of every core the hut has, at the same priority as the race sheet. The
+restart then cut them off, and the retry button uploaded the half-written files as
+they were: five of race 97's finish videos on Cloudflare had no index and could
+not be played, and two of race 98's stopped at 77 and 30 seconds of 140. v1.012
+checked a copy it had just made, but not one it found on disk to upload.
+
+The hut's own slow-request log for the day shows it plainly. Each stall began
+about eighty seconds after a finish — when that clip's encode starts — and grew
+with the number running at once: with one, the slowest request took 1.8 seconds;
+with two, 24; with six, **137**, and even the trackers' position updates, the
+cheapest thing the hut does, took 85. Race 98's last three finishes did the same
+at 13:18. And when the retry button rebuilt two clips one after the other that
+afternoon, nothing took longer than 4 seconds. **Finish** itself takes about four
+seconds on a quiet hut, because it waits for the three-second horn; that is what
+made it look as though the press had not registered.
+
+- **Public copies are made one at a time, below the app's own priority.** The race
+  sheet, the horn and the recorder come first; the last video of a big finish
+  arrives later. A clip waiting its turn says so on the race page.
+- **A second press of Finish for the same boat within 30 seconds is the same
+  finish** — no second horn and no second video — and the button greys out as
+  soon as it is pressed. From the water the same, and the reply says so.
+- **An encode is written under a `.part.mp4` name** and given its real one only
+  once it is whole and checked, so a restart cannot leave a half-made copy for
+  anything to upload.
+- **Retry checks every copy before uploading it**, and makes again from the
+  evidence any that cannot be played or is short. It also rebuilds every
+  published copy that is short, cannot be read, or is not the size on Cloudflare
+  that it is on the hut — asked of the public address with a HEAD request, so
+  nothing is downloaded.
+- **A render machine leaves out a clip it cannot play** — fetching it once more
+  first, and not keeping the bad copy — rather than stopping the film.
+
+**After installing:** press **Settings → Video Recording → Save and retry failed
+public video uploads** once, after racing. It finds race 97's five unplayable
+videos and race 98's two short ones and rebuilds them from the evidence, one at a
+time. Then queue the 3D replay again for races 97 and 98. **Update the render
+machine as well.**
+
 ## v1.012
 
 **Race 96's public start video was five seconds long and never reached the

@@ -1283,8 +1283,9 @@ story.append(Paragraph(
     "<b>Save and test R2 upload</b> writes a small test file and checks it's publicly reachable; if the "
     "upload succeeds but the public check fails, check the <b>Public base URL</b> rather than the access "
     "keys. <b>Save and retry failed public video uploads</b> re-attempts any clips that didn't make it to "
-    "R2 the first time, and rebuilds from the evidence clip any public copy that is shorter than it, "
-    "under a new address so a cached short copy cannot go on being served.", styles["Body"]))
+    "R2 the first time, and rebuilds from the evidence clip any public copy that is short or cannot be "
+    "played, or that is not on Cloudflare as it is on the hut, under a new address so a cached broken copy "
+    "cannot go on being served.", styles["Body"]))
 story += note_box(
     "<b>A public copy is checked for length before it is published.</b> It has to run as long as its "
     "evidence clip; one that comes out shorter is made again without the start line, and if it is still "
@@ -1294,6 +1295,15 @@ story += note_box(
     "start line on. The evidence clips were never affected. After installing v1.012, press the retry "
     "button once after racing to rebuild them, then queue the 3D replay again for any race whose film was "
     "made from a short copy.")
+story += note_box(
+    "<b>Public copies are made one at a time, and below the app's own priority.</b> Each is minutes of every "
+    "core the hut has. Until v1.013 every finish clip made its own at once, and on 17 October a fleet "
+    "finishing together — with <b>Finish</b> pressed again because the page was slow to answer — left the "
+    "race sheet unable to respond until the hut was restarted; the restart cut the encodes off and the retry "
+    "button uploaded the half-made files. Now the last video of a big finish simply arrives later, an encode "
+    "is only given its real name once it is whole, retry checks every copy before uploading it, and a second "
+    "press of <b>Finish</b> for the same boat within 30 seconds is taken as the same finish — no second horn "
+    "and no second video.")
 
 story.append(Paragraph("Public live camera stream", styles["H2"]))
 story.append(Paragraph(
