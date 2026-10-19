@@ -1,5 +1,42 @@
 # Change log
 
+## v1.017
+
+**The start line goes to the buoy, not to a boat near it.** Making the 2026
+autumn series' start photos afterwards showed it: in race 98, something on a
+boat was found in three frames before the gun, wandering about as it went, and
+two of those counted as agreeing and outvoted the buoy -- found once, in the
+photo itself, and more confidently. Across the series' twelve starts the buoy's
+own detections never spread by more than 0.007 of the frame, so now only
+detections within 0.01 of each other count as the same buoy. Replayed over all
+twelve starts, race 98's line goes to the buoy and the other eleven are
+unchanged.
+
+- **The race sheet says how long each start photo took:** the note beside it
+  now ends "the camera answered in 0.4 s; ready 9 s after the gun", and the
+  activity log records the same. The first live start will show the real
+  figures; the estimate is 4-8 seconds to the club's bucket and 8-15 seconds
+  to a phone left on the Start photo tab.
+- **The start photo is in the race officers' Series Guide**: where it is on the
+  race sheet, the camera's own photo for checking an OCS call, and that the line
+  is drawn automatically -- a guide, not a judging line. **The Competitor
+  Guide** gains a page on the Start photo tab, with a phone screenshot of race
+  90's published photo (`scripts/capture_start_photo_screen.py` makes it again).
+  VIDEO_RECORDING.md covers how long a photo takes and the one-off script below.
+- **`scripts/make_start_photos.py`** looks for the buoy only before the gun --
+  after it, the fleet sails through that part of the picture -- writes
+  `buoy_report.txt` of where the buoy was found in each frame, and gives a
+  photo made again a new name, because the bucket tells browsers to keep a
+  photo for a year. The autumn series' twelve start photos were made with it;
+  two have no line, the buoy lost in sun glare in one and showing red in
+  evening light in the other.
+- **Published results and View start video are buttons** on the public pages,
+  like Open and 3D replay beside them.
+- **The gold rule no longer runs through the club logo** on the covers of the
+  Series, Competitor and Relay guides. It was drawn at a fixed height on the
+  page while the logo moved with the spacing above it; it now sits under the
+  logo in the cover's own layout, as it always did on the Reference Manual.
+
 ## v1.016
 
 **The start line was missing from the start photo just when it mattered.** At

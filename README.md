@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.016
+# Pwllheli Race Officer v1.017
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -6,6 +6,14 @@ Race-office support software. It does not decide anything: official race decisio
 
 
 ## Recent releases
+
+### v1.017 update
+
+- **The start line goes to the buoy, not a boat beside it**: only detections within 0.01 of each other
+  count as agreeing.
+- **The race sheet says how long after the gun each start photo was ready.**
+- **The start photo is in the Series Guide and the Competitor Guide**, with a screenshot for competitors.
+- **Published results and View start video are buttons** on the public pages.
 
 ### v1.016 update
 
@@ -43,18 +51,6 @@ Race-office support software. It does not decide anything: official race decisio
 - **A half-made video can no longer be uploaded.** Retry checks every copy first and rebuilds the
   broken ones; press it once after racing, then queue races 97 and 98's 3D replays again.
 - **A render machine leaves out a clip it cannot play** instead of stopping. Update it too.
-
-### v1.012 update
-
-- **Public start and finish videos were coming out a few seconds long** &mdash; race 96's
-  start video was five seconds and never reached the start &mdash; and the 3D replay froze on
-  those finishes. With the start line on, two clips built seconds apart shared one line image
-  and the second cut the first one's encode short. 17 of the season's 84 public copies were
-  short; the evidence videos were always whole.
-- **A public copy is now checked for length** and is never published short.
-- **Settings &rarr; Video Recording &rarr; Save and retry failed public video uploads rebuilds
-  the short ones** from their evidence. Press it once after racing, then queue the 3D replay
-  again for the races affected. Update the render machine too.
 
 ## Main features
 
