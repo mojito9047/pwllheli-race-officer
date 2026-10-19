@@ -12,7 +12,7 @@ For every race in the series, and each of the race's own start times: the frame
 at the start signal is cut from the full-quality evidence clip -- the same
 frame the live feature falls back to when the camera gives no photo -- the
 start line and the club logo go on it exactly as at a live start (the buoy found
-in frames either side of the gun, where the fleet is not in front of it), and, unless
+in frames in the minute before the gun, where the fleet is not yet in front of it), and, unless
 ``--preview``, it is uploaded to the club's bucket and recorded against the
 start clip, so the race page's Start photo tab shows it ("from the start
 video"). Nothing else in the database is touched and nothing is restored.
@@ -38,8 +38,13 @@ from datetime import timedelta
 from pathlib import Path
 
 
-# Where in the evidence clip to look for the buoy, in seconds from the gun.
-SAMPLES_AROUND_THE_GUN_S = (-50, -40, -30, -20, -10, 15, 30, 45)
+# Where in the evidence clip to look for the buoy, in seconds from the gun:
+# before it only, like the live feature (90, 60 and 30 s before) and the start
+# video's own line (about a minute before). After the gun the fleet sails
+# across the buoy's part of the frame: in race 98 of the autumn series, the
+# frames 15, 30 and 45 s after the gun all found something orange on a boat
+# a fifth of the frame to the right of the buoy, and drew the line to it.
+SAMPLES_BEFORE_THE_GUN_S = (-60, -50, -40, -30, -20, -10)
 
 
 def main(argv=None) -> int:
@@ -82,6 +87,7 @@ def main(argv=None) -> int:
     preview = Path(args.preview) if args.preview else None
     if preview:
         preview.mkdir(parents=True, exist_ok=True)
+        (preview / "buoy_report.txt").write_text("", encoding="utf-8")
     made = failed = 0
     for row in races:
         if args.race and int(row["id"]) not in args.race:
@@ -119,27 +125,37 @@ def main(argv=None) -> int:
                 if not startphoto._is_jpeg(raw):
                     raise RuntimeError("no frame came out of the evidence clip")
                 # At the gun the fleet is often in front of the buoy (race 90):
-                # find it in frames either side, and draw the line there.
+                # find it in the frames before, and draw the line there.
                 prior = []
+                seen = []
                 if startline.startline_overlay_enabled(cfg):
-                    length = video.mp4_duration_seconds(evidence) or (offset + 55.0)
-                    for rel in SAMPLES_AROUND_THE_GUN_S:
+                    for rel in SAMPLES_BEFORE_THE_GUN_S:
                         at = offset + rel
-                        if at < 0.5 or at > length - 1.0:
+                        if at < 0.5:
                             continue
                         frame = work / f"sample_{int(at)}.jpg"
                         try:
                             subprocess.run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-ss", f"{at:.3f}",
                                             "-i", str(evidence), "-frames:v", "1", "-q:v", "3", str(frame)],
                                            check=True, timeout=180, **video.background_priority())
-                            prior.append(startline.detect_buoy(str(frame)))
+                            found = startline.detect_buoy(str(frame))
                         except Exception:
-                            pass
+                            found = None
+                        prior.append(found)
+                        seen.append((rel, found))
+                    seen.append((0, startline.detect_buoy(str(raw))))
                 public_path, raw_path = startphoto.start_photo_paths(clip)
                 if preview:
                     out = preview / public_path.name
                     drawn, note = startphoto.compose_start_photo(ffmpeg, raw, out, cfg, work, prior=prior)
                     print(f"{label}: {out.name} ({offset:.0f} s into the clip); start line {note}")
+                    # Where the buoy was found in each frame, for checking the line.
+                    with open(preview / "buoy_report.txt", "a", encoding="utf-8") as report:
+                        report.write(f"{label}: start line {note}\n")
+                        for rel, found in seen:
+                            where = (f"buoy at {found[0]:.3f},{found[1]:.3f} conf {found[2]:.2f}"
+                                     if found else "no buoy")
+                            report.write(f"    {rel:+4d} s  {where}\n")
                     made += 1
                     continue
                 public_path.parent.mkdir(parents=True, exist_ok=True)
