@@ -11,6 +11,9 @@ the recording instead.
 from __future__ import annotations
 
 import shutil
+import time as _time_module
+
+real_sleep = _time_module.sleep
 import subprocess
 import threading
 from datetime import datetime, timedelta
@@ -211,7 +214,7 @@ class TestTakingIt:
         seen, cfg = hut
         monkeypatch.setattr(startphoto, "ffmpeg_executable", lambda cfg: "ffmpeg")
         monkeypatch.setattr(startphoto, "compose_start_photo",
-                            lambda ffmpeg, raw, out, cfg, work: (shutil.copyfile(raw, out), (False, "off"))[1])
+                            lambda ffmpeg, raw, out, cfg, work, prior=(): (shutil.copyfile(raw, out), (False, "off"))[1])
         seen["camera_code"] = 500
         race_id, start = _race_with_start_at(_now_start())
         clip_id = _start_clip(race_id, start)
@@ -225,7 +228,7 @@ class TestTakingIt:
         seen, cfg = hut
         monkeypatch.setattr(startphoto, "ffmpeg_executable", lambda cfg: "ffmpeg")
         monkeypatch.setattr(startphoto, "compose_start_photo",
-                            lambda ffmpeg, raw, out, cfg, work: (shutil.copyfile(raw, out), (False, "off"))[1])
+                            lambda ffmpeg, raw, out, cfg, work, prior=(): (shutil.copyfile(raw, out), (False, "off"))[1])
         seen["camera_code"] = 401
         race_id, start = _race_with_start_at(_now_start())
         clip_id = _start_clip(race_id, start)
@@ -239,7 +242,7 @@ class TestTakingIt:
         seen, cfg = hut
         monkeypatch.setattr(startphoto, "ffmpeg_executable", lambda cfg: "ffmpeg")
         monkeypatch.setattr(startphoto, "compose_start_photo",
-                            lambda ffmpeg, raw, out, cfg, work: (shutil.copyfile(raw, out), (False, "off"))[1])
+                            lambda ffmpeg, raw, out, cfg, work, prior=(): (shutil.copyfile(raw, out), (False, "off"))[1])
         race_id, start = _race_with_start_at(_now_start() - timedelta(minutes=3))
         clip_id = _start_clip(race_id, start)
         startphoto.take_start_photo(clip_id)
@@ -455,3 +458,66 @@ class TestWithFFmpeg:
         startphoto.frame_from_recording(cfg, FFMPEG, first + timedelta(seconds=17), dest, work)
         r, g, b = np.asarray(Image.open(dest).convert("RGB")).reshape(-1, 3).mean(axis=0)
         assert r > 150 and b < 80, (r, g, b)
+
+
+class TestTheFleetInFrontOfTheBuoy:
+    """Race 90 of the 2026 autumn series: at the gun the fleet was on the line
+    and the buoy behind it, so no line -- just when it was wanted. It was in
+    plain view ten seconds earlier. The buoy is anchored; find it either side
+    of the gun and draw the line there."""
+
+    def test_the_frames_that_agree_win(self):
+        from core import startline
+        good, also_good, sail = (0.462, 0.579, 0.57), (0.463, 0.574, 0.51), (0.30, 0.52, 0.90)
+        assert startline.buoy_consensus([good, sail, also_good])[2] == 2
+        fx, fy, _n = startline.buoy_consensus([good, sail, also_good, None])
+        assert fx == pytest.approx(0.4625) and fy == pytest.approx(0.5765)
+        assert startline.buoy_consensus([None, None]) is None
+        assert startline.buoy_consensus([sail])[:2] == (0.30, 0.52)
+        # One each: the more confident.
+        assert startline.buoy_consensus([good, sail])[:2] == (0.30, 0.52)
+
+    def test_a_photo_with_the_buoy_hidden_still_gets_its_line(self, tmp_path):
+        from core import startline
+        hidden = tmp_path / "gun.png"
+        Image.new("RGB", (1920, 1080), (70, 72, 75)).save(hidden)
+        assert startline.detect_buoy(str(hidden)) is None
+        spec, note = startline.line_spec_for_image(str(hidden), str(tmp_path), prior=[(0.55, 0.56, 0.7), None])
+        assert spec and Path(spec["green"]).is_file(), note
+        assert "not in the photo itself" in note and "1 of 3 frames" in note
+        startline.cleanup_spec(spec)
+        spec, note = startline.line_spec_for_image(str(hidden), str(tmp_path))
+        assert spec is None and "no confident buoy" in note
+
+    def test_stills_before_the_gun_find_it_for_the_photo(self, hut, monkeypatch):
+        import time as real_time
+        seen, cfg = hut
+        cfg["video_startline_overlay_enabled"] = True
+        monkeypatch.setattr(startphoto.time, "sleep", real_sleep)
+        monkeypatch.setattr(startphoto, "PRE_START_SAMPLES_S", (1.0, 0.5))
+        monkeypatch.setattr(startphoto.startline, "startline_overlay_enabled", lambda cfg: True)
+        monkeypatch.setattr(startphoto.startline, "detect_buoy", lambda path: (0.55, 0.56, 0.7))
+        given = []
+
+        def compose(ffmpeg, raw, out, cfg, work, prior=()):
+            given.append(list(prior))
+            shutil.copyfile(raw, out)
+            return True, "drawn"
+        monkeypatch.setattr(startphoto, "compose_start_photo", compose)
+        start = datetime.now() + timedelta(seconds=2)
+        race_id, when = _race_with_start_at(start.replace(microsecond=0))
+        clip_id = _start_clip(race_id, when)
+        startphoto.take_start_photo(clip_id)
+        assert len(seen["asked"]) == 3, seen["asked"]          # two to find the buoy, one at the gun
+        assert given == [[(0.55, 0.56, 0.7), (0.55, 0.56, 0.7)]]
+        assert _row(clip_id)["photo_status"] == "ready"
+        assert not list((appstate.VIDEO_RUNTIME_DIR / "start_photos").glob("**/before_*.jpg"))
+
+    def test_too_late_for_them_costs_nothing(self, hut, monkeypatch):
+        seen, cfg = hut
+        monkeypatch.setattr(startphoto.startline, "startline_overlay_enabled", lambda cfg: True)
+        race_id, when = _race_with_start_at(_now_start())
+        clip_id = _start_clip(race_id, when)
+        startphoto.take_start_photo(clip_id)
+        assert len(seen["asked"]) == 1                           # only the photo
+        assert _row(clip_id)["photo_status"] == "ready"

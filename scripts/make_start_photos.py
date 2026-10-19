@@ -3,15 +3,16 @@
 Run ON THE HUT, with the installed app's own Python, so it uses the hut's own
 evidence clips, settings and bucket:
 
-    C:\\RaceOfficer\\pwllheli_race_officer_v1_015\\.venv\\Scripts\\python.exe make_start_photos.py
-        C:\\RaceOfficer\\pwllheli_race_officer_v1_015 --series 7 --preview <folder>
+    C:\\RaceOfficer\\pwllheli_race_officer_v1_016\\.venv\\Scripts\\python.exe make_start_photos.py
+        C:\\RaceOfficer\\pwllheli_race_officer_v1_016 --series 7 --preview <folder>
 
 and again without ``--preview`` to publish them.
 
 For every race in the series, and each of the race's own start times: the frame
 at the start signal is cut from the full-quality evidence clip -- the same
 frame the live feature falls back to when the camera gives no photo -- the
-start line and the club logo go on it exactly as at a live start, and, unless
+start line and the club logo go on it exactly as at a live start (the buoy found
+in frames either side of the gun, where the fleet is not in front of it), and, unless
 ``--preview``, it is uploaded to the club's bucket and recorded against the
 start clip, so the race page's Start photo tab shows it ("from the start
 video"). Nothing else in the database is touched and nothing is restored.
@@ -37,6 +38,10 @@ from datetime import timedelta
 from pathlib import Path
 
 
+# Where in the evidence clip to look for the buoy, in seconds from the gun.
+SAMPLES_AROUND_THE_GUN_S = (-50, -40, -30, -20, -10, 15, 30, 45)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("app_root", help="the installed app's folder")
@@ -54,7 +59,12 @@ def main(argv=None) -> int:
     os.chdir(root)
     from core import db as core_db
     core_db.DB_INITIALIZED = True          # the running app has built the schema already
-    from core import startphoto, video
+    from core import startline, startphoto, video
+    import inspect
+    if "prior" not in inspect.signature(startphoto.compose_start_photo).parameters:
+        print("This needs the app at v1.016 or later, which finds the buoy in frames either side of "
+              "the gun. Install it, then run this from the new version's folder.")
+        return 2
     from core.db import get_db, row_get
     from core.races import get_race
     from core.timeutils import parse_dt
@@ -108,16 +118,33 @@ def main(argv=None) -> int:
                                check=True, timeout=180, **video.background_priority())
                 if not startphoto._is_jpeg(raw):
                     raise RuntimeError("no frame came out of the evidence clip")
+                # At the gun the fleet is often in front of the buoy (race 90):
+                # find it in frames either side, and draw the line there.
+                prior = []
+                if startline.startline_overlay_enabled(cfg):
+                    length = video.mp4_duration_seconds(evidence) or (offset + 55.0)
+                    for rel in SAMPLES_AROUND_THE_GUN_S:
+                        at = offset + rel
+                        if at < 0.5 or at > length - 1.0:
+                            continue
+                        frame = work / f"sample_{int(at)}.jpg"
+                        try:
+                            subprocess.run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-ss", f"{at:.3f}",
+                                            "-i", str(evidence), "-frames:v", "1", "-q:v", "3", str(frame)],
+                                           check=True, timeout=180, **video.background_priority())
+                            prior.append(startline.detect_buoy(str(frame)))
+                        except Exception:
+                            pass
                 public_path, raw_path = startphoto.start_photo_paths(clip)
                 if preview:
                     out = preview / public_path.name
-                    drawn, note = startphoto.compose_start_photo(ffmpeg, raw, out, cfg, work)
+                    drawn, note = startphoto.compose_start_photo(ffmpeg, raw, out, cfg, work, prior=prior)
                     print(f"{label}: {out.name} ({offset:.0f} s into the clip); start line {note}")
                     made += 1
                     continue
                 public_path.parent.mkdir(parents=True, exist_ok=True)
                 part = public_path.with_name(public_path.stem + ".part.jpg")
-                drawn, note = startphoto.compose_start_photo(ffmpeg, raw, part, cfg, work)
+                drawn, note = startphoto.compose_start_photo(ffmpeg, raw, part, cfg, work, prior=prior)
                 os.replace(part, public_path)
                 shutil.copyfile(raw, raw_path)
                 url = startphoto.publish_start_photo(clip, public_path, cfg)

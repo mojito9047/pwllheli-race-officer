@@ -66,6 +66,11 @@ from core.video import (
 # what it shows is no longer the start, and the recording has the real moment.
 CAMERA_LATE_LIMIT_S = 2.0
 CAMERA_TIMEOUT_S = 5
+# Before the gun, the camera is asked for a still at each of these many
+# seconds before the start, only to find the buoy: at the gun itself the fleet
+# is often in front of it. Kept clear of the last seconds, which belong to the
+# photo itself.
+PRE_START_SAMPLES_S = (90.0, 60.0, 30.0)
 # The camera's own JPEG is about 1.2 MB at 3840 x 2160. Re-encoded with the
 # line and logo at 3 it stays about the same size and keeps the detail.
 START_PHOTO_JPEG_QUALITY = 3
@@ -195,7 +200,7 @@ def take_camera_snapshot(cfg: Dict[str, Any], dest: Path) -> Tuple[float, float]
     return asked, answered
 
 
-def frame_from_recording(cfg: Dict[str, Any], ffmpeg: str, event_dt: datetime, dest: Path, work: Path) -> None:
+def frame_from_recording(cfg: Dict[str, Any], ffmpeg: str, event_dt: datetime, dest: Path, work: Path) -> List[Any]:
     """Cut the frame at the start signal out of the rolling recording.
 
     The segment holding the start is only whole once the next one has begun,
@@ -230,18 +235,38 @@ def frame_from_recording(cfg: Dict[str, Any], ffmpeg: str, event_dt: datetime, d
                    **background_priority())
     if not _is_jpeg(dest):
         raise RuntimeError("no frame could be cut from the recording")
+    # Where the buoy was in the seconds before the gun, for when the fleet is
+    # in front of it at the gun. Returned rather than drawn: see compose.
+    prior = []
+    if startline.startline_overlay_enabled(cfg):
+        for lead in (15.0, 8.0):
+            if offset - lead < 0.5:
+                continue
+            earlier = work / f"before_{int(lead)}.jpg"
+            try:
+                subprocess.run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-ss", f"{offset - lead:.3f}",
+                                "-i", str(joined), "-frames:v", "1", "-q:v", "3", str(earlier)],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=120,
+                               **background_priority())
+                prior.append(startline.detect_buoy(str(earlier)))
+            except Exception:
+                pass
+    return prior
 
 
-def compose_start_photo(ffmpeg: Optional[str], raw: Path, out: Path, cfg: Dict[str, Any], work: Path) -> Tuple[bool, str]:
+def compose_start_photo(ffmpeg: Optional[str], raw: Path, out: Path, cfg: Dict[str, Any], work: Path,
+                        prior: Any = ()) -> Tuple[bool, str]:
     """The published copy: the photo with the start line and the club logo.
 
     No sponsor logos -- this is for reading the line. Returns (line drawn,
     what the line detector said). With neither line nor logo the camera's own
     file is published unchanged rather than encoded again for nothing.
+    ``prior``: where the buoy was found in other frames of the same view (see
+    ``startline.buoy_consensus``) -- at the gun the fleet is often in front of it.
     """
     spec, note = (None, "start line drawing is off")
     if startline.startline_overlay_enabled(cfg):
-        spec, note = startline.line_spec_for_image(str(raw), str(work))
+        spec, note = startline.line_spec_for_image(str(raw), str(work), prior=prior)
     try:
         width, height = jpeg_dimensions(raw)
         logo_inputs, chain, label = build_branding_overlay_filter_for_size(
@@ -368,21 +393,56 @@ def not_wanted_reason(clip: Optional[sqlite3.Row]) -> str:
 GET_READY_S = 3.0
 
 
-def _wait_until_nearly_time(clip_id: int, target: float) -> bool:
-    """Sleep until just before the start signal. False if the start went away.
+def _wait_until(clip_id: int, until: float) -> bool:
+    """Sleep until ``until`` (epoch). False if the start went away meanwhile.
 
     Wakes at least every 20 s to see whether the start was moved, and to follow
     the clock if it is corrected.
     """
     while True:
-        remaining = target - time.time()
-        if remaining <= GET_READY_S:
+        remaining = until - time.time()
+        if remaining <= 0:
             return True
-        time.sleep(min(remaining - GET_READY_S, 20.0))
+        time.sleep(min(remaining, 20.0))
         reason = not_wanted_reason(_clip(clip_id))
         if reason:
             update_start_photo(clip_id, status="cancelled", message=f"Not taken: {reason}.")
             return False
+
+
+def _wait_until_nearly_time(clip_id: int, target: float) -> bool:
+    """Sleep until just before the start signal. False if the start went away."""
+    return _wait_until(clip_id, target - GET_READY_S)
+
+
+def _buoy_before_the_gun(clip_id: int, target: float, work: Path) -> Tuple[bool, List[Any]]:
+    """Stills before the start, to find the buoy. (still wanted, detections).
+
+    Best effort: a camera that will not answer, or a start booked too late for
+    them, costs nothing but the samples. Each still is looked at and deleted.
+    """
+    detections: List[Any] = []
+    for lead in PRE_START_SAMPLES_S:
+        when = target - lead
+        if not _wait_until(clip_id, when):
+            return False, detections
+        if time.time() - when > 5:          # armed too late for this one
+            continue
+        cfg = video_config()
+        if not (start_photo_enabled(cfg) and startline.startline_overlay_enabled(cfg)) or camera_problem(cfg):
+            continue
+        still = work / f"before_{int(lead)}.jpg"
+        try:
+            take_camera_snapshot(cfg, still)
+            detections.append(startline.detect_buoy(str(still)))
+        except Exception:
+            pass
+        finally:
+            try:
+                still.unlink()
+            except OSError:
+                pass
+    return True, detections
 
 
 def _iso_ms(epoch: float) -> str:
@@ -398,7 +458,11 @@ def take_start_photo(clip_id: int) -> None:
         if not clip or not event_dt:
             return
         target = event_dt.timestamp()
-        if not _wait_until_nearly_time(clip_id, target):
+        scratch = appstate.VIDEO_RUNTIME_DIR / "start_photos"
+        scratch.mkdir(parents=True, exist_ok=True)
+        work = Path(tempfile.mkdtemp(prefix=f"clip{clip_id}_", dir=str(scratch)))
+        wanted, prior = _buoy_before_the_gun(clip_id, target, work)
+        if not wanted or not _wait_until_nearly_time(clip_id, target):
             return
         cfg = video_config()
         if not start_photo_enabled(cfg):
@@ -409,9 +473,6 @@ def take_start_photo(clip_id: int) -> None:
         if reason:
             update_start_photo(clip_id, status="cancelled", message=f"Not taken: {reason}.")
             return
-        scratch = appstate.VIDEO_RUNTIME_DIR / "start_photos"
-        scratch.mkdir(parents=True, exist_ok=True)
-        work = Path(tempfile.mkdtemp(prefix=f"clip{clip_id}_", dir=str(scratch)))
         raw = work / "camera.jpg"
         source, taken_at, answer_ms, notes = "", target, None, []
         # The gun. Nothing between here and the camera but the clock.
@@ -433,12 +494,12 @@ def take_start_photo(clip_id: int) -> None:
             if not ffmpeg:
                 raise RuntimeError("; ".join(notes + ["FFmpeg was not found, so the recording could not be used"]))
             update_start_photo(clip_id, message="Taking the start photo from the recording...")
-            frame_from_recording(cfg, ffmpeg, event_dt, raw, work)
+            prior = list(prior) + list(frame_from_recording(cfg, ffmpeg, event_dt, raw, work) or [])
             source, taken_at = "recording", target
         public_path, raw_path = start_photo_paths(clip)
         public_path.parent.mkdir(parents=True, exist_ok=True)
         part = public_path.with_name(public_path.stem + ".part.jpg")
-        line_drawn, line_note = compose_start_photo(ffmpeg, raw, part, cfg, work)
+        line_drawn, line_note = compose_start_photo(ffmpeg, raw, part, cfg, work, prior=prior)
         os.replace(part, public_path)
         shutil.copyfile(raw, raw_path)
         update_start_photo(clip_id, file_path=_relative(public_path), raw_path=_relative(raw_path),
