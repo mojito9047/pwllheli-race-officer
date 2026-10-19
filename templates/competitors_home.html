@@ -81,7 +81,7 @@
            club website points at, so a competitor and the website are reading
            the same page. #}
         {% if group.published %}
-        <p class="small published-link"><a href="{{ group.published.stable_url }}" target="_blank" rel="noopener">Published results</a>
+        <p class="small published-link"><a class="button small secondary" href="{{ group.published.stable_url }}" target="_blank" rel="noopener">Published results</a>
           <span class="muted">&mdash; as at {{ dt_full_display(group.published.published_at) or group.published.published_at }}</span></p>
         {% endif %}
         <table class="compact stack-table">

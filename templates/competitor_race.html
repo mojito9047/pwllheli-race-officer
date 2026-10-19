@@ -149,7 +149,7 @@
     <p class="muted">All entered boats are no longer racing. Provisional results are shown below.</p>
     <p class="small"><strong>Start video:</strong>
       {% if start_video_clip and public_video_clip_is_viewable(start_video_clip) %}
-        <a href="{{ public_video_clip_href(start_video_clip) }}" target="_blank" rel="noopener">View start video</a>
+        <a class="button small secondary" href="{{ public_video_clip_href(start_video_clip) }}" target="_blank" rel="noopener">View start video</a>
       {% elif start_video_clip %}
         {{ public_video_clip_link_text(start_video_clip) }}{% if start_video_clip.public_message %} — {{ start_video_clip.public_message }}{% elif start_video_clip.message %} — {{ start_video_clip.message }}{% endif %}
       {% else %}
