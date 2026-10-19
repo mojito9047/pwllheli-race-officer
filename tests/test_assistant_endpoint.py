@@ -2611,3 +2611,80 @@ class TestAFinishPressedAgain:
         page = logged_in_client.get(f"/admin/race/{race_id}").get_data(as_text=True)
         assert "taken as the same finish" in page
         assert len(self.blasts) == 1
+
+
+class TestFinishDoesNotWaitForTheHorn:
+    """The hut's blast is three seconds, and Finish answered only once it had
+    stopped -- long enough that the press looked lost and was pressed again."""
+
+    @pytest.fixture(autouse=True)
+    def a_slow_horn(self, monkeypatch):
+        import time as _time
+        from core import raceadmin
+        self.blasts, self.horn = [], {"seconds": 2.0, "ok": True}
+
+        def horn(ms=None):
+            _time.sleep(self.horn["seconds"])
+            self.blasts.append(ms)
+            return {"ok": self.horn["ok"], "mode": "serial",
+                    "message": "Horn fired." if self.horn["ok"] else "COM3 went away."}
+        monkeypatch.setattr(raceadmin, "fire_horn", horn)
+        monkeypatch.setattr(raceadmin, "schedule_video_clip", lambda *a, **k: None)
+
+    def _race(self):
+        return TestAFinishPressedAgain._race(self)
+
+    def _finish(self, race_id, entry_id):
+        import time as _time
+        from core.raceadmin import finish_entry_now
+        began = _time.monotonic()
+        with ro.get_db() as db:
+            done = finish_entry_now(db, ro.get_race(race_id), entry_id)
+        return done, _time.monotonic() - began
+
+    def _eventually(self, check, seconds=5.0):
+        import time as _time
+        deadline = _time.monotonic() + seconds
+        while _time.monotonic() < deadline:
+            if check():
+                return True
+            _time.sleep(0.05)
+        return False
+
+    def test_finish_answers_while_the_horn_is_still_sounding(self, client):
+        race_id, entry_id = self._race()
+        done, took = self._finish(race_id, entry_id)
+        assert took < 1.5, took
+        assert done.horn["ok"] and done.horn["mode"] == "sounding"
+        assert ro.get_entries(race_id)[0]["status"] == "FINISHED"
+        assert self._eventually(lambda: len(self.blasts) == 1), "the horn never sounded"
+
+    def test_a_horn_that_fails_at_once_is_still_reported(self, client):
+        self.horn.update(seconds=0.0, ok=False)
+        race_id, entry_id = self._race()
+        done, _took = self._finish(race_id, entry_id)
+        assert not done.horn["ok"] and "COM3" in done.horn["message"]
+
+    def test_one_that_fails_after_answering_goes_in_the_race_log(self, client):
+        self.horn.update(seconds=1.0, ok=False)
+        race_id, entry_id = self._race()
+        done, _took = self._finish(race_id, entry_id)
+        assert done.horn["mode"] == "sounding"
+        assert self._eventually(lambda: any(
+            e["event_type"] == "horn" and "did NOT sound" in str(e["label"])
+            for e in ro.get_events(race_id, limit=50))), "the failed horn is not in the race log"
+
+    def test_the_race_sheet_says_it_is_sounding(self, logged_in_client):
+        race_id, entry_id = self._race()
+        with logged_in_client.session_transaction() as sess:
+            sess["_csrf_token"] = TOKEN
+        logged_in_client.post(f"/admin/race/{race_id}/entry/{entry_id}/finish_now", data={"_csrf_token": TOKEN})
+        page = logged_in_client.get(f"/admin/race/{race_id}").get_data(as_text=True)
+        assert "Horn sounding" in page
+
+    def test_from_the_water_the_reply_says_it_is_sounding(self, api, monkeypatch):
+        water = TestFinishingABoatFromTheWater()
+        race_id = water._racing()
+        body = water._finish(api, monkeypatch, race_id, "Finisher Test")
+        _, done = _confirm(api, body["pending_token"])
+        assert done["message"].endswith(". Horn sounding."), done["message"]

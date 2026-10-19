@@ -1968,6 +1968,8 @@ def _execute(intent: str, resolved: dict, actor: str) -> dict:
                         f"{horn.get('message') or 'the horn did not answer'}")
         elif horn.get("mode") == "simulated":
             message += " The horn is only simulated on this machine -- no horn is connected."
+        elif horn.get("mode") == "sounding":
+            message += " Horn sounding."
         else:
             message += " Horn sounded."
         return {"message": message, "race_id": race_id, "entry_id": done.entry_id}

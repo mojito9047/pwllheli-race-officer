@@ -617,6 +617,45 @@ class FinishRecorded:
 # on a hut that was already struggling.
 REPEAT_FINISH_S = 30
 
+# Finish answers once the horn has started, not once it has stopped. The blast
+# is three seconds at the hut, and the button sat for all of it -- long enough
+# that it looked as if the press had not registered, and it was pressed again.
+# This long is enough to hear back from a horn that fails at once (a port that
+# will not open, pyserial missing); one that fails later is in the race log.
+FINISH_HORN_WAIT_S = 0.5
+
+
+def _sound_finish_horn(race_id: int, label: str) -> Dict[str, Any]:
+    """Start the finish horn and answer without waiting for the blast to end."""
+    duration = hardware_config()["horn_duration_ms"]
+    box: Dict[str, Any] = {}
+    lock = threading.Lock()
+    finished = threading.Event()
+
+    def blast() -> None:
+        try:
+            result = fire_horn(duration) or {}
+        except Exception as exc:  # pragma: no cover - fire_horn reports its own errors
+            result = {"ok": False, "mode": "error", "message": str(exc)}
+        with lock:
+            box["result"] = result
+            answered_already = box.get("answered", False)
+        finished.set()
+        if answered_already and not result.get("ok"):
+            # Finish has already said the horn was sounding: put it right where
+            # the race officer will look.
+            log_event(race_id, "horn", f"The horn did NOT sound for {label}: {result.get('message', '')}",
+                      "finish-now", {"horn": result})
+            log_activity("finish horn failed", f"race #{race_id} · {label} · {result.get('message', '')}")
+
+    threading.Thread(target=blast, name=f"finish-horn-{race_id}", daemon=True).start()
+    finished.wait(FINISH_HORN_WAIT_S)
+    with lock:
+        if "result" in box:
+            return box["result"]                 # simulated, or failed at once
+        box["answered"] = True
+    return {"ok": True, "mode": "sounding", "message": f"Horn sounding for {duration / 1000:.1f} s."}
+
 
 def finish_entry_now(db: sqlite3.Connection, race: sqlite3.Row, entry_id: int,
                      actor: str = "system") -> FinishRecorded:
@@ -652,7 +691,7 @@ def finish_entry_now(db: sqlite3.Connection, race: sqlite3.Row, entry_id: int,
     db.commit()
     label_parts = [str(entry["boat_name"])] + ([sail_no] if sail_no else [])
     label = f"Finish now + horn: {' — '.join(label_parts)} at {dt_display(now)}"
-    horn = fire_horn(hardware_config()["horn_duration_ms"])
+    horn = _sound_finish_horn(race_id, label)
     log_event(race_id, "finish", label, "finish-now",
               {"entry_id": int(entry_id), "finish_time": now, "horn": horn})
     schedule_video_clip(race_id, "finish", now, entry_id=int(entry_id), label=label)
