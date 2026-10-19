@@ -18,7 +18,7 @@ The manual script `deploy\windows\start_race_officer.cmd` still opens a visible 
 If a command window remains open after login, reinstall the task from the new scripts:
 
 ```cmd
-cd /d C:\RaceOfficer\pwllheli_race_officer_v1_014\deploy\windows
+cd /d C:\RaceOfficer\pwllheli_race_officer_v1_015\deploy\windows
 uninstall_startup_task.cmd
 install_startup_task.cmd
 ```
@@ -30,7 +30,7 @@ Running inside the signed-in user session is deliberate. The app uses desktop au
 Use a simple folder such as:
 
 ```text
-C:\RaceOfficer\pwllheli_race_officer_v1_014
+C:\RaceOfficer\pwllheli_race_officer_v1_015
 ```
 
 Avoid running the live app directly from Downloads, OneDrive sync folders or a ZIP viewer.
@@ -155,6 +155,18 @@ This removes the scheduled task but does not delete the app folder or any race d
 After a version upgrade, existing race-office browser sessions are treated as stale and users must log in again. A normal restart without changing version should not force a login.
 
 The startup task points at the folder it was installed from, so run the installer again after moving to a new version folder.
+
+## Windows Defender exclusions
+
+Real-time scanning inspects every write the app makes: each 20-second video segment the recorder writes, and every SQLite commit — several a second while trackers are reporting. Excluding the app's **data** folders from scanning is the biggest Windows-side saving there is. Exclude data only, never the app code or the Python install: those are where a program could actually land, and the hut is reachable through the Cloudflare tunnel.
+
+Each version unzips into a folder of its own, so an exclusion that names one version's folder covers nothing once the next is installed. The hut's still named version 0.257's folder in October 2026, so every version installed since August had been scanned in full. Use a `*` for the version folder, so every version is covered — it stands for any one folder name, and each exclusion includes everything inside it. In PowerShell opened as administrator:
+
+```powershell
+Add-MpPreference -ExclusionPath 'C:\RaceOfficer\*\data', 'C:\RaceOfficer\*\runtime\video'
+```
+
+Check them with `deploy\windows\check_hut_pc.ps1`, run as administrator from the installed version's folder: its *Windows Defender* section lists the exclusions, says which of the app's data paths are not covered, and flags one that names a folder no longer there. Remove a stale one with `Remove-MpPreference -ExclusionPath '<the path it lists>'`.
 
 ## Running a past race again
 

@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.014
+# Pwllheli Race Officer v1.015
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -6,6 +6,15 @@ Race-office support software. It does not decide anything: official race decisio
 
 
 ## Recent releases
+
+### v1.015 update
+
+- **The hut keeps answering at a finish.** A tracker report no longer reads the whole track index (500
+  times cheaper), gives up after 5 seconds instead of holding a request thread for 30, and the order on
+  the water and the race track are worked out once for every viewer rather than once each.
+- **Race pages reload up to three seconds apart** at a start or a finish, not all in the same second.
+- **Windows Defender exclusions that cover every version folder**, in DEPLOYMENT_WINDOWS.md; the hut's
+  still named version 0.257's. The PC check script now finds the daily slow-request log.
 
 ### v1.014 update
 
@@ -52,20 +61,6 @@ Race-office support software. It does not decide anything: official race decisio
 - **It knows where the boats are** from the trackers, now or at any moment, and reads a
   **weather forecast** (Open-Meteo at the start line unless Settings names another).
 - **The page is a chat**, and its race strip follows changes made on the race sheet.
-
-### v1.010 update
-
-- **A manual backup including the power history timed out.** The relay gives the hut five
-  seconds to start answering, the backup builds the whole archive before sending a byte, and
-  with a 153 MB power database it ran past five. Backup and restore now get 90 seconds, the
-  way the Virtual Race Officer's commands already do. **Deploy `deploy/live_stream/Caddyfile`
-  to the relay** — that is the change that fixes it.
-- **The raw device payloads are no longer kept for ever.** The power monitor and the wind feed
-  both stored the raw payload on every sample and nothing ever read it: on the hut, 153 MB of
-  power history and 39.5 MB of the race database. Kept two days now, then dropped, with every
-  row and every reading untouched &mdash; 153 &rarr; 24.5 MB and 53.6 &rarr; 21.6 MB.
-- **Neither database ever reclaimed its space.** Both now vacuum once a day; the race database
-  waits for a day with no racing on it.
 
 ## Main features
 

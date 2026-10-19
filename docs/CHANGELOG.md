@@ -1,5 +1,48 @@
 # Change log
 
+## v1.015
+
+**On 18 October the hut slowed to a crawl at each fleet's finishes -- one request
+took 57 seconds -- and its console filled with "Task queue depth is 54" and
+tracker positions refused with "database is locked".** The hut's slow-request
+log showed three things adding up, and each is fixed:
+
+- **Every tracker report read the whole track index.** To check the one or two
+  trackers in a push, the app looked up the newest fix of all forty trackers
+  it had ever seen: half a million entries, about once a second, holding the
+  database each time. It now asks only about the trackers in the push, by
+  index -- the same answer, 500 times faster. A push costs a few milliseconds
+  rather than a third of a second on the hut.
+- **A tracker report waited up to 30 seconds for the database,** holding one of
+  the server's sixteen request threads while it did. A busy few seconds filled
+  every thread, and then nothing else could be answered. A report now gives up
+  after 5 seconds and replies *busy, send it again*; the relay resends a second
+  later, and the app fetches anything still missing itself, so nothing is lost.
+- **At every start and finish, every open race page reloaded in the same
+  second,** and each reload worked out the order on the water and the whole
+  race track again, separately. They are now worked out once and shared by
+  everyone asking while nothing in the race has changed (for at most 2
+  seconds) -- a recorded finish or a new position still shows at once -- and
+  pages reload up to three seconds apart.
+
+**The hut PC itself.** The same night, from 00:11 to about 01:07, with nobody
+racing or watching, the PC stalled on its disk: database writes stuck for
+minutes at a time and the video recorder stopped twice. Windows logs a bad block
+on the drive every night at about 00:46, during Defender's nightly scan; a copy
+of every video clip read cleanly, so the clips are not on it. And the Windows
+Defender exclusions still named version 0.257's folder from August, so every
+version since has been scanned on every database write and every video
+segment. **`deploy/windows/check_hut_pc.ps1` now finds the daily slow-request
+log** (it looked for the old name and reported nothing slow) and **flags an
+exclusion naming a folder that no longer exists**; DEPLOYMENT_WINDOWS.md gains
+*Windows Defender exclusions*, with exclusions that cover every version folder.
+
+**After installing:** in PowerShell opened as administrator, add the exclusions
+for every version and remove the old ones, then run the check again:
+
+    Add-MpPreference -ExclusionPath 'C:\RaceOfficer\*\data', 'C:\RaceOfficer\*\runtime\video'
+    Remove-MpPreference -ExclusionPath 'C:\RaceOfficer\pwllheli_ro_mvp_v0_257\data', 'C:\RaceOfficer\pwllheli_ro_mvp_v0_257\runtime\video'
+
 ## v1.014
 
 **Competitors asked for early word on whether they were over the line. A
