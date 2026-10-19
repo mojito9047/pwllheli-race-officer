@@ -132,6 +132,8 @@ For an IP camera that supports Hikvision-style ISAPI PTZ presets, **Settings →
 - **Idle / zoomed-out preset** — used when no race is in the start/finish recording window.
 - **Race start/finish preset** — used for start and finish recording.
 
+**A camera with no pan or tilt has no presets.** A fixed or zoom-only Hikvision — the club's DS-2CD3786G2T-IZSY is one — answers every PTZ request with HTTP 403 *Invalid Operation / notSupport*, with the right password. **Save and test camera login only** then checks the login against the camera's device information instead, and says *Camera login accepted. This camera has no pan/tilt presets*; leave automatic preset switching off. Until v1.014 that 403 was taken for a refused password and paused the camera — which also stopped the start photo. A 403 to an actual preset request still pauses preset switching, but only a refused password (HTTP 401) stops the start photo.
+
 The default switch point is **30 seconds before the first actual start**. Remember that the race form stores the first warning-signal time; the first actual start is warning + 5 minutes. After the race start, the app keeps the race preset active while any entry in that race is still `RACING`, so the camera remains ready for finishes.
 
 The app sends an authenticated `PUT` request to:
@@ -230,6 +232,20 @@ Optionally, the app can draw the **actual start line** on the public web copies 
 - Detection is the same colour-based method used by the live stream. Tune it (buoy swing zone, pole base, line colour/opacity/width) in `data/startline_config.json`; if that file is absent the built-in defaults are used. Because it detects the buoy per clip, no line is drawn if the buoy has been lifted or is hidden.
 
 This needs **Pillow** and **numpy** (added to `requirements.txt`; installed by the standard deployment). It has not yet been proven on real race footage — leave it off until you have confirmed detection against actual recorded clips (grab a frame, tune `data/startline_config.json`).
+
+## Start photo (v1.014)
+
+At each start signal the app asks the camera for a **still photograph of its own** and puts it on the public race page, under a **Start photo** tab after *Course analysis*, a few seconds after the gun. Competitors asked for early word on whether they were over the line, and the start video cannot give it: it is cut from the recording a minute after the gun, encoded for minutes more, and kept off the public page until the race has finished. The photo is public **at once**, during the race.
+
+- **The camera's own still, not a frame of video.** It is 3840 x 2160 (the camera's full 8 MP), made from the sensor and compressed once as a JPEG, so it is sharper than any frame of the H.265 recording and sail numbers are easier to read. It is asked for at the start signal and the camera answers in well under a second; the page shows how long it took.
+- **The start line and the club logo** are drawn on the published copy — no sponsor logos, because the photo is for reading the line. The line follows **Draw the start line on public start/finish videos**, and is found in the photo itself; if the buoy is not found the photo goes up without it. The camera's own still is kept unaltered beside it in `data/video_clips/`, and the race page links both for the race officer.
+- **If the camera gives nothing** — no address or login saved, the login refused, the camera busy — the same moment is cut out of the recording instead once the segment holding it has closed (up to 20 s at the hut), and the page says it came from the start video. A refused login stops the app asking the camera at all, exactly as for the presets, because Hikvision locks the account after repeated bad logins.
+- **One photo per start,** booked with the start clip: a postponed start, or a start time changed while the photo waited, is not photographed; pursuit starts each get one. A photo still waiting when the app restarts is picked up again.
+- It goes to the club's R2 bucket on its own, not queued behind the video uploads, and the page reloads itself once when it is ready. Without R2 it is served from the hut. **Save and retry failed public video uploads** also sends any photo whose upload failed.
+
+The camera is the one under **Camera zoom / PTZ presets**: its address and login are used whether or not automatic preset switching is on. **Save and take a test start photo** there asks the camera now, makes the published copy locally (it is never uploaded) and reports how long the camera took, the size, and whether the line was found; **View the last test start photo** opens it. Switch the feature off with **Take a start photo at each start signal** under Public videos.
+
+The camera's own image settings decide how much of this works into the sun. With the sun behind the line the buoy is a dark silhouette and the sky burns out; on 19 October 2026 adjusting the camera's image settings brought the buoy back to yellow. The detector's brightness floor was lowered from 55 to 45 at the same time, so a backlit buoy is still found if the settings cannot rescue it.
 
 ## Public live image via R2
 

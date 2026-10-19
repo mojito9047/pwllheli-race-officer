@@ -8,7 +8,7 @@
     "hue_min": 8,
     "hue_max": 46,
     "sat_min": 70,
-    "val_min": 55
+    "val_min": 45
   },
 
   "roi": {

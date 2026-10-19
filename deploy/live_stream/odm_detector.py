@@ -35,7 +35,11 @@ from PIL import Image, ImageDraw, ImageFont
 # --------------------------------------------------------------------------- #
 DEFAULT_CONFIG = {
     "camera_name": "default",
-    "color": {"hue_min": 8, "hue_max": 46, "sat_min": 70, "val_min": 55},
+    # val_min was 55. Into the sun the buoy is a dark silhouette: on the camera's
+    # own still of 19 October 2026 most of it sat at 45-55, what passed was a
+    # ring too small to count, and no line was drawn. 45 finds it there
+    # (confidence 0.78) and changes nothing on the eight tuning frames.
+    "color": {"hue_min": 8, "hue_max": 46, "sat_min": 70, "val_min": 45},
     "roi": {"top": 0.42, "bottom": 0.82, "left": 0.03, "right": 0.985},
     "pole": {"x": 0.573, "y": 0.97, "halfwidth": 0.017},
     "swing_zone": {"expect_cx": 0.58, "sigma_cx": 0.15, "expect_cy": 0.565, "sigma_cy": 0.06},

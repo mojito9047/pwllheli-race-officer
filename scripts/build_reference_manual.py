@@ -1251,9 +1251,10 @@ story.append(Paragraph(
     "dashboard, from <b>templates/partials/wind_gauge.html</b>) and a countdown to the current race in its "
     "header, then three tabs — <b>Races</b> (the whole year grouped into rolled-up "
     "series, current series open and current race highlighted), <b>Wind</b> and <b>Live camera</b> (which starts "
-    "on opening the tab, with no checkbox). A <b>race page</b> is three tabs — <b>Entries</b> (or <b>Start "
-    "times</b> for a pursuit), <b>Chart</b> and <b>Course analysis</b> — gaining a fourth, <b>Leader "
-    "board</b>, once every boat has stopped racing; the leader board then opens first and the Chart/Course "
+    "on opening the tab, with no checkbox). A <b>race page</b> is four tabs — <b>Entries</b> (or <b>Start "
+    "times</b> for a pursuit), <b>Chart</b>, <b>Course analysis</b> and <b>Start photo</b> (the camera's "
+    "still at each start signal, with the start line, up a few seconds after the gun) — gaining a fifth, "
+    "<b>Leader board</b>, once every boat has stopped racing; the leader board then opens first and the Chart/Course "
     "analysis tabs switch to the <b>average wind over the race</b> (warning signal to last finish, TWD "
     "vector-averaged) as a record of the conditions. The older <b>/public/mobile/...</b> addresses still work "
     "and redirect to the responsive page, so links already shared with competitors keep working.", styles["Body"]))
@@ -1271,7 +1272,14 @@ story += (field_table([
     ("Draw the start line on public start/finish videos", "Experimental, off by default. Detects the orange "
      "ODM buoy and draws the start line (pole base → buoy) on the public copy only — never the evidence "
      "clip. Start videos: red before the start, green after; finish videos: green. Best-effort (skipped if the "
-     "buoy isn't found); tune in data/startline_config.json. Needs Pillow + numpy."),
+     "buoy isn't found); tune in data/startline_config.json. Needs Pillow + numpy. The start photo follows it "
+     "too."),
+    ("Take a start photo at each start signal", "On by default. At every start signal the camera's own "
+     "3840 x 2160 still, with the start line and the club logo (no sponsors), goes on the public race page's "
+     "Start photo tab a few seconds after the gun — during the race, unlike the videos. Uses the camera address "
+     "and login under Camera zoom / PTZ presets even with preset switching off; if the camera gives nothing, "
+     "the frame at the signal is cut from the recording instead. Save and take a test start photo (in the "
+     "camera section) tries it now, without publishing."),
     ("Public live image", "Serve from hut app, or upload the latest branded JPEG to R2 every few seconds "
      "(Live image upload seconds)."),
     ("R2 account ID / S3 endpoint, bucket, access key ID, secret access key", "Standard S3-compatible "

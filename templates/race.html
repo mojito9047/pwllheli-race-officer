@@ -611,6 +611,22 @@
             No start video scheduled.
           {% endif %}
         </p>
+        {% if start_photos %}
+        <p class="small"><strong>Start photo:</strong>
+          {% for photo in start_photos %}
+            {% if not loop.first %} &middot; {% endif %}
+            {% if start_photos|length > 1 %}{{ photo.label }} {{ photo.time }}: {% endif %}
+            {% if photo.status == 'ready' and (photo.url or photo.has_file) %}
+              <a href="{{ photo.url or url_for('public_start_photo_file', clip_id=photo.clip_id) }}" target="_blank" rel="noopener">View</a>
+              {% if photo.has_raw %}(<a href="{{ url_for('start_photo_camera_file', clip_id=photo.clip_id) }}" target="_blank">as the camera took it</a>){% endif %}
+            {% elif photo.has_raw %}
+              <a href="{{ url_for('start_photo_camera_file', clip_id=photo.clip_id) }}" target="_blank">View</a> &mdash; {{ photo.message }}
+            {% else %}
+              {{ photo.message or 'Waiting for the start signal.' }}
+            {% endif %}
+          {% endfor %}
+        </p>
+        {% endif %}
       </div>
       {# One CSV per rating system, and they belong side by side: as bare children
          of a space-between .section-head they were pushed apart, one to the top

@@ -1680,6 +1680,13 @@ tr.next-start td { font-weight: 700; }
   background: #000;
 }
 .live-camera .live-camera-note { margin: 6px 0 0; }
+
+/* The start photo: the full-width picture, at its own 16:9 before it loads so
+   the page does not jump, and a tap opens the 3840 x 2160 original. */
+.start-photo { margin: 0 0 18px; }
+.start-photo figcaption { margin: 0 0 6px; }
+.start-photo img { display: block; width: 100%; height: auto; aspect-ratio: auto 16 / 9; background: #000; }
+.start-photo p { margin: 6px 0 0; }
 .live-camera.streaming .live-camera-note { color: var(--muted); }
 
 /* v0.188: on a phone the start-hut camera is the point of the tab, so give it

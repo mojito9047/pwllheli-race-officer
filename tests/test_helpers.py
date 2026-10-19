@@ -902,3 +902,49 @@ class TestCloudflareR2UploadDiagnostics:
         assert clip["public_status"] == "ready"
         assert clip["public_url"] == "https://videos.example.com/race-videos/race1/race1_finish_1_public.mp4"
         assert "uploaded" in clip["public_message"].lower()
+
+
+class TestACameraWithNoPanOrTilt:
+    """19 October: the club's test camera, zoom-only, answered the login test's
+    PTZ request with 403 "Invalid Operation / notSupport" -- with the right
+    password. The app took it for a refused login, paused the camera to avoid a
+    lockout, and that pause stopped the start photo too."""
+
+    def _settings(self, presets="0"):
+        ro.reset_ptz_runtime_state()
+        ro.save_app_settings({"ptz_enabled": presets, "ptz_camera_url": "192.168.3.203", "ptz_username": "admin",
+                              "ptz_password": "right", "ptz_channel": "1", "ptz_auth_mode": "digest"})
+
+    def _camera(self, monkeypatch, answers):
+        calls = []
+
+        def fake_request(url, base, username, password, method="PUT", auth_mode="digest", timeout=4):
+            calls.append(url.split("/ISAPI/", 1)[1])
+            return answers[calls[-1].split("/")[0]], "curl-digest"
+        monkeypatch.setattr(ro.video, "ptz_isapi_request", fake_request)
+        return calls
+
+    def test_the_login_is_accepted_and_nothing_is_paused(self, client, monkeypatch):
+        self._settings()
+        calls = self._camera(monkeypatch, {"PTZCtrl": 403, "System": 200})
+        result = ro.ptz_test_login()
+        assert result["ok"] is True and "no pan/tilt presets" in result["message"]
+        assert calls == ["PTZCtrl/channels/1/capabilities", "System/deviceInfo"]
+        assert not ro.video.ptz_auth_failure_is_paused() and not ro.video.camera_login_refused()
+
+    def test_a_wrong_password_is_still_a_wrong_password(self, client, monkeypatch):
+        self._settings()
+        self._camera(monkeypatch, {"PTZCtrl": 403, "System": 401})
+        result = ro.ptz_test_login()
+        assert result["ok"] is False and result["http_status"] == 401
+        assert ro.video.camera_login_refused()
+
+    def test_a_refused_preset_pauses_presets_but_not_the_start_photo(self, client, monkeypatch):
+        self._settings(presets="1")
+        self._camera(monkeypatch, {"PTZCtrl": 403, "System": 200})
+        result = ro.ptz_goto_preset("idle", reason="test", force=True)
+        assert result["auth_failed"] is True and "accepted the login" in result["message"]
+        assert ro.video.ptz_auth_failure_is_paused()
+        assert not ro.video.camera_login_refused()
+        from core import startphoto
+        assert startphoto.camera_problem(ro.video_config()) == ""

@@ -95,9 +95,11 @@ If the current race is not assigned to a series, the page still shows the curren
 
 The page is organised into **tabs** below the race header, so it stays short — especially on a phone. The race name, warning/start times, course sequence, flag panel and countdown sit above the tabs and are always visible.
 
-While the race is on there are three: **Entries** (or **Start times** for a pursuit race), **Chart** and **Course analysis**. Once every boat has stopped racing, a fourth **Leader board** tab appears holding the results, and it is the tab shown first. The other three stay available as a record of the race. (The live handicap-corrected order during a race lives under the **Chart** tab, next to the boats it is about; the *Leader board* tab holds the confirmed result.)
+While the race is on there are three: **Entries** (or **Start times** for a pursuit race), **Chart** and **Course analysis** &mdash; and, where the hut has a camera, a fourth, **Start photo** (v1.014). Once every boat has stopped racing, a **Leader board** tab appears holding the results, and it is the tab shown first. The others stay available as a record of the race. (The live handicap-corrected order during a race lives under the **Chart** tab, next to the boats it is about; the *Leader board* tab holds the confirmed result.)
 
-The selected tab is remembered in the page address (`#ptab-entries`, `#ptab-chart`, `#ptab-analysis`, `#ptab-results`), so a link can point at a particular tab.
+**Start photo** holds the camera's own 3840 x 2160 still taken at each start signal, with the start line drawn from the pole to the outer distance mark and the club logo. It appears a few seconds after the gun &mdash; during the race, unlike the start and finish videos &mdash; and the page reloads itself to show it — so leave a phone on the **Start photo** tab before the gun and the photo arrives on its own, scrolled into view. Tapping it opens the full-size photo to zoom in on. It says plainly that it is an early guide and the race officer's calls stand. See [`VIDEO_RECORDING.md`](VIDEO_RECORDING.md#start-photo-v1014).
+
+The selected tab is remembered in the page address (`#ptab-entries`, `#ptab-chart`, `#ptab-analysis`, `#ptab-startphoto`, `#ptab-results`), so a link can point at a particular tab.
 
 The specific race page shows race-level information before and during racing:
 

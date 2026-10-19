@@ -117,6 +117,31 @@ def build_startline_spec(ffmpeg: str, evidence_path: str, clip_type: str,
             pass
 
 
+def line_spec_for_image(image_path: str, out_dir: str) -> Tuple[Optional[dict], str]:
+    """The line for one still photograph, in the shape ``line_filter_chain`` takes.
+
+    The start photo is the camera's own still, not a frame of a clip, so there
+    is nothing to grab: the buoy is found in the photo itself and the line is
+    drawn in the one colour. The caller removes it with ``cleanup_spec``.
+    """
+    if not _AVAILABLE:
+        return None, "skipped: Pillow/numpy not installed"
+    try:
+        cfg = load_startline_config()
+        img = Image.open(image_path)
+        w, h = img.size
+        det = odm.detect(img, cfg)
+        if not det.found:
+            return None, (f"skipped: no confident buoy (best conf {det.conf:.2f}"
+                          f"{'' if det.fx is None else f' near {det.fx:.2f},{det.fy:.2f}'})")
+        line = os.path.join(out_dir, f".odm_line_{secrets.token_hex(6)}.png")
+        odm.render_line_overlay(cfg, w, h, line, det.fx, det.fy, color=GREEN)
+        return ({"green": line, "red": None, "offset": 0.0, "is_start": False},
+                f"drawn at ({det.fx:.3f},{det.fy:.3f}) conf {det.conf:.2f}")
+    except Exception as exc:
+        return None, f"skipped: error {exc}"
+
+
 def cleanup_spec(spec: Optional[dict]) -> None:
     if not spec:
         return

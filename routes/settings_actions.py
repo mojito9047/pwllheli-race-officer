@@ -126,6 +126,16 @@ def settings_video_ptz_login_test():
     return redirect(url_for("settings_page") + "#video")
 
 
+@app.route("/settings/video/start_photo_test", methods=["POST"])
+@app.route("/admin/settings/video/start_photo_test", methods=["POST"])
+def settings_video_start_photo_test():
+    """Save settings, ask the camera for a start photo now and make it, locally."""
+    save_settings_from_form()
+    result = _app.startphoto.take_test_start_photo()
+    flash(result["message"], "success" if result.get("ok") else "error")
+    return redirect(url_for("settings_page") + "#video")
+
+
 @app.route("/settings/video/ptz_test/<preset_kind>", methods=["POST"])
 @app.route("/admin/settings/video/ptz_test/<preset_kind>", methods=["POST"])
 def settings_video_ptz_test(preset_kind: str):
@@ -206,6 +216,7 @@ def settings_video_r2_retry():
 
     def _worker() -> None:
         retry_public_video_uploads_once(cfg)
+        _app.startphoto.retry_start_photo_uploads(cfg)
 
     threading.Thread(target=_worker, name="r2-public-video-retry", daemon=True).start()
     audit("public video uploads retried")

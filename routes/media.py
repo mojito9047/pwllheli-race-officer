@@ -30,6 +30,13 @@ send_video_clip_response = _app.send_video_clip_response
 start_video_background_recorder = _app.start_video_background_recorder
 video = _app.video
 video_runtime_status = _app.video_runtime_status
+startphoto = _app.startphoto
+get_db = _app.get_db
+get_race = _app.get_race
+redirect = _app.redirect
+row_get = _app.row_get
+public_access_allowed_for_race = _app.public_access_allowed_for_race
+public_access_denied_response = _app.public_access_denied_response
 
 
 @app.route("/public/branding/<path:filename>")
@@ -133,6 +140,55 @@ def public_video_status():
 def video_clip_file(clip_id: int):
     """Serve an authenticated race-officer video clip."""
     return send_video_clip_response(clip_id, public=False)
+
+
+def _start_photo_clip(clip_id: int):
+    with get_db() as db:
+        return db.execute("SELECT * FROM video_clips WHERE id = ? AND clip_type = 'start'", (clip_id,)).fetchone()
+
+
+@app.route("/public/start-photo/<int:clip_id>")
+def public_start_photo_file(clip_id: int):
+    """The published start photo, during the race as well as after it.
+
+    From the club's bucket when it is there, so a fleet of phones does not
+    fetch a megabyte each through the hut's 4G link; from the hut otherwise.
+    """
+    clip = _start_photo_clip(clip_id)
+    if not clip or row_get(clip, "photo_status") != "ready":
+        return Response("The start photo is not ready", status=404)
+    if not public_access_allowed_for_race(get_race(int(clip["race_id"]))):
+        return public_access_denied_response()
+    url = str(row_get(clip, "photo_url") or "").strip()
+    if url:
+        return redirect(url)
+    path = startphoto.resolve_photo_path(row_get(clip, "photo_file_path"))
+    if not path:
+        return Response("The start photo was not found", status=404)
+    return send_file(path, mimetype="image/jpeg", download_name=path.name)
+
+
+@app.route("/video/start-photo/<int:clip_id>/camera")
+@app.route("/admin/video/start-photo/<int:clip_id>/camera")
+def start_photo_camera_file(clip_id: int):
+    """The camera's own still, as it was taken: no line, no logo."""
+    clip = _start_photo_clip(clip_id)
+    path = startphoto.resolve_photo_path(row_get(clip, "photo_raw_path")) if clip else None
+    if not path:
+        return Response("The start photo was not found", status=404)
+    return send_file(path, mimetype="image/jpeg", download_name=path.name)
+
+
+@app.route("/settings/video/start_photo_test.jpg")
+@app.route("/admin/settings/video/start_photo_test.jpg")
+def settings_start_photo_test_file():
+    """The last test start photo taken from Settings."""
+    path = startphoto.test_photo_path()
+    if not path.is_file():
+        return Response("No test start photo has been taken yet", status=404)
+    response = send_file(path, mimetype="image/jpeg")
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.route("/public/video/clip/<int:clip_id>")

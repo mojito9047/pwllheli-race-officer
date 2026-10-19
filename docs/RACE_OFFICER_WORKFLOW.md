@@ -169,6 +169,7 @@ Use **Entries & finish times** to record finishes, status changes and race-speci
 
 - The blue **Finish** button is at the front of each entry row.
 - **Finish** fires the horn, records the finish time, logs the event and schedules a finish video clip if recording is enabled.
+- The page answers as soon as the horn has started (*Horn sounding*), not after the blast — from v1.014 it no longer sits for the three seconds the horn sounds. A horn that fails at once still says so on the page; one that fails part-way is entered in the race log as *The horn did NOT sound for …*. Pressing **Finish** again for the same boat within 30 seconds is taken as the same finish.
 - Editable IRC and YTC fields on each entry are the ratings used for that race's results.
 - Use status controls for DNF, DNS, RET or other non-racing outcomes.
 - Open **Show live finish camera** if the RO wants to watch the finish camera in the same tab. With a live-stream URL configured it shows stills while the relay stream starts, then live video — which lags the water by a few seconds, so time finishes from the horn, not the picture (see [`VIDEO_RECORDING.md`](VIDEO_RECORDING.md)).
@@ -205,7 +206,9 @@ Use **Races** in the side menu to find races grouped by series. Standalone races
 
 Use the pop-out public competitor page for a read-only display.
 
-The page is organised into tabs under the race header. During the race those are **Entries**, **Chart** and **Course analysis**; a **Leader board** tab appears with the provisional results once every boat has stopped racing, and is then the tab shown first.
+The page is organised into tabs under the race header. During the race those are **Entries**, **Chart**, **Course analysis** and **Start photo**; a **Leader board** tab appears with the provisional results once every boat has stopped racing, and is then the tab shown first.
+
+**Start photo** is the camera's still at each start signal, with the start line drawn on it, up a few seconds after the gun for competitors to see whether they were over. It is labelled as an early guide &mdash; your calls stand. The race page shows it beside the start video, with a link to the camera's own still without the line or logo (see [`VIDEO_RECORDING.md`](VIDEO_RECORDING.md#start-photo-v1014)).
 
 The **Chart** tab is the one competitors spend the race on. It shows the fleet on the course and winds back through everything recorded so far, with a translucent leaderboard rolling up over it: the order on the water, or an **estimated IRC/YTC corrected** order projected from each boat's pace. That estimate is labelled as such on the page and is not a result — the Results tab and the published scores remain authoritative.
 

@@ -567,6 +567,7 @@ from core import horn as _horn
 from core import activitylog
 from core.activitylog import log_activity, settings_change_summary
 from core import video
+from core import startphoto
 from core import offsite
 from core import power
 # The winter warning: a solar hut fails by the bank quietly ceasing to reach
@@ -1092,6 +1093,14 @@ def _init_db_uncached() -> None:
         # at a segment boundary up to one segment earlier. The replay locks its
         # clock to the picture, so it needs the moment the footage really starts.
         ensure_column(db, "video_clips", "footage_started_at", "TEXT")
+        # v1.014: the start photo, taken by the camera at each start signal and
+        # published on the public race page at once (core/startphoto.py). It
+        # belongs to the start clip: same start, same postponements.
+        for column, kind in (("photo_status", "TEXT"), ("photo_message", "TEXT"),
+                             ("photo_file_path", "TEXT"), ("photo_raw_path", "TEXT"),
+                             ("photo_url", "TEXT"), ("photo_source", "TEXT"),
+                             ("photo_taken_at", "TEXT"), ("photo_answer_ms", "INTEGER")):
+            ensure_column(db, "video_clips", column, kind)
         # v0.68: saved clips are backup-worthy data, so new clips live directly
         # under data/video_clips/. Rewrite the old default path when an older
         # database is opened; send_video_clip_response still tolerates legacy
@@ -1889,6 +1898,7 @@ def save_app_settings(settings: Dict[str, Any]) -> str:
         "video_public_provider": normalise_video_public_provider(settings.get("video_public_provider")),
         "video_public_quality": normalise_video_public_quality(settings.get("video_public_quality")),
         "video_startline_overlay_enabled": bool_to_text(text_to_bool(settings.get("video_startline_overlay_enabled"), False)),
+        "video_start_photo_enabled": bool_to_text(text_to_bool(settings.get("video_start_photo_enabled"), True)),
         "video_public_live_provider": normalise_video_public_live_provider(settings.get("video_public_live_provider")),
         "video_public_live_interval_seconds": str(int_in_range(settings.get("video_public_live_interval_seconds"), 5, 2, 60)),
         "video_public_r2_account_id": safe_r2_account_id(str(settings.get("video_public_r2_account_id", ""))),
@@ -2050,6 +2060,9 @@ def delete_race_and_related_data(race_id: int) -> Dict[str, int]:
                 deleted_files += 1
             if safe_delete_race_video_file(row_get(clip, "public_file_path")):
                 deleted_files += 1
+            for photo in ("photo_file_path", "photo_raw_path"):
+                if safe_delete_race_video_file(row_get(clip, photo)):
+                    deleted_files += 1
         counts = {
             "entries": db.execute("SELECT COUNT(*) AS n FROM entries WHERE race_id = ?", (race_id,)).fetchone()["n"],
             "events": db.execute("SELECT COUNT(*) AS n FROM race_events WHERE race_id = ?", (race_id,)).fetchone()["n"],
@@ -2366,6 +2379,9 @@ def public_endpoint() -> bool:
         # nothing. All it can do is stop the replay it names.
         "bar_replay_finished",
         "public_video_clip_file",
+        # The start photo: public from the moment it is taken, unlike the
+        # videos, because a competitor wants to know during the race.
+        "public_start_photo_file",
         "public_video_live_frame",
         "public_video_status",
         "public_branding_file",
@@ -3096,6 +3112,9 @@ def competitor_race_state_signature(race: sqlite3.Row) -> Tuple[str, Dict[str, A
                 "public_status": row_get(c, "public_status"),
                 "public_url": row_get(c, "public_url"),
                 "updated_at": c["updated_at"],
+                # Once, when it is ready: the page reloads to show it, and not
+                # on every step of taking it.
+                "photo_ready": row_get(c, "photo_status") == "ready",
             }
             for c in video_clips
         ],
@@ -3484,6 +3503,9 @@ def competitor_race_context(race: sqlite3.Row, mobile_view: bool = False,
         # film exists -- which is days after the race, not on the water.
         "film_url": replay3d.film_url_for(int(race["id"])),
         "start_video_clip": video_maps["start_clip"],
+        "start_photos": startphoto.start_photos_for_race(int(race["id"])),
+        "start_photo_tab": (startphoto.start_photo_enabled(video_config())
+                            or bool(startphoto.start_photos_for_race(int(race["id"])))),
         "finish_video_by_entry": video_maps["by_entry"],
         "video_clip_link_text": video_clip_link_text,
         "public_video_clip_link_text": public_video_clip_link_text,
@@ -3590,6 +3612,7 @@ def read_settings_form() -> Tuple[Dict[str, Any], Dict[str, Any]]:
         "video_public_provider": request.form.get("video_public_provider", "off"),
         "video_public_quality": request.form.get("video_public_quality", "720p"),
         "video_startline_overlay_enabled": request.form.get("video_startline_overlay_enabled", "0"),
+        "video_start_photo_enabled": request.form.get("video_start_photo_enabled", "0"),
         "video_public_live_provider": request.form.get("video_public_live_provider", "local"),
         "video_public_live_interval_seconds": request.form.get("video_public_live_interval_seconds", "5"),
         "video_public_r2_account_id": request.form.get("video_public_r2_account_id", ""),

@@ -319,6 +319,9 @@ story.append(bullets([
     "<b>Chart tab</b> - the course chart with the marks, the sailing direction and the wind arrow.",
     "<b>Course analysis tab</b> - a predicted leg-by-leg timing table (distance, bearing, suggested sail and "
     "target speed) calculated from the current wind.",
+    "<b>Start photo tab</b> - the hut camera's photo at each start signal, with the start line drawn from the "
+    "pole to the outer distance mark, up a few seconds after the gun. Tap it to open it full size and zoom in "
+    "on your bow. It is an early guide only: the race officer's calls stand.",
 ]))
 audio_heading = [
     Paragraph("<b>What you will hear on the water</b>", styles["H2"]),
@@ -361,8 +364,8 @@ story += note_box(
 
 story += note_box(
     "The page is split into tabs below the race header — <b>Entries</b> (or <b>Start times</b> for a "
-    "pursuit race), <b>Chart</b> and <b>Course analysis</b>, joined by <b>Leader board</b> once the race has "
-    "finished. Tap a tab to switch; the race name, times, flags and countdown stay visible above them. On a "
+    "pursuit race), <b>Chart</b>, <b>Course analysis</b> and <b>Start photo</b>, joined by <b>Leader board</b> "
+    "once the race has finished. Tap a tab to switch; the race name, times, flags and countdown stay visible above them. On a "
     "phone each table is shown as one card per boat, so nothing is cut off.")
 story += note_box(
     "The flag panel mirrors what the race officer's system is displaying - it is a helpful reference, not a "

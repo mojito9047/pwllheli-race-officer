@@ -107,6 +107,7 @@
     <button type="button" class="tab-button{% if not race_finished %} active{% endif %}" data-tab="ptab-entries">{% if is_pursuit %}Start times{% else %}Entries{% endif %}</button>
     <button type="button" class="tab-button" data-tab="ptab-chart">Chart</button>
     <button type="button" class="tab-button" data-tab="ptab-analysis">Course analysis</button>
+    {% if start_photo_tab %}<button type="button" class="tab-button" data-tab="ptab-startphoto">Start photo</button>{% endif %}
   </nav>
 
   {% if race_finished %}
@@ -428,6 +429,37 @@
     {% endif %}
     </div>
   </div>
+
+  {% if start_photo_tab %}
+  {# The hut camera's own still at each start signal, up a few seconds after
+     the gun -- unlike the videos, during the race, because whether you were
+     over is worth knowing now. The page reloads itself when one is ready. #}
+  <div class="tab-pane" id="ptab-startphoto">
+    <h3>Start photo</h3>
+    <p class="muted">Taken by the hut camera at the start signal, with the start line drawn from the
+      pole to the outer distance mark. An early guide for you only: the race officer's calls stand.</p>
+    {% for photo in start_photos %}
+    <figure class="start-photo">
+      <figcaption><strong>{{ photo.label }}</strong> &middot; start signal {{ photo.time }}
+        {% if photo.status == 'ready' %}<span class="muted small">&middot; {% if photo.source == 'camera' %}taken by the camera{% if photo.answer_s is not none %} within {{ '%.1f'|format(photo.answer_s) }} s{% endif %}{% else %}from the start video{% endif %}</span>{% endif %}
+      </figcaption>
+      {% if photo.status == 'ready' and (photo.url or photo.has_file) %}
+        {% set href = photo.url or url_for('public_start_photo_file', clip_id=photo.clip_id) %}
+        <a href="{{ href }}" target="_blank" rel="noopener"><img src="{{ href }}" data-start-photo="{{ photo.clip_id }}" alt="The start line at the {{ photo.label|lower }} signal, {{ photo.time }}" loading="lazy" width="3840" height="2160"></a>
+        <p class="small muted">Tap the photo to open it full size and zoom in.</p>
+      {% elif photo.status == 'pending' %}
+        <p class="muted">Taken at the start signal and shown here a few seconds later.</p>
+      {% elif photo.status == 'taking' %}
+        <p class="muted">Being taken now &mdash; it will appear here in a moment.</p>
+      {% else %}
+        <p class="muted">No photo of this start: the camera could not provide one.</p>
+      {% endif %}
+    </figure>
+    {% else %}
+    <p class="muted">A photo of the line is taken at each start signal and shown here a few seconds later.</p>
+    {% endfor %}
+  </div>
+  {% endif %}
 </section>
 {% if is_pursuit %}
 <script>
@@ -798,6 +830,29 @@ document.addEventListener('click', (ev) => {
     }
   }
 })();
+
+{% if start_photo_tab %}
+// A start photo that has just arrived is brought into view, once. Somebody
+// waiting on the Start photo tab after the gun gets it by the page reloading
+// itself -- which puts them back where they were, and on a phone that left the
+// photo below the bottom of the screen. Runs after the scroll is put back, and
+// only with the tab open: it is not taken off another tab to look at it.
+(function () {
+  const pane = document.getElementById('ptab-startphoto');
+  if (!pane || !pane.classList.contains('active')) return;
+  const photos = pane.querySelectorAll('img[data-start-photo]');
+  const newest = photos[photos.length - 1];
+  if (!newest) return;
+  try {
+    const key = 'roStartPhotoShown:' + newest.dataset.startPhoto;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+  } catch (err) {
+    return;   // without storage it would jump on every reload; better not at all
+  }
+  newest.closest('figure').scrollIntoView({block: 'start'});
+})();
+{% endif %}
 </script>
 {% endif %}
 <footer class="public-footer">Pwllheli Race Officer v{{ app_version }} · Provisional information for competitors. Race officer decisions and published results remain authoritative. · {% if public_live_stream_url %}<a href="{{ public_live_stream_url }}" target="_blank" rel="noopener">Watch live</a> · {% endif %}<a href="/documentation/competitor-guide" target="_blank" rel="noopener">Competitor's guide (PDF)</a> · <a href="{{ source_url }}" target="_blank" rel="noopener">Source on GitHub</a> · Copyright © 2026 CapeNet Ltd. All Rights Reserved.</footer>

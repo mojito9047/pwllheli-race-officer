@@ -112,7 +112,8 @@ Configure:
 
 - Public video publishing: off/local evidence clips or Cloudflare R2 public copy.
 - Public clip quality: 720p small or 1080p normal.
-- **Draw the start line on public start/finish videos** (experimental, off by default): overlays the detected start line (pole base → ODM buoy) on the public copy only — red before the start and green after on start videos, green on finish videos. See VIDEO_RECORDING.md.
+- **Draw the start line on public start/finish videos** (experimental, off by default): overlays the detected start line (pole base → ODM buoy) on the public copy only — red before the start and green after on start videos, green on finish videos. The start photo follows it too. See VIDEO_RECORDING.md.
+- **Take a start photo at each start signal** (on by default): the camera's own still at every start, with the start line and club logo, on the public race page's **Start photo** tab a few seconds after the gun. It uses the camera address and login under **Camera zoom / PTZ presets**, even with preset switching off; **Save and take a test start photo** there tries it now without publishing anything. See VIDEO_RECORDING.md, *Start photo*.
 - Public live image source: served by the hut app or uploaded to R2 as one refreshed JPEG.
 - R2 account/endpoint, bucket, access key, saved secret, public base URL and object prefix. **These also drive publishing a series' results** (v0.281): *Publish to website* on the series page uploads into `results/series-<id>/` in the same bucket, and the button is hidden until this section is filled in. See [`WEBSITE_PUBLISHING.md`](WEBSITE_PUBLISHING.md).
 

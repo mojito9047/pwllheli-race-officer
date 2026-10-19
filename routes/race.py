@@ -228,6 +228,7 @@ def race_detail(race_id: int):
         race_finish_line=track.finish_line_by_key(track.race_finish_line_key(race)),
         series_list=series_list, current_series=current_series,
         video_status=video_runtime_status(), video_clips=video_maps["clips"], start_video_clip=video_maps["start_clip"],
+        start_photos=_app.startphoto.start_photos_for_race(race_id),
         finish_video_by_entry=video_maps["by_entry"], video_clip_link_text=video_clip_link_text, now_ts=int(time.time()),
         race_console=race_console_config(),
         shorten_options=shorten_options, course_shortened=course_shortened,

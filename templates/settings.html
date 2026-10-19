@@ -573,7 +573,8 @@
       <label>Public base URL <input form="settingsSaveForm" type="url" name="video_public_r2_public_base_url" value="{{ video.video_public_r2_public_base_url }}" placeholder="https://videos.example.com"></label>
       <label>Object prefix <input form="settingsSaveForm" type="text" name="video_public_r2_prefix" value="{{ video.video_public_r2_prefix }}" placeholder="race-videos"></label>
     </div>
-    <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="video_startline_overlay_enabled" value="1" {% if video.video_startline_overlay_enabled %}checked{% endif %}> Draw the start line on public start/finish videos (experimental) <span class="muted small">— public copy only, never the evidence clip</span></label>
+    <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="video_startline_overlay_enabled" value="1" {% if video.video_startline_overlay_enabled %}checked{% endif %}> Draw the start line on public start/finish videos (experimental) <span class="muted small">— public copy only, never the evidence clip; the start photo follows this too</span></label>
+    <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="video_start_photo_enabled" value="1" {% if video.video_start_photo_enabled %}checked{% endif %}> Take a start photo at each start signal and show it on the public race page at once <span class="muted small">— the camera's own still, with the start line and club logo; uses the camera address and login under Camera zoom / PTZ presets, even with preset switching off</span></label>
     <label class="checkbox-inline small"><input form="settingsSaveForm" type="checkbox" name="video_public_r2_secret_access_key_clear" value="1"> Clear saved R2 secret access key</label>
     <div class="form-row small-top">
       <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_video_r2_test') }}" formmethod="post" class="secondary">Save and test R2 upload</button>
@@ -637,6 +638,8 @@ The evidence clips and any public copies are kept — only publishing is given u
     <label class="checkbox-inline small"><input form="settingsSaveForm" type="checkbox" name="ptz_password_clear" value="1"> Clear saved camera password</label>
     <div class="form-row small-top">
       <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_video_ptz_login_test') }}" formmethod="post" class="secondary">Save and test camera login only</button>
+      <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_video_start_photo_test') }}" formmethod="post" class="secondary">Save and take a test start photo</button>
+      <a class="button secondary" href="{{ url_for('settings_start_photo_test_file') }}" target="_blank">View the last test start photo</a>
       <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_video_ptz_test', preset_kind='idle') }}" formmethod="post" class="secondary">Save and test idle preset</button>
       <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_video_ptz_test', preset_kind='recording') }}" formmethod="post" class="secondary">Save and test race preset</button>
     </div>

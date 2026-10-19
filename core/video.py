@@ -185,6 +185,8 @@ PTZ_RUNTIME_STATE: Dict[str, Any] = {
     # HTTP 401/403 pauses automatic switching until the RO saves settings or
     # presses one of the explicit test buttons again.
     "auth_failed": False,
+    # 401 or 403: which one paused it (see pause_ptz_after_auth_failure).
+    "auth_failed_code": 0,
 }
 PTZ_LOCK = threading.Lock()
 
@@ -680,6 +682,7 @@ def video_config() -> Dict[str, Any]:
         "video_public_provider": normalise_video_public_provider(overrides.get("video_public_provider")),
         "video_public_quality": normalise_video_public_quality(overrides.get("video_public_quality")),
         "video_startline_overlay_enabled": text_to_bool(overrides.get("video_startline_overlay_enabled"), False),
+        "video_start_photo_enabled": text_to_bool(overrides.get("video_start_photo_enabled"), True),
         "video_public_live_provider": normalise_video_public_live_provider(overrides.get("video_public_live_provider")),
         "video_public_live_interval_seconds": int_in_range(overrides.get("video_public_live_interval_seconds"), 5, 2, 60),
         "video_public_r2_account_id": safe_r2_account_id(overrides.get("video_public_r2_account_id") or ""),
@@ -1035,6 +1038,7 @@ def reset_ptz_runtime_state(message: str = "Camera preset state reset after sett
         PTZ_RUNTIME_STATE["last_preset"] = None
         PTZ_RUNTIME_STATE["pending_preset"] = None
         PTZ_RUNTIME_STATE["auth_failed"] = False
+        PTZ_RUNTIME_STATE["auth_failed_code"] = 0
         PTZ_RUNTIME_STATE["manual_hold_until"] = None
         PTZ_RUNTIME_STATE["last_status"] = {"ok": True, "enabled": video_config().get("ptz_enabled"), "message": message}
         PTZ_RUNTIME_STATE["last_switch_at"] = None
@@ -1079,16 +1083,43 @@ def ptz_auth_failure_is_paused() -> bool:
         return bool(PTZ_RUNTIME_STATE.get("auth_failed"))
 
 
+def camera_login_refused() -> bool:
+    """True when the camera has refused the saved login itself (HTTP 401).
+
+    Not after a 403: that is the login accepted and one request refused, which
+    says nothing about whether the camera will hand over a photograph.
+    """
+    with PTZ_LOCK:
+        return bool(PTZ_RUNTIME_STATE.get("auth_failed")) and PTZ_RUNTIME_STATE.get("auth_failed_code") != 403
+
+
 def pause_ptz_after_auth_failure(status: Dict[str, Any]) -> None:
-    """Pause automatic PTZ retries after a camera authentication failure."""
+    """Pause automatic PTZ retries after the camera refused a preset request.
+
+    A 401 is the login refused, and repeating it locks the Hikvision account.
+    A 403 is not: the login was accepted and the request refused -- a camera
+    with no pan/tilt answers every preset that way ("Invalid Operation,
+    notSupport"). Both stop preset switching; only a 401 also stops the start
+    photo (``camera_login_refused``), which needs nothing but the login.
+    """
+    code = int(status.get("http_status") or 0)
     status["auth_failed"] = True
-    status["message"] = (
-        f"{status.get('message', 'Camera preset authentication failed.')} "
-        "Automatic PTZ switching has been paused to avoid locking the camera. "
-        "Check the saved camera username/password, wait for the camera lockout to clear, then save settings or run one preset test."
-    )
+    if code == 403:
+        status["message"] = (
+            f"{status.get('message', 'The camera refused the preset request.')} "
+            "The camera accepted the login but refused the request: it may have no pan/tilt presets "
+            "(a fixed or zoom-only camera answers every preset this way), or this user may lack PTZ rights. "
+            "Automatic preset switching has been paused. The start photo and the recording are unaffected."
+        )
+    else:
+        status["message"] = (
+            f"{status.get('message', 'Camera preset authentication failed.')} "
+            "Automatic PTZ switching has been paused to avoid locking the camera. "
+            "Check the saved camera username/password, wait for the camera lockout to clear, then save settings or run one preset test."
+        )
     with PTZ_LOCK:
         PTZ_RUNTIME_STATE["auth_failed"] = True
+        PTZ_RUNTIME_STATE["auth_failed_code"] = code
         PTZ_RUNTIME_STATE["pending_preset"] = None
         PTZ_RUNTIME_STATE["last_status"] = status
 
@@ -1208,6 +1239,21 @@ def ptz_test_login() -> Dict[str, Any]:
     try:
         code, auth_method = ptz_isapi_request(url, base, username, password, method="GET", auth_mode=auth_mode, timeout=4)
         ok = 200 <= code < 300
+        message = "Camera login test succeeded." if ok else f"Camera login test returned HTTP {code} using {auth_method}."
+        if code == 403:
+            # The login may well be fine: a camera with no pan/tilt refuses the
+            # PTZ capabilities this way with the right password. Ask it something
+            # every Hikvision answers, once, before calling the login bad -- that
+            # mistake paused the camera for the start photo too.
+            info_code, _method = ptz_isapi_request(f"{base}/ISAPI/System/deviceInfo", base, username, password,
+                                                   method="GET", auth_mode=auth_mode, timeout=4)
+            if info_code == 401:
+                code, message = 401, f"Camera login test returned HTTP 401 using {auth_method}."
+            elif 200 <= info_code < 300:
+                ok, code = True, info_code
+                message = ("Camera login accepted. This camera has no pan/tilt presets (it refused PTZ control "
+                           "with HTTP 403), so leave automatic preset switching off; the start photo and the "
+                           "recording do not need it.")
         status = {
             "ok": ok,
             "enabled": bool(cfg.get("ptz_enabled")),
@@ -1217,7 +1263,7 @@ def ptz_test_login() -> Dict[str, Any]:
             "url": url,
             "username_set": bool(username),
             "password_set": bool(password),
-            "message": "Camera login test succeeded." if ok else f"Camera login test returned HTTP {code} using {auth_method}.",
+            "message": message,
         }
         if code in (401, 403):
             pause_ptz_after_auth_failure(status)
@@ -3131,6 +3177,23 @@ def build_video_clip_after_delay(clip_id: int) -> None:
 
 
 def schedule_video_clip(race_id: int, clip_type: str, event_time: str, entry_id: Optional[int] = None, event_id: Optional[int] = None, label: str = "", pre_seconds: Optional[int] = None, post_seconds: Optional[int] = None) -> Optional[int]:
+    """Record metadata and queue an asynchronous event video clip.
+
+    A start clip also books the start photo (core.startphoto). The start
+    sequence books its clips again on every tick, so that is also how a photo
+    still waiting when the app restarted is picked up.
+    """
+    clip_id = _book_video_clip(race_id, clip_type, event_time, entry_id, event_id, label, pre_seconds, post_seconds)
+    if clip_id and clip_type == "start":
+        try:
+            from core.startphoto import arm_start_photo
+            arm_start_photo(clip_id)
+        except Exception as exc:
+            log_activity("start photo", f"clip #{clip_id}: could not be booked: {exc}", user="system")
+    return clip_id
+
+
+def _book_video_clip(race_id: int, clip_type: str, event_time: str, entry_id: Optional[int] = None, event_id: Optional[int] = None, label: str = "", pre_seconds: Optional[int] = None, post_seconds: Optional[int] = None) -> Optional[int]:
     """Record metadata and queue an asynchronous event video clip."""
     cfg = video_config()
     if not event_time or not parse_dt(event_time):
