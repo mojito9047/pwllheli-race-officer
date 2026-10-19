@@ -212,9 +212,6 @@ def on_cover(canvas, doc):
     canvas.saveState()
     canvas.setFillColor(NAVY_DARK)
     canvas.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
-    canvas.setStrokeColor(GOLD)
-    canvas.setLineWidth(2)
-    canvas.line(PAGE_W / 2 - 60, PAGE_H - 6.6 * cm, PAGE_W / 2 + 60, PAGE_H - 6.6 * cm)
     canvas.restoreState()
 
 
@@ -256,11 +253,14 @@ story = []
 # ============================================================== COVER PAGE
 cover_logo = Image(LOGO_PATH, width=3.0 * cm, height=3.0 * cm * 477 / 600)
 cover_logo.hAlign = "CENTER"
+# The gold rule sits in the table under the logo. Drawn on the page at a fixed
+# height it stayed put whatever the spacing above the logo, and ran through it.
+cover_logo_and_rule = [cover_logo, Spacer(1, 6), HRFlowable(width=120, thickness=2, color=GOLD)]
 cover_table = Table(
     [
         [Spacer(1, 3.6 * cm)],
-        [cover_logo],
-        [Spacer(1, 0.55 * cm)],
+        [cover_logo_and_rule],
+        [Spacer(1, 0.3 * cm)],
         [Paragraph("PWLLHELI SAILING CLUB", styles["CoverClub"])],
         [Spacer(1, 0.8 * cm)],
         [Paragraph("Pwllheli Race Officer", styles["CoverTitle"])],
