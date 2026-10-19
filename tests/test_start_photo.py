@@ -521,3 +521,20 @@ class TestTheFleetInFrontOfTheBuoy:
         startphoto.take_start_photo(clip_id)
         assert len(seen["asked"]) == 1                           # only the photo
         assert _row(clip_id)["photo_status"] == "ready"
+
+
+class TestABoatTakenForTheBuoy:
+    def test_race_98s_wandering_boat_does_not_outvote_the_buoy(self):
+        """Race 98 of the autumn series, from the full-quality clip: something
+        on a boat three frames before the gun, wandering by 0.025, and the
+        buoy itself found once, in the photo, more confidently."""
+        from core import startline
+        frames = [None, None, (0.681, 0.570, 0.39), (0.689, 0.545, 0.35), (0.672, 0.546, 0.38), None,
+                  (0.548, 0.551, 0.51)]
+        assert startline.buoy_consensus(frames)[:2] == (0.548, 0.551)
+
+    def test_the_buoys_own_small_swing_still_agrees(self):
+        from core import startline
+        race_95 = [None, (0.475, 0.583, 0.51), (0.474, 0.583, 0.48), (0.468, 0.587, 0.43), None,
+                   (0.475, 0.584, 0.48), (0.473, 0.588, 0.49)]
+        assert startline.buoy_consensus(race_95)[2] == 5

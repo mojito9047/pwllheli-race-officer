@@ -34,6 +34,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import timedelta
 from pathlib import Path
 
@@ -70,6 +71,10 @@ def main(argv=None) -> int:
         print("This needs the app at v1.016 or later, which finds the buoy in frames either side of "
               "the gun. Install it, then run this from the new version's folder.")
         return 2
+    # v1.016 counts detections up to 0.02 apart as the same buoy; a boat's
+    # wander that far, and in race 98 two of them outvoted the buoy. The app
+    # after v1.016 uses 0.01 itself.
+    startline.SAME_BUOY = min(startline.SAME_BUOY, 0.01)
     from core.db import get_db, row_get
     from core.races import get_race
     from core.timeutils import parse_dt
@@ -145,6 +150,13 @@ def main(argv=None) -> int:
                         seen.append((rel, found))
                     seen.append((0, startline.detect_buoy(str(raw))))
                 public_path, raw_path = startphoto.start_photo_paths(clip)
+                if row_get(clip, "photo_status") == "ready" and not preview:
+                    # Made again: a new name, because the bucket tells browsers
+                    # and Cloudflare to keep a photo for a year, and the old one
+                    # would go on being shown under the old name.
+                    stamp = time.strftime("%Y%m%d%H%M%S")
+                    public_path = public_path.with_name(f"{public_path.stem}_{stamp}{public_path.suffix}")
+                    raw_path = raw_path.with_name(f"{raw_path.stem}_{stamp}{raw_path.suffix}")
                 if preview:
                     out = preview / public_path.name
                     drawn, note = startphoto.compose_start_photo(ffmpeg, raw, out, cfg, work, prior=prior)
@@ -171,6 +183,8 @@ def main(argv=None) -> int:
                     message=f"Made afterwards from the start video{'' if drawn else ' (no start line drawn)'}.")
                 print(f"{label}: published{'' if url else ' (kept on the hut: publishing to R2 is off)'};"
                       f" start line {note}")
+                with open("buoy_report.txt", "a", encoding="utf-8") as report:
+                    report.write(f"{label}: published {url or public_path.name}; start line {note}\n")
                 made += 1
             except Exception as exc:
                 print(f"{label}: FAILED, {exc}")

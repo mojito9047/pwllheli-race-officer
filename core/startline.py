@@ -119,10 +119,12 @@ def build_startline_spec(ffmpeg: str, evidence_path: str, clip_type: str,
 
 Buoy = Tuple[float, float, float]          # (fx, fy, confidence)
 
-# Two detections this close (fractions of the frame) are the same buoy. The
-# anchored buoy swings a little in a couple of minutes; a boat taken for it is
-# somewhere else entirely.
-SAME_BUOY = 0.02
+# Two detections this close (fractions of the frame) are the same buoy. Across
+# twelve starts of the 2026 autumn series the buoy's own detections in the
+# minute before the gun never spread by more than 0.007; a boat taken for it
+# wanders -- race 98's, three frames before the gun, spread by 0.025 -- and at
+# 0.02 two of them counted as agreeing and outvoted the buoy in the photo.
+SAME_BUOY = 0.01
 
 
 def detect_buoy(image_path: str) -> Optional[Buoy]:
