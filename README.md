@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.015
+# Pwllheli Race Officer v1.016
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -6,6 +6,13 @@ Race-office support software. It does not decide anything: official race decisio
 
 
 ## Recent releases
+
+### v1.016 update
+
+- **The start line is on the start photo even when the fleet hides the buoy at the gun.** The buoy is
+  found in camera stills taken before the start as well, and the line drawn where they agree.
+- **Start photos for races sailed before v1.014**, made afterwards from the 4K evidence clips by
+  `scripts/make_start_photos.py` on the hut (`--preview` first).
 
 ### v1.015 update
 
@@ -48,19 +55,6 @@ Race-office support software. It does not decide anything: official race decisio
 - **Settings &rarr; Video Recording &rarr; Save and retry failed public video uploads rebuilds
   the short ones** from their evidence. Press it once after racing, then queue the 3D replay
   again for the races affected. Update the render machine too.
-
-### v1.011 update
-
-- **The Virtual Race Officer looks things up before it answers** &mdash; results, standings,
-  the race log, a boat's season, the trackers, the wind record &mdash; and draws courses as
-  numbered cards with each leg's wind angle and a **Use this** button.
-- **It finishes boats.** *"Mojito's finished"* is the race sheet's Finish button: the time is
-  the Yes, and the horn sounds.
-- **A new race is asked its series and its name**, suggesting the last race's, and is entered
-  with that series' boats. The **Add all boats** button is gone.
-- **It knows where the boats are** from the trackers, now or at any moment, and reads a
-  **weather forecast** (Open-Meteo at the start line unless Settings names another).
-- **The page is a chat**, and its race strip follows changes made on the race sheet.
 
 ## Main features
 

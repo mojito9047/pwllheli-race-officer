@@ -1,5 +1,27 @@
 # Change log
 
+## v1.016
+
+**The start line was missing from the start photo just when it mattered.** At
+the gun the fleet is often on the line and in front of the buoy -- race 90 of
+the autumn series, boats on the line and the buoy nowhere in the frame -- so
+there was nothing to find. Ten seconds earlier it was in plain view.
+
+- **The buoy is found either side of the gun, not only at it.** The app asks
+  the camera for a still 90, 60 and 30 seconds before each start just to find
+  the buoy, looks in the photo too, and draws the line where most of them
+  agree, so one orange sail taken for the buoy does not move it. The buoy is
+  anchored and barely moves in a couple of minutes. When the photo has to come
+  from the recording, it looks in the frames before the gun there. If the buoy
+  is not found at all, the photo goes up without a line; it is never guessed.
+- **`scripts/make_start_photos.py`** makes start photos for races sailed
+  before v1.014 -- for the 2026 autumn series, so that its first races match
+  its last. Run on the hut with the app's own Python, it takes the frame at
+  each race's start signal from the 4K evidence clip, finds the buoy in frames
+  from 50 seconds before the gun to 45 after, adds the line and club logo,
+  uploads the photo and records it against the start clip. `--preview` writes
+  the photos to a folder and touches nothing else.
+
 ## v1.015
 
 **On 18 October the hut slowed to a crawl at each fleet's finishes -- one request
