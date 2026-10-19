@@ -1,5 +1,62 @@
 # Change log
 
+## v1.014
+
+**Competitors asked for early word on whether they were over the line. A
+Start photo tab on the public race page, after Course analysis, now shows the
+hut camera's own photograph taken at each start signal, with the start line on
+it, a few seconds after the gun.**
+
+- **The camera's own still, not a frame of video.** At the signal the hut asks
+  the camera for a photo -- 3840 x 2160 on the hut camera -- made from the sensor
+  rather than out of compressed video, so sail numbers read more clearly.
+  Everything else is checked three seconds before the gun, so at the gun the
+  camera is the only thing asked. It answers in well under a second, and the
+  page says how long it took.
+- **The start line and the club logo, and no sponsors:** the photo is for
+  reading the line. The camera's own photo is kept unaltered for the race
+  officer, and the race page links both.
+- **Public at once, during the race,** unlike the start and finish videos.
+  Leave a phone on the tab before the gun: the page reloads itself when the
+  photo is ready and brings it into view. Tap it for the full size. It says
+  plainly that it is an early guide and the race officer's calls stand.
+- **If the camera gives nothing,** the same moment is cut out of the recording
+  once the segment holding it has closed, about half a minute later.
+- One photo per start. A postponed start, or one moved while the photo waited,
+  is not photographed; pursuit starts each get one; a photo still waiting when
+  the app restarts is taken all the same.
+- **Settings -> Video Recording:** *Take a start photo at each start signal*
+  (on by default), and in the camera section *Save and take a test start
+  photo*, which asks the camera now and makes the published copy without
+  uploading it.
+
+**Finish answers without waiting for the horn.** It answered only once the
+three-second blast had stopped -- long enough to look as if the press had not
+registered, which is how ANDROMEDA came to be finished four times on 17
+October. It now answers as soon as the horn has started (*Horn sounding*). A
+horn that fails at once still says so on the page; one that fails part-way is
+entered in the race log.
+
+**A zoom-only camera's login is no longer taken for a wrong password.** A camera
+with no pan or tilt -- the hut's is one -- answers PTZ requests with HTTP 403
+*Invalid Operation*, with the right password. *Save and test camera login only*
+took that for a refused login and stopped using the camera, which would have
+stopped the start photo too. It now confirms the login against the camera's
+device information and says the camera has no presets; only a refused password
+(HTTP 401) stops the start photo.
+
+**The start line is found into the sun.** Backlit, the buoy is a dark
+silhouette: on the camera's still of 19 October most of it was too dark to
+count, and no line was drawn. The detector's brightness floor is 45 rather than
+55, which finds it there and changes nothing on the earlier tuning frames.
+Adjusting the camera's own image settings that morning helped more. The relay's
+live overlay takes the new value when it is next redeployed.
+
+**After installing:** in *Settings -> Video Recording -> Camera zoom / PTZ
+presets*, press *Save and test camera login only* -- it should say the login is
+accepted and the camera has no pan/tilt presets -- then *Save and take a test
+start photo*, and look at it with *View the last test start photo*.
+
 ## v1.013
 
 **On 17 October the hut stopped answering after the last boats of each race

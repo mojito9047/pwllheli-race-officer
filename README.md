@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.013
+# Pwllheli Race Officer v1.014
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -6,6 +6,17 @@ Race-office support software. It does not decide anything: official race decisio
 
 
 ## Recent releases
+
+### v1.014 update
+
+- **A Start photo tab on the public race page** shows the camera's own photo at each start signal, with
+  the start line and the club logo, a few seconds after the gun &mdash; public at once, so competitors can
+  see whether they were over. A phone left on the tab gets it by itself.
+- **Finish answers as soon as the horn starts**, not after the three-second blast.
+- **A zoom-only camera's login is no longer taken for a wrong password**, which would have stopped the
+  start photo.
+- **After installing:** Settings &rarr; Camera zoom / PTZ presets &rarr; *Save and test camera login only*,
+  then *Save and take a test start photo*.
 
 ### v1.013 update
 
@@ -55,18 +66,6 @@ Race-office support software. It does not decide anything: official race decisio
   row and every reading untouched &mdash; 153 &rarr; 24.5 MB and 53.6 &rarr; 21.6 MB.
 - **Neither database ever reclaimed its space.** Both now vacuum once a day; the race database
   waits for a day with no racing on it.
-
-### v1.009 update
-
-- **Every gun is counted down from ten**, not just the start. The warning, preparatory and
-  one-minute signals each get the same "Stand by 15 seconds" and the same count.
-- **A new announcement ten minutes out** says what is coming and when.
-- **The class flags are no longer read out** &mdash; they are flown, and they are on the page.
-- **A made-up course can be sailed ×2 or ×3.** Build one lap; the board carries the lap with a
-  ×2 chip and everything else sees the course as it is sailed.
-- **The first-warning field suggests a time when you open it**, at least six minutes ahead, and
-  no longer pre-fills &mdash; saving a new race's course must not give it a start time nobody chose.
-- **The race log no longer claims to be empty** while a start sequence fills it.
 
 ## Main features
 
