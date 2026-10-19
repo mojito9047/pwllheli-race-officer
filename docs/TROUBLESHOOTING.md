@@ -440,6 +440,38 @@ The race page shows each start photo's outcome next to the start video, and the 
 - **No line on the photo**: the buoy was not found in it (the log gives the best confidence). Into the sun the buoy is a silhouette; the camera's image settings help most.
 - **"Not taken: the start time was changed" / "the start was postponed"**: as intended &mdash; a photo of an empty line at the old time would not be a start.
 
+## The hut is slow at each finish, and trackers report "database is locked"
+
+> The console fills with `WARNING:waitress.queue:Task queue depth is 54`, and
+> `/api/track/ingest` fails with `sqlite3.OperationalError: database is locked`.
+
+Fixed in v1.015, after racing on 18 October 2026. The hut's slow-request log
+put the worst of it at each fleet's finishes (up to 57 s for a request), with a
+smaller rise at each start. Three things added up:
+
+- **Every pushed tracker fix read the whole track index** to find each device's
+  newest fix — 36 ms on a desktop, several times that on the hut, about once a
+  second, holding the database each time. It now looks up only the devices in
+  the push, by index: a push costs a few milliseconds.
+- **A push waited up to 30 s for the database**, holding one of the server's
+  sixteen request threads all the while, and the relay pushes about once a
+  second. A busy database took every thread. A push now gives up after 5 s and
+  answers *503 — send it again*; the relay resends a second later, and the
+  poller back-fills anything still missing.
+- **Every page open on the race reloaded in the same second** at each start and
+  finish, and each reload worked out the order on the water and the whole track
+  again. Those are now worked out once and shared by everyone asking while the
+  race's data is unchanged (for at most 2 s), and pages reload up to three
+  seconds apart.
+
+The same night, from 00:14 to 00:45, pushes took up to 158 s with nobody racing
+or watching and the video recorder stopped twice: that was the PC itself, not
+the app. `deploy\windows\check_hut_pc.ps1`, run as administrator, then showed
+the Windows Defender exclusions still naming `pwllheli_ro_mvp_v0_257`'s folders
+from August, so every version since had been scanned on every write. Exclude
+the data folders for every version at once: see
+[`DEPLOYMENT_WINDOWS.md`](DEPLOYMENT_WINDOWS.md#windows-defender-exclusions).
+
 ## The hut stops answering after the last boats finish
 
 > After the last boat of each race finished the race sheet stopped responding and

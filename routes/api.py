@@ -7,6 +7,8 @@ used are read off the running app module (see routes.app_module) rather than
 ``from app import ...`` so it works whether app.py was started with ``python
 app.py`` (module ``__main__``) or imported.
 """
+import sqlite3
+
 from routes import app_module
 
 _app = app_module()
@@ -184,7 +186,16 @@ def api_track_ingest():
     payload = request.get_json(silent=True)
     if payload is None:
         return jsonify({"ok": False, "message": "Expected a JSON body."}), 400
-    result = ingest_forwarded_positions(payload)
+    try:
+        result = ingest_forwarded_positions(payload)
+    except sqlite3.OperationalError as exc:
+        # The database is busy. Waiting longer would hold one of the server's
+        # request threads for every push in the queue; the relay resends a
+        # refused push a second later, so say so and let it.
+        response = jsonify({"ok": False, "message": f"Busy, send it again: {exc}"})
+        response.headers["Retry-After"] = "1"
+        response.headers["Cache-Control"] = "no-store"
+        return response, 503
     response = jsonify({"ok": True, **result})
     response.headers["Cache-Control"] = "no-store"
     return response

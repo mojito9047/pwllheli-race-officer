@@ -188,14 +188,20 @@ try {
 } catch { Note "could not read TCP connections: $($_.Exception.Message)" }
 
 # ------------------------------------------------------------- slow log ----
-Section "Slow requests (runtime/logs/slow.log)"
-$slow = Join-Path $AppRoot 'runtime\logs\slow.log'
-if (-not (Test-Path $slow)) {
-    Note "no slow.log yet. It appears once a request exceeds RO_SLOW_REQUEST_MS"
+Section "Slow requests (runtime/logs/slow-<date>.log)"
+# One file a day (slow-2026-10-18.log); slow.log was the name before that. This
+# looked only for slow.log and so reported "nothing was slow" on a hut whose log
+# for the day before held 26,000 slow requests.
+$slow = Get-ChildItem -Path (Join-Path $AppRoot 'runtime\logs') -Filter 'slow*.log' -File -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if (-not $slow) {
+    Note "no slow-request log yet. One appears once a request exceeds RO_SLOW_REQUEST_MS"
     Note "(default 250 ms). No file after a busy race is itself a useful answer:"
     Note "it means nothing was slow, and the limit was sockets rather than speed."
+    Note "Each version keeps its own runtime\logs: an older one is in the old folder."
 } else {
-    $lines = Get-Content $slow -Tail $SlowLogLines
+    Item "File" $slow.Name
+    $lines = Get-Content $slow.FullName -Tail $SlowLogLines
     Item "Lines examined" ("{0} (last {1})" -f $lines.Count, $SlowLogLines)
     $parsed = foreach ($l in $lines) {
         if ($l -match '^\s*(\S+ \S+)\s*\|\s*(\d+) ms \|\s*(\S+)\s+(\S+)\s*\|\s*(\d+)') {
@@ -266,7 +272,17 @@ try {
         Note "re-run this in an elevated PowerShell to check the exclusions."
     }
     elseif ($ex.Count -eq 0) { Item "Exclusion paths" "none" }
-    else { $ex | ForEach-Object { Item "Excluded" $_ } }
+    else {
+        $ex | ForEach-Object {
+            Item "Excluded" $_
+            # Each release unzips into a folder of its own, so an exclusion naming
+            # one version's folder stops applying at the next upgrade. The hut's
+            # named v0.257's from August to October 2026.
+            if ("$_" -notlike '*`**' -and -not (Test-Path "$_")) {
+                Note "that folder no longer exists - this exclusion covers nothing."
+            }
+        }
+    }
 
     $want = @('data\video_clips', 'runtime\video', 'data\race_officer.db', 'data\track_positions.db')
     $missing = @()
@@ -279,6 +295,8 @@ try {
     if ($missing) {
         Note "not excluded: $($missing -join ', ')"
         Note "Excluding these DATA paths is the biggest Windows-side saving available."
+        Note "So that the next version is covered too, use a * for the version folder:"
+        Note "  Add-MpPreference -ExclusionPath 'C:\RaceOfficer\*\data', 'C:\RaceOfficer\*\runtime\video'"
         Note "Exclude data directories only - never the app code or the Python install,"
         Note "which is where an executable could actually land. This box is reachable"
         Note "through a Cloudflare tunnel, so that distinction matters."

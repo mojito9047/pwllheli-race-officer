@@ -647,7 +647,12 @@ document.addEventListener('click', (ev) => {
           // Private browsing, or storage turned off. The page still reloads and
           // still shows the right race; it just starts at the top.
         }
-        window.location.replace(next.toString());
+        // Not all in the same second. Every page open on this race sees the
+        // change on the same two-second poll, and each reload asks the hut for
+        // the whole race again: at a finish that was every phone and the
+        // clubhouse screen at once (18 October 2026). Up to three seconds apart
+        // is nothing to somebody watching, and spreads them out.
+        setTimeout(function () { window.location.replace(next.toString()); }, Math.random() * 3000);
       }
     } catch (err) {
       // Keep the public page usable if the race-office laptop briefly drops offline.

@@ -175,7 +175,9 @@ class TestOnlyDetectionUsesTheExtendedLine:
 
     def test_the_detection_paths_use_the_extended_line(self, client):
         import inspect
-        for fn in (track.run_finish_detection, track.race_leaderboard,
+        # The live board is shared between requests (v1.015); the walk itself is
+        # _race_leaderboard_computed, so that is where the line has to be.
+        for fn in (track.run_finish_detection, track._race_leaderboard_computed,
                    track.race_leaderboard_series):
             assert "race_finish_line_for_detection" in inspect.getsource(fn), (
                 f"{fn.__name__} still tests crossings against the un-extended line"

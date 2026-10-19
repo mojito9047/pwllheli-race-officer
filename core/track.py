@@ -23,6 +23,7 @@ adjustable by the RO. See core/power.py for the sibling patterns reused here.
 """
 from __future__ import annotations
 
+import copy
 import json
 import math
 import re
@@ -1139,6 +1140,17 @@ def parse_forwarded_positions(payload: Any) -> List[Dict[str, Any]]:
     return out
 
 
+# How long a pushed fix waits for the database. Every waiting push holds one
+# of the server's sixteen request threads, and the relay pushes about once a
+# second: at 30 s, a database held up for half a minute -- by a slow disk at
+# midnight, or a fleet of race pages reloading at a finish -- put every thread
+# into waiting pushes and left nothing to answer anyone else (task queue 54,
+# 18 October 2026). The relay resends a refused push a second later, up to ten
+# times (deploy/live_stream/traccar-forward.xml), and the poller back-fills
+# anything still missing, so giving up early loses nothing.
+INGEST_BUSY_TIMEOUT_S = 5.0
+
+
 def ingest_forwarded_positions(payload: Any) -> Dict[str, Any]:
     """Store pushed fixes and run finish detection immediately.
 
@@ -1150,7 +1162,10 @@ def ingest_forwarded_positions(payload: Any) -> Dict[str, Any]:
     if not positions:
         return {"received": 0, "stored": 0, "finishes": 0}
     cfg = track_config()
-    stored = insert_positions(positions, retention_days=cfg["retention_days"])
+    # sqlite3.OperationalError ("database is locked") goes to the caller, which
+    # answers 503 so the relay sends the push again.
+    stored = insert_positions(positions, retention_days=cfg["retention_days"],
+                              busy_timeout_s=INGEST_BUSY_TIMEOUT_S)
     finishes = 0
     if stored:
         try:
@@ -1313,7 +1328,7 @@ TRACK_DB_INIT_LOCK = threading.Lock()
 TRACK_DB_INITIALIZED = False
 
 
-def get_track_db() -> sqlite3.Connection:
+def get_track_db(timeout: Optional[float] = None) -> sqlite3.Connection:
     """Open the separate track-positions SQLite database with row access.
 
     Same busy timeout as the race database (see core.db): the
@@ -1322,7 +1337,8 @@ def get_track_db() -> sqlite3.Connection:
     This is a different file, so it cannot block a finish — but it holds the
     evidence behind GPS finishes, and losing a fix to a lock is the same mistake.
     """
-    conn = sqlite3.connect(TRACK_DB_PATH, timeout=core_db.busy_timeout_seconds())
+    conn = sqlite3.connect(TRACK_DB_PATH,
+                           timeout=core_db.busy_timeout_seconds() if timeout is None else float(timeout))
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -1403,17 +1419,48 @@ def _device_boat_map() -> Dict[str, Optional[int]]:
     return {r["unique_id"]: r["boat_id"] for r in rows}
 
 
-def _latest_fix_times() -> Dict[str, float]:
-    """Return the newest stored fix_time per unique_id (for de-duplication)."""
+# Every device's newest fix, two index seeks per device: hop from one unique_id
+# to the next through the (unique_id, fix_time) index, and read the top of each.
+LATEST_FIX_SQL = (
+    "WITH RECURSIVE ids(u) AS ("
+    " SELECT MIN(unique_id) FROM track_positions"
+    " UNION ALL"
+    " SELECT (SELECT MIN(unique_id) FROM track_positions WHERE unique_id > ids.u) FROM ids WHERE ids.u IS NOT NULL)"
+    " SELECT u AS unique_id, (SELECT MAX(fix_time) FROM track_positions WHERE unique_id = ids.u) AS mx"
+    " FROM ids WHERE u IS NOT NULL")
+
+
+def _latest_fix_times(unique_ids: Optional[Iterable[str]] = None,
+                      timeout: Optional[float] = None) -> Dict[str, float]:
+    """Return the newest stored fix_time per unique_id (for de-duplication).
+
+    It was a GROUP BY, which reads every entry in the index to find forty
+    maximums: half a million on the hut by October, 36 ms on a desktop and
+    several times that on the hut, on every pushed fix and twice on every poll,
+    holding the database each time. The same answer by index seeks takes 0.07
+    ms (v1.015). ``unique_ids`` asks about only those devices -- a push needs
+    the one or two it carries.
+    """
     try:
-        with get_track_db() as db:
-            rows = db.execute("SELECT unique_id, MAX(fix_time) AS mx FROM track_positions GROUP BY unique_id").fetchall()
+        with get_track_db(timeout=timeout) as db:
+            if unique_ids is not None:
+                latest: Dict[str, float] = {}
+                for uid in {str(u) for u in unique_ids if u}:
+                    row = db.execute("SELECT MAX(fix_time) AS mx FROM track_positions WHERE unique_id = ?",
+                                     (uid,)).fetchone()
+                    if row is not None and row["mx"] is not None:
+                        latest[uid] = row["mx"]
+                return latest
+            rows = db.execute(LATEST_FIX_SQL).fetchall()
     except sqlite3.OperationalError:
+        if timeout is not None:
+            raise
         return {}
     return {r["unique_id"]: r["mx"] for r in rows}
 
 
-def insert_positions(positions: List[Dict[str, Any]], retention_days: Optional[int] = None) -> int:
+def insert_positions(positions: List[Dict[str, Any]], retention_days: Optional[int] = None,
+                     busy_timeout_s: Optional[float] = None) -> int:
     """Store new fixes (skipping ones not newer than the last stored per device).
 
     Returns the number of rows inserted.
@@ -1436,14 +1483,16 @@ def insert_positions(positions: List[Dict[str, Any]], retention_days: Optional[i
     # purge_old_positions is where it is now honoured. Resolving it here meant a
     # settings read from the main database on every pushed fix, for nothing.
     _ = retention_days
-    latest = _latest_fix_times()
+    # ``busy_timeout_s``: how long to wait for the database before giving up --
+    # see INGEST_BUSY_TIMEOUT_S. Left out, the usual 30 s.
+    latest = _latest_fix_times({p.get("unique_id") for p in positions}, timeout=busy_timeout_s)
     # Ignore a stored "latest" that is itself implausibly far ahead, or that one
     # bad fix would keep the device permanently shut out (see the constant).
     horizon = now + FIX_FUTURE_TOLERANCE_S
     latest = {uid: ts for uid, ts in latest.items() if ts <= horizon}
     boat_of = _device_boat_map()  # device -> boat, stamped so the track stays with the boat
     inserted = 0
-    with get_track_db() as db:
+    with get_track_db(timeout=busy_timeout_s) as db:
         for p in positions:
             uid = p.get("unique_id")
             ft = p.get("fix_time")
@@ -3304,7 +3353,83 @@ def _progress_walk_end(entries: Any, not_before: Optional[float],
     return min(now, max(latest_finish + 3600.0, not_before), not_before + PROGRESS_MAX_WINDOW_S)
 
 
+# Every open race page asks for the order on the water every few seconds, and
+# at a start or a finish they all reload together and ask at once -- each one
+# re-walking every boat's track from the gun. Twenty phones cost twenty walks.
+# A result is reused by everyone who asks while the race's data is exactly as
+# it was (its row, its entries, the newest stored fix) and for no longer than
+# this, because a live board also moves with the clock. v1.015.
+SHARED_RESULT_TTL_S = 2.0
+_SHARED_RESULTS: Dict[Any, Tuple[float, Any]] = {}
+_SHARED_LOCKS: Dict[Any, threading.Lock] = {}
+_SHARED_GUARD = threading.Lock()
+
+
+def _race_data_fingerprint(race_id: int) -> Optional[Tuple[Any, ...]]:
+    """What a race's live board is computed from, cheaply: None if unreadable."""
+    try:
+        with get_db() as db:
+            race = db.execute("SELECT * FROM races WHERE id = ?", (int(race_id),)).fetchone()
+            entries = db.execute("SELECT * FROM entries WHERE race_id = ? ORDER BY id", (int(race_id),)).fetchall()
+        with get_track_db() as tdb:
+            newest = tdb.execute("SELECT MAX(id) FROM track_positions").fetchone()[0]
+    except sqlite3.Error:
+        return None
+    # The database files are in the key so two databases (a test's, a restore)
+    # can never share an answer.
+    return (str(appstate.DB_PATH), str(TRACK_DB_PATH), tuple(race) if race else None,
+            tuple(tuple(e) for e in entries), newest)
+
+
+def _shared_result(key: Any, compute: Any, ttl: Optional[float] = None) -> Any:
+    """``compute()``, once for everyone asking for ``key`` within ``ttl`` seconds.
+
+    Requests that arrive while it is being computed wait for that one result
+    rather than starting their own -- the reload at a finish is many requests
+    in the same second.
+    """
+    ttl = SHARED_RESULT_TTL_S if ttl is None else ttl
+
+    def fresh():
+        hit = _SHARED_RESULTS.get(key)
+        return hit if hit is not None and time.monotonic() - hit[0] < ttl else None
+
+    with _SHARED_GUARD:
+        hit = fresh()
+        if hit is not None:
+            return hit[1]
+        lock = _SHARED_LOCKS.setdefault(key, threading.Lock())
+    with lock:
+        with _SHARED_GUARD:
+            hit = fresh()
+            if hit is not None:
+                return hit[1]
+        value = compute()
+        with _SHARED_GUARD:
+            now = time.monotonic()
+            for old in [k for k, (t, _v) in _SHARED_RESULTS.items() if now - t > 60.0]:
+                _SHARED_RESULTS.pop(old, None)
+                _SHARED_LOCKS.pop(old, None)
+            _SHARED_RESULTS[key] = (now, value)
+        return value
+
+
 def race_leaderboard(race_id: int, at_ts: Optional[float] = None) -> List[Dict[str, Any]]:
+    """The live board, shared between requests (see ``_race_leaderboard_computed``).
+
+    A replay's board (``at_ts``) is computed for the asker: it is one viewer
+    scrubbing, and the moment differs from asker to asker.
+    """
+    if at_ts is not None:
+        return _race_leaderboard_computed(race_id, at_ts=at_ts)
+    fingerprint = _race_data_fingerprint(race_id)
+    if fingerprint is None:
+        return _race_leaderboard_computed(race_id)
+    board = _shared_result(("leaderboard", int(race_id), fingerprint), lambda: _race_leaderboard_computed(race_id))
+    return copy.deepcopy(board)
+
+
+def _race_leaderboard_computed(race_id: int, at_ts: Optional[float] = None) -> List[Dict[str, Any]]:
     """Return every entry's position-on-the-water for a race, leader first.
 
     **All** boats entered in the race are listed; a boat with no tracker to look
@@ -3760,6 +3885,22 @@ def thin_fixes(rows: List[Any], keep: int) -> List[Any]:
 
 
 def race_track_history(race_id: int, since_ts: Optional[float] = None) -> Dict[str, Any]:
+    """The replay's tracks; the whole race is shared between requests.
+
+    The whole race is what every page asks for when it loads, so what a reload
+    at a finish asks for many times at once. The reply is only serialised, never
+    changed, so it is handed out as it is. A ``since_ts`` poll is the asker's
+    own: its starting point differs from page to page.
+    """
+    if since_ts is not None:
+        return _race_track_history_computed(race_id, since_ts=since_ts)
+    fingerprint = _race_data_fingerprint(race_id)
+    if fingerprint is None:
+        return _race_track_history_computed(race_id)
+    return _shared_result(("track", int(race_id), fingerprint), lambda: _race_track_history_computed(race_id))
+
+
+def _race_track_history_computed(race_id: int, since_ts: Optional[float] = None) -> Dict[str, Any]:
     """Every tracked boat's recorded fixes for a race, for the replay viewer.
 
     Fixes go out as compact ``[t, lat, lon, sog, cog]`` arrays rather than objects
