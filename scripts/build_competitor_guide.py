@@ -387,6 +387,23 @@ story.append(phone_figures([
 ], max_h=19 * cm))
 
 story.append(PageBreak())
+story.append(Paragraph("The start photo", styles["H2"]))
+story.append(Paragraph(
+    "A few seconds after each start signal, the <b>Start photo</b> tab shows the hut camera's photo of the line "
+    "at the gun, with the start line drawn from the pole to the outer distance mark. Leave your phone on the tab "
+    "before the start and the photo appears by itself; tap it to open it full size and zoom in on your bow. When "
+    "the fleet hides the buoy at the gun, the line is drawn where the buoy was in the minute before - it is "
+    "anchored, and barely moves - and if it cannot be found at all, the photo is shown without a line rather "
+    "than with a guessed one.", styles["Body"]))
+story.append(phone_figures([
+    ("07_race_start_photo_mobile.png", "The Start photo tab on a phone. At the gun the buoy is behind the dark "
+     "sails; the line goes to where it was in the minute before."),
+], max_h=13 * cm))
+story += note_box(
+    "The start photo is an early guide for you, not a decision. The race officer decides who was over the line, "
+    "and those calls stand.")
+
+story.append(PageBreak())
 
 # ============================================================== CHAPTER 4 - AFTER RACING
 story += chapter_heading("Chapter 4", "The race page: results")

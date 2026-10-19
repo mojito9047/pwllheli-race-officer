@@ -538,3 +538,13 @@ class TestABoatTakenForTheBuoy:
         race_95 = [None, (0.475, 0.583, 0.51), (0.474, 0.583, 0.48), (0.468, 0.587, 0.43), None,
                    (0.475, 0.584, 0.48), (0.473, 0.588, 0.49)]
         assert startline.buoy_consensus(race_95)[2] == 5
+
+
+class TestHowLongItTook:
+    def test_the_race_page_says_how_long_after_the_gun_it_was_ready(self, hut):
+        race_id, start = _race_with_start_at(_now_start())
+        clip_id = _start_clip(race_id, start)
+        startphoto.take_start_photo(clip_id)
+        message = _row(clip_id)["photo_message"]
+        assert "s after the gun" in message, message
+        assert "the camera answered in" in message

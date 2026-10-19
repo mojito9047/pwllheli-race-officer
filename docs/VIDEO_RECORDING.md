@@ -245,6 +245,16 @@ At each start signal the app asks the camera for a **still photograph of its own
 
 The camera is the one under **Camera zoom / PTZ presets**: its address and login are used whether or not automatic preset switching is on. **Save and take a test start photo** there asks the camera now, makes the published copy locally (it is never uploaded) and reports how long the camera took, the size, and whether the line was found; **View the last test start photo** opens it. Switch the feature off with **Take a start photo at each start signal** under Public videos.
 
+**How long it takes.** The race sheet's note beside each start photo says how long the camera took to answer and how long after the gun the photo was ready, and the activity log (`start photo`) records the same. Estimated on the hut: about 4–8 seconds to the club's bucket, and 8–15 seconds until a phone left on the Start photo tab shows it.
+
+**Races sailed before start photos existed** can be given one afterwards with `scripts/make_start_photos.py`. It is in the repository, not the release ZIP, and runs on the hut with the app's own Python, using the full-quality evidence clips still there:
+
+```
+C:\RaceOfficer\<installed version folder>\.venv\Scripts\python.exe make_start_photos.py C:\RaceOfficer\<installed version folder> --series 7 --preview start_photo_preview
+```
+
+For each start of each race in the series it takes the frame at the start signal from the evidence clip, finds the buoy in frames from 60 to 10 seconds before the gun, adds the line and the club logo as at a live start, uploads it and records it against the start clip, so the race's Start photo tab shows it, *from the start video*. `--preview` writes the photos and `buoy_report.txt` — where the buoy was found in each frame — to a folder and touches nothing else: look at those first, then run it again without `--preview` to publish. A start that already has its photo is left alone unless `--redo`, which publishes it under a new name, because the bucket tells browsers to keep a photo for a year. A clip booked for a start that was later moved is skipped. The 2026 autumn series' twelve races were done this way on 19 October 2026; two (Race 1 and Race 5) have no line, the buoy lost in sun glare in one and showing red in evening light in the other.
+
 The camera's own image settings decide how much of this works into the sun. With the sun behind the line the buoy is a dark silhouette and the sky burns out; on 19 October 2026 adjusting the camera's image settings brought the buoy back to yellow. The detector's brightness floor was lowered from 55 to 45 at the same time, so a backlit buoy is still found if the settings cannot rescue it.
 
 ## Public live image via R2

@@ -511,6 +511,9 @@ def take_start_photo(clip_id: int) -> None:
             url = publish_start_photo(clip, public_path, cfg)
         except Exception as exc:
             upload_problem = str(exc)
+        # From the gun to the photo being where the public page can show it --
+        # the figure that says whether "a few seconds after the gun" is true.
+        ready_after = time.time() - target
         if upload_problem:
             update_start_photo(clip_id, status="error", message=f"Taken, but {upload_problem}")
         else:
@@ -518,11 +521,14 @@ def take_start_photo(clip_id: int) -> None:
             update_start_photo(clip_id, status="ready", url=url,
                                message=f"Taken {where} at the start signal"
                                        f"{'' if answer_ms is None else f'; the camera answered in {answer_ms / 1000:.1f} s'}"
+                                       f"; ready {ready_after:.0f} s after the gun"
                                        f"{'' if line_drawn else ' (no start line drawn)'}.")
         log_activity("start photo", f"clip #{clip_id}: {source}"
                                     f"{'' if answer_ms is None else f' in {answer_ms} ms'}; line {line_note}"
                                     f"{''.join('; ' + n for n in notes)}"
-                                    f"{'; ' + upload_problem if upload_problem else ''}", user="system")
+                                    f"{'; ' + upload_problem if upload_problem else ''}"
+                                    f"; {'tried' if upload_problem else 'ready'} {ready_after:.1f} s after the gun",
+                     user="system")
     except Exception as exc:
         update_start_photo(clip_id, status="error", message=f"Could not take the start photo: {exc}")
         log_activity("start photo", f"clip #{clip_id}: error {exc}", user="system")

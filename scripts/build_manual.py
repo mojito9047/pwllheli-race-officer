@@ -531,6 +531,21 @@ story += note_box(
     "physically hoisting and lowering the correct flags at the right moment, and for the on-the-water decision "
     "to recall, postpone or abandon — always check the displayed flags match what is actually flying.",
     kind="warn")
+story.append(Paragraph("The start photo", styles["H2"]))
+story.append(Paragraph(
+    "At each start signal the hut camera takes a photo of the line, the start line is drawn on it from the pole "
+    "to the outer distance mark, and it goes on the public race page's <b>Start photo</b> tab a few seconds after "
+    "the gun — during the race, unlike the start and finish videos, so competitors can see for themselves whether "
+    "they were over. The race sheet shows it beside the start video, with a link to the camera's own photo "
+    "without the line or the logo: that is the one to look at when checking an OCS call. The note beside it says "
+    "how long after the gun the photo was ready, and how long the camera took to answer.", styles["Body"]))
+story += note_box(
+    "The line is drawn automatically, from where the buoy was found in camera stills taken in the minute before "
+    "the gun and in the photo itself — when the fleet hides the buoy at the gun, the line goes to where it was. "
+    "It is a guide, not a judging line, and if the buoy cannot be found the photo goes up without one. Your OCS "
+    "and recall calls stand, and the public page says so. Before the first race, <b>Settings → Camera "
+    "zoom / PTZ presets → Save and take a test start photo</b> checks that the camera answers and the buoy "
+    "is found.", kind="warn")
 
 story.append(Paragraph("Postponing a start (AP)", styles["H2"]))
 story.append(Paragraph(
