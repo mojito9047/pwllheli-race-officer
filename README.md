@@ -5,6 +5,17 @@ A human-supervised race-management app for Pwllheli Sailing Club racing. It help
 Race-office support software. It does not decide anything: official race decisions remain with the race officer and race committee, and results are provisional until they confirm them.
 
 
+<table>
+  <tr>
+    <td align="center"><a href="docs/images/readme_race_sheet.png"><img src="docs/images/readme_race_sheet.png" width="380" alt="The race sheet's entries and finish times, with two GPS-detected finishes waiting to be confirmed"></a><br>The race sheet: finish times, and GPS finishes to confirm</td>
+    <td align="center"><a href="docs/images/readme_3d_replay.jpg"><img src="docs/images/readme_3d_replay.jpg" width="380" alt="A 3D replay of a race off Pwllheli, with the start camera's video inset"></a><br>A 3D replay, with the start camera's video</td>
+  </tr>
+  <tr>
+    <td align="center"><a href="docs/images/readme_race_chart.png"><img src="docs/images/readme_race_chart.png" width="380" alt="The public race page's chart: each boat's track round the course marks"></a><br>The public race page: the boats' tracks on the chart</td>
+    <td align="center"><a href="docs/images/readme_series_results.png"><img src="docs/images/readme_series_results.png" width="380" alt="Published series results, under the sponsors' banner"></a><br>Published series results</td>
+  </tr>
+</table>
+
 ## Guides
 
 - [Race Officer's Guide](docs/Pwllheli_Race_Officer_Series_Guide.pdf) — running a series of races and publishing results.
