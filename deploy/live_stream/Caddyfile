@@ -51,10 +51,13 @@
 # terminates TLS at its edge). Until the hostname exists this block is simply
 # never matched, so it is harmless to leave in place.
 http://traccar.pwllhelisailingclub.org {
+	# The same file as the :80 block's log, so the same settings: Caddy opens the
+	# file once for both, and whichever block it happens to set up first decides
+	# how many rolled files are kept.
 	log {
 		output file /var/log/caddy/access.log {
 			roll_size 20MiB
-			roll_keep 14
+			roll_keep 70
 			roll_keep_for 2160h
 		}
 		format json
@@ -73,14 +76,26 @@ http://traccar.pwllhelisailingclub.org {
 	# The high-volume HLS .ts segments are skipped below, and are anyway mostly
 	# served from Cloudflare's cache and never reach here. IPs are personal data:
 	# retention is bounded by roll_keep_for; keep /var/log/caddy root-only.
+	# roll_keep has to be enough files to reach that bound: at 14, with the update
+	# checks still logged, the relay held under three days (October 2026).
 	log {
 		output file /var/log/caddy/access.log {
 			roll_size 20MiB
-			roll_keep 14
+			roll_keep 70
 			roll_keep_for 2160h
 		}
 		format json
 	}
+
+	# Leave the automatic update checks out of the access log: the wind gauge,
+	# positions and race-state polls were 85% of its lines, so 20 MiB went in a
+	# few hours. Visits are what /stats is for. The Virtual Race Officer's
+	# commands stay in: a person typed each one.
+	@polling {
+		path /api/weather/* /public/current/state /api/race/* /api/custom_leg_analysis /api/track/* /api/trackers/* /admin/api/* /traccar/api/*
+		not path /admin/api/assistant/*
+	}
+	log_skip @polling
 
 	# --- Live-stream watch page: /live ---
 	redir /live /live/
@@ -140,9 +155,9 @@ http://traccar.pwllhelisailingclub.org {
 	# --- Analytics report: /stats (GoAccess HTML) — DISABLED by default ----------
 	# Visitor analytics are private, so this MUST stay behind authentication.
 	# To enable:
-	#   1. Generate the report on a schedule into the site root (see README), e.g.
-	#      a cron every 10 min:
-	#        goaccess /var/log/caddy/access.log --log-format=CADDY -o /opt/relay/site/stats.html
+	#   1. Generate the report on a schedule into the site root with
+	#      relay_stats.sh (see README), which reads the rolled files as well:
+	#        */10 * * * * /opt/relay/relay_stats.sh 2>/dev/null
 	#   2. Make a password hash:  caddy hash-password   (paste it below).
 	#   3. Uncomment this block and reload. (On Caddy < 2.8 use 'basicauth'.)
 	# handle /stats* {

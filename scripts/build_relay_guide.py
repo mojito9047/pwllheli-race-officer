@@ -768,7 +768,11 @@ story.append(bullets([
     "A global <b>trusted_proxies</b> / <b>client_ip_headers CF-Connecting-IP</b> block makes "
     "each line record the <b>real visitor IP</b>. Without it every request logs as "
     "<b>127.0.0.1</b> — the cloudflared peer on loopback.",
-    "The high-volume HLS <b>.ts</b> segments are skipped, to keep the log about page visits.",
+    "The high-volume HLS <b>.ts</b> segments are skipped, to keep the log about page visits, "
+    "and so are the automatic update checks — the wind gauge, boat positions, race state and "
+    "the hut's Traccar pulls. They were 85% of the lines, and with them logged the 14 files "
+    "the relay used to keep lasted under three days. It now keeps up to 70 "
+    "(<b>roll_keep 70</b>), so the 90-day limit is what ends it.",
     "<b>Counting video viewers:</b> Cloudflare caches the segments, so most never reach the "
     "relay. Playlists are not cached, so an active viewer's periodic <b>.m3u8</b> refresh does "
     "hit Caddy — count distinct client IPs on those. For headline totals and geography across "

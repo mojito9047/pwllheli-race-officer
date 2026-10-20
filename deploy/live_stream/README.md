@@ -642,9 +642,15 @@ so one Caddy access log records every visitor. It is enabled in the `Caddyfile`:
   visitor IP. Without it every request would log as `127.0.0.1` (the cloudflared
   peer on loopback).
 - The site `log` block writes JSON to `/var/log/caddy/access.log`, rolled at
-  20 MiB, keeping 14 files (~90 days via `roll_keep_for 2160h`).
+  20 MiB, keeping up to 70 files for at most 90 days (`roll_keep 70`,
+  `roll_keep_for 2160h`). Whichever limit comes first wins: it used to be
+  `roll_keep 14`, which on a race weekend was under three days. The
+  `traccar.` block writes the same file and must carry the same settings.
 - The high-volume HLS `.ts` segments are `log_skip`-ped to keep the log about
-  page/stream visits.
+  page/stream visits, and so are the pages' and the hut's automatic update
+  checks (`@polling`: wind gauge, positions, race state, the race sheet's
+  status calls, the hut's Traccar pulls). Those were 85% of the lines. The
+  Virtual Race Officer's commands are still logged.
 
 Notes:
 
