@@ -50,10 +50,8 @@ DEFAULT_WEATHER_STATION_URL = "http://10.10.10.106/get_livedata_info?"
 SOURCE_URL = "https://github.com/mojito9047/pwllheli-race-officer"
 DEFAULT_COURSE_CHART_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
 DEFAULT_COURSE_CHART_OVERLAY_URL = "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"
-# Surveyed/entered bridge-window position used to draw the CHPSC start/finish line.
-# Position supplied as 52 52.9238 N, 004 24.0609 W.
-BRIDGE_WINDOW_LAT = 52.0 + (52.9238 / 60.0)
-BRIDGE_WINDOW_LON = -(4.0 + (24.0609 / 60.0))
+# The start line's mark and shore point are not here: they come from
+# start_finish.json, below, through core.startfinish.
 
 
 # ---------------------------------------------------------------------------

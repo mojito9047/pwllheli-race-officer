@@ -1551,10 +1551,12 @@ def _look_up(resolved: dict, race_id_hint=None) -> str:
             f"{row.get('lon_text') or round(float(row['lon']), 5)}"
             for key, row in sorted(wanted.items()) if row.get("lat") is not None)
         chart = course_chart_config()
-        line = (f" The start and finish line runs from the CHPSC bridge window "
-                f"({round(float(chart['bridge_window_lat']), 5)}, "
-                f"{round(float(chart['bridge_window_lon']), 5)}) to mark "
-                f"{chart.get('start_finish_mark')}.") if not query else ""
+        line = ""
+        if not query and chart.get("bridge_window_lat") not in (None, ""):
+            line = (f" The start and finish line runs from the {chart.get('start_shore_label')} "
+                    f"({round(float(chart['bridge_window_lat']), 5)}, "
+                    f"{round(float(chart['bridge_window_lon']), 5)}) to mark "
+                    f"{chart.get('start_finish_mark')}.")
         # And the distance and bearing between the racing marks, worked out by
         # the app. Asked for "a course with lots of reaching, about 20 nm", the
         # interpreter was given twenty-four latitudes and longitudes and had to

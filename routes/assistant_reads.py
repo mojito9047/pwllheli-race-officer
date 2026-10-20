@@ -21,7 +21,7 @@ import time
 from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from core import appstate, track
+from core import appstate, startfinish, track
 from core.assistant import parse_mark_sequence
 from core.courses import course_from_sequence, suggest_made_up_courses
 from core.eventlog import get_events
@@ -55,7 +55,6 @@ row_get = _app.row_get
 search_boats = _app.search_boats
 weather_history = _app.weather_history
 weather_runtime_status = _app.weather_runtime_status
-course_chart_config = _app.course_chart_config
 
 
 # ---------------------------------------------------------------------------
@@ -923,9 +922,10 @@ def forecast_url() -> str:
     said = str(hardware_config().get("forecast_url") or "").strip()
     if said:
         return said
-    mark = appstate.MARKS.get(str(course_chart_config().get("start_finish_mark") or "O")) \
-        or appstate.MARKS.get("O") or {}
+    mark = appstate.MARKS.get(startfinish.start_mark()) or {}
     lat, lon = mark.get("lat"), mark.get("lon")
+    if lat is None or lon is None:
+        lat, lon = startfinish.shore_point() or (None, None)
     if lat is None or lon is None:
         return ""
     return open_meteo_url(float(lat), float(lon))

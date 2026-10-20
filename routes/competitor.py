@@ -239,7 +239,8 @@ def bar_display_state(race_id: int):
     # the flag says.
     start_ts = start_dt.timestamp() if start_dt and not race_is_postponed(race) else None
     window = bardisplay.video_window(start_ts, rows, now,
-                                     mark=line[0] if line else None, mark_name="O")
+                                     mark=line[0] if line else None,
+                                     mark_name=track.finish_line_seaward_mark(race))
     current = get_current_competitor_race()
     finishes = [r.get("finish_epoch") for r in rows if r.get("finish_epoch")]
     return jsonify({

@@ -43,7 +43,7 @@ from core.classconfig import entry_class_labels_map, race_class_config
 from core.db import get_db, init_db, row_get
 from core import rounding
 from core.eventlog import log_event
-from core import marks
+from core import marks, startfinish
 from core.races import get_boats_by_id, race_first_start_dt
 from core.scoring import corrected_seconds_for_result
 from core.series import rating_from_entry_for_result
@@ -693,12 +693,9 @@ def finish_line_points(marks_at: Optional[Dict[str, Any]] = None, line_key: str 
     at = appstate.MARKS if marks_at is None else marks_at
     line = finish_line_by_key(line_key)
     if line is None:
-        # No configured lines at all: the historical behaviour, O to the bridge.
-        o = at.get("O") or {}
-        if o.get("lat") is None or o.get("lon") is None:
-            return None
-        return ((float(o["lat"]), float(o["lon"])),
-                (appstate.BRIDGE_WINDOW_LAT, appstate.BRIDGE_WINDOW_LON))
+        # No finish lines configured at all: finish on the start line, which
+        # start_finish.json describes in its own block.
+        return startfinish.start_line_points(at)
     seaward = _line_end_point(line.get("seaward"), at)
     shore = _line_end_point(line.get("shore"), at)
     if seaward is None or shore is None:
@@ -2352,9 +2349,10 @@ def _course_ref_point(race: Any) -> Optional[Tuple[float, float]]:
     at = race_marks(race)
     for item in (course.get("marks") or []):
         # Course marks are dicts like {"token","mark","rounding"}; tolerate plain
-        # code strings too. Skip the ODM "O" (it is the finish-line endpoint).
+        # code strings too. Skip the start mark (ODM "O" at Pwllheli): it is the
+        # line's own end, not a point out on the course.
         code = item.get("mark") if isinstance(item, dict) else item
-        if not code or str(code) == "O":
+        if not code or str(code) == startfinish.start_mark():
             continue
         mark = at.get(str(code))
         if mark and mark.get("lat") is not None and mark.get("lon") is not None:

@@ -105,7 +105,7 @@ def _metres_between(a_lat: float, a_lon: float, b_lat: float, b_lon: float) -> f
 
 def rounding_window(rows: List[Dict[str, Any]],
                     mark: Optional[Tuple[float, float]],
-                    mark_name: str = "O") -> Optional[Dict[str, Any]]:
+                    mark_name: str = "") -> Optional[Dict[str, Any]]:
     """The nearest boat rounding ``mark``, if one is close enough to be worth it.
 
     A boat that has not rounded anything yet is ignored: it has only just
@@ -144,7 +144,7 @@ def rounding_window(rows: List[Dict[str, Any]],
 
 def video_window(start_ts: Optional[float], rows: List[Dict[str, Any]],
                  now: float, mark: Optional[Tuple[float, float]] = None,
-                 mark_name: str = "O") -> Dict[str, Any]:
+                 mark_name: str = "") -> Dict[str, Any]:
     """Should the camera be on screen, and why?
 
     Returns ``{"show", "reason", "boat", "eta"}``. ``reason`` is ``"start"``,

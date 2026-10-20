@@ -36,7 +36,8 @@
       "shore": {
         "lat": 52.882063333333335,
         "lon": -4.401015,
-        "label": "CHPSC Bridge window"
+        "label": "CHPSC Bridge window",
+        "short_label": "Bridge"
       }
     },
     {

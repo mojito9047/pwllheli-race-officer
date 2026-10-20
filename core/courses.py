@@ -11,7 +11,7 @@ import json
 import sqlite3
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from core import appstate
+from core import appstate, startfinish
 from core.timeutils import angular_diff, bearing_deg, haversine_nm
 from core.polars import (  # leg analysis needs the speed/sail model
     leg_side, point_of_sail, sail_for, target_speed_info_for,
@@ -103,15 +103,16 @@ def compound_mark_components(mark: str, rounding: str) -> List[str]:
     return [code]
 
 
-def expand_course_points(course: Dict[str, Any], start_at_mark: str = "O") -> List[Dict[str, Any]]:
+def expand_course_points(course: Dict[str, Any], start_at_mark: Optional[str] = None) -> List[Dict[str, Any]]:
     """Expand a course sequence into physical points for geometry/charting.
 
     Compound parent marks remain in `course["marks"]` for course-board display,
     but this expanded list contains the actual corner coordinates used for leg
-    lengths, TWA analysis and chart plotting.
+    lengths, TWA analysis and chart plotting. It begins at the start line's mark
+    from data/start_finish.json unless ``start_at_mark`` says otherwise.
     """
     points: List[Dict[str, Any]] = []
-    start_code = str(start_at_mark or "O").strip().upper()
+    start_code = str(start_at_mark or startfinish.start_mark()).strip().upper()
     points.append({
         "mark": start_code,
         "display_mark": mark_display_code(start_code),
@@ -445,10 +446,10 @@ def validate_course_sequence_json(raw: str) -> List[Dict[str, str]]:
     return sequence
 
 
-def course_legs(course: Dict[str, Any], start_at_mark: str = "O",
+def course_legs(course: Dict[str, Any], start_at_mark: Optional[str] = None,
                 marks: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-    # Approximation: use ODM O as the line endpoint for start/finish geometry.
-    # Final official camera line needs bridge/window calibration.
+    # Approximation: the start line's seaward mark stands in for the whole line
+    # in the geometry, so the first leg is measured from that mark.
     """Build leg geometry for a fixed or made-up course.
 
     Compound marks are expanded here. For example Yp becomes Ya then Yb,
@@ -626,8 +627,9 @@ def course_leg_analysis(course: Dict[str, Any], twd: float, tws: float, polar_ro
 # the sequences a race officer would consider and time every one the same way
 # the race sheet would.
 #
-# The shapes follow the club's own courses: they start from the line at O, round
-# everything to port, and finish back at O.
+# The shapes follow the club's own courses: they start from the line at its mark
+# (O at Pwllheli, from data/start_finish.json), round everything to port, and
+# finish back there.
 
 COURSE_SHAPES = ("windward_leeward", "triangle", "reaching", "any")
 # A made-up course keeps within this of the line. The Causeway is 11.5 nm off:
@@ -637,7 +639,7 @@ MADE_UP_REACH_NM = 6.0
 SHORTEST_LEG_NM = 0.3
 
 
-def made_up_course_marks(start: str = "O", within_nm: float = MADE_UP_REACH_NM,
+def made_up_course_marks(start: Optional[str] = None, within_nm: float = MADE_UP_REACH_NM,
                          marks: Optional[Dict[str, Any]] = None) -> List[str]:
     """The marks a made-up course may use: every mark with a position of its
     own, within reach of the line -- not only the ones the fixed courses round.
@@ -647,6 +649,7 @@ def made_up_course_marks(start: str = "O", within_nm: float = MADE_UP_REACH_NM,
     course somebody drew deliberately.
     """
     at = appstate.MARKS if marks is None else marks
+    start = start or startfinish.start_mark()
     origin = at.get(start) or {}
     if origin.get("lat") is None:
         return []
@@ -704,7 +707,7 @@ def _laps_to_try(shape: str, start: str, table: Dict[Tuple[str, str], Dict[str, 
 
 def suggest_made_up_courses(twd: float, tws: float, target_minutes: float,
                             polar_rows: List[Dict[str, Any]], sail_chart: Dict[str, Any],
-                            shape: str = "any", limit: int = 3, start: str = "O",
+                            shape: str = "any", limit: int = 3, start: Optional[str] = None,
                             marks: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     """The made-up courses closest to `target_minutes` in this wind, best first.
 
@@ -720,6 +723,7 @@ def suggest_made_up_courses(twd: float, tws: float, target_minutes: float,
     """
     shape = shape if shape in COURSE_SHAPES else "any"
     at = appstate.MARKS if marks is None else marks
+    start = start or startfinish.start_mark()
     candidates = made_up_course_marks(start, marks=at)
     if not candidates or target_minutes <= 0:
         return []

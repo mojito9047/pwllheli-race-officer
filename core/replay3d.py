@@ -33,7 +33,7 @@ import urllib.parse
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from core import appstate
+from core import appstate, startfinish
 from core.courses import (apply_course_shortening, course_for_race,
                           custom_course_from_race, expand_course_points)
 from core.db import get_db, row_get
@@ -390,20 +390,6 @@ def _course_as_sailed(race: Any) -> Dict[str, Any]:
     return course
 
 
-def _dms(text: str) -> Optional[float]:
-    """Parse one coordinate written the way the sailing instructions write it.
-
-    ``52 52.9238'N`` and ``004 24.0609'W`` -- degrees, decimal minutes, hemisphere.
-    Returns signed decimal degrees, or None if it is not in that form.
-    """
-    m = re.search(r"(\d+)\s*[^\d]?\s*(\d+(?:\.\d+)?)\s*'?\s*([NSEW])", str(text or "").strip(), re.I)
-    if not m:
-        return None
-    deg, minutes, hemi = float(m.group(1)), float(m.group(2)), m.group(3).upper()
-    value = deg + minutes / 60.0
-    return -value if hemi in ("S", "W") else value
-
-
 def start_line_points(race: Any) -> Optional[Dict[str, Any]]:
     """Where the race started, which is not always where it finished.
 
@@ -423,16 +409,15 @@ def start_line_points(race: Any) -> Optional[Dict[str, Any]]:
     cfg = (appstate.START_FINISH or {}).get("start_line") or {}
     code = str(cfg.get("seaward_end_mark") or "").strip()
     seaward = marks_at.get(code) or {}
-    lat = _dms(cfg.get("shore_end_position"))
-    lon = _dms(str(cfg.get("shore_end_position") or "").split("N", 1)[-1]
-               .split("S", 1)[-1]) if lat is not None else None
-    if seaward.get("lat") is not None and lat is not None and lon is not None:
-        return {"points": ((float(seaward["lat"]), float(seaward["lon"])), (lat, lon)),
-                "key": "start", "source": "start_line"}
+    shore = startfinish.position_from_text(cfg.get("shore_end_position"))
+    if seaward.get("lat") is not None and shore is not None:
+        return {"points": ((float(seaward["lat"]), float(seaward["lon"])), shore),
+                "key": "start", "source": "start_line", "mark": code}
     points = finish_line_points(marks_at, default_finish_line_key())
     if points:
         return {"points": points, "key": default_finish_line_key() or "club",
-                "source": "default_finish_line"}
+                "source": "default_finish_line",
+                "mark": str((startfinish.default_line().get("seaward") or {}).get("mark") or "")}
     return None
 
 
@@ -708,7 +693,8 @@ def build_scene(race_id: int, *, step_s: float = DEFAULT_STEP_S, lead_s: float =
     if start_out:
         start_out = {"seaward_xy": xy(*start_out["points"][0]),
                      "shore_xy": xy(*start_out["points"][1]),
-                     "key": start_out["key"], "source": start_out["source"]}
+                     "key": start_out["key"], "source": start_out["source"],
+                     "mark": start_out.get("mark", "")}
 
     t_first_start, t_win0, t_win1 = _race_window(race, entries, lead_s, tail_s)
 

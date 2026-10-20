@@ -16,6 +16,16 @@ data/video_clips/             Start/finish/manual horn event clips
 data/branding/                Public club/sponsor branding logos
 ```
 
+### The start line in `start_finish.json`
+
+Every course is measured from the start line's mark, the course charts draw the line from that mark to its shore point, and the Virtual Race Officer's forecast is read at the mark. Both ends come from `data/start_finish.json`; Pwllheli's are no longer written into the code:
+
+- **The start mark:** `start_line.seaward_end_mark` (`O` at Pwllheli). If that is missing, the seaward mark of the finish line marked `default`.
+- **The shore point:** `start_line.shore_end_position`, written as the sailing instructions write it (`52° 52.9238'N 004° 24.0609'W`). If that is missing, the `shore` of the default finish line, then the old `bridge_window` block.
+- **What the chart calls the shore point:** the default finish line's `shore.label` ("CHPSC Bridge window") in the pop-up, and its `short_label` ("Bridge") on the chart itself. Without a `short_label` the chart uses the label.
+
+Another club's installation therefore needs only its own `marks.json`, `courses.json` and `start_finish.json`. A file that gives no shore point at all draws no start line rather than Pwllheli's.
+
 Temporary files are kept outside `data/` under `runtime/`:
 
 ```text

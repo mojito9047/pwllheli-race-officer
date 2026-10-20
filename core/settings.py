@@ -14,7 +14,7 @@ import threading
 import time
 from typing import Any, Dict, Optional
 
-from core import appstate
+from core import appstate, startfinish
 from core.boats import safe_rating_listing_url
 from core.db import get_db, init_db
 from core.timeutils import parse_float
@@ -124,14 +124,23 @@ def weather_config() -> Dict[str, Any]:
 
 
 def course_chart_config() -> Dict[str, Any]:
-    """Return configured tile URLs for course charts."""
+    """Return configured tile URLs for course charts, and the start line they draw.
+
+    The start line's two ends come from data/start_finish.json (core.startfinish).
+    The shore point keeps its old ``bridge_window_*`` keys because every chart
+    template reads them; at Pwllheli it is the bridge window, elsewhere whatever
+    the club's line runs to.
+    """
     overrides = get_app_setting_overrides()
+    shore = startfinish.shore_point()
     return {
         "course_chart_tile_url": (overrides.get("course_chart_tile_url") or appstate.DEFAULT_COURSE_CHART_TILE_URL).strip(),
         "course_chart_overlay_url": (overrides.get("course_chart_overlay_url") or appstate.DEFAULT_COURSE_CHART_OVERLAY_URL).strip(),
-        "bridge_window_lat": appstate.BRIDGE_WINDOW_LAT,
-        "bridge_window_lon": appstate.BRIDGE_WINDOW_LON,
-        "start_finish_mark": "O",
+        "bridge_window_lat": shore[0] if shore else "",
+        "bridge_window_lon": shore[1] if shore else "",
+        "start_finish_mark": startfinish.start_mark(),
+        "start_shore_label": startfinish.shore_label(),
+        "start_shore_short_label": startfinish.shore_short_label(),
     }
 
 

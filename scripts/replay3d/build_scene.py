@@ -870,6 +870,9 @@ def build_marks(scene: bpy.types.Scene, coll: bpy.types.Collection, data: Dict[s
     """Buoys for every mark within ``reach`` metres of the origin. Returns how many."""
     buoy_course = _material("Buoy course", (0.95, 0.75, 0.05), roughness=0.4)
     buoy_other = _material("Buoy other", (0.55, 0.50, 0.30), roughness=0.6)
+    # The start mark is drawn a little bigger. Its code comes with the export's
+    # start line; an export from before it did is Pwllheli's, whose mark is O.
+    start_mark = (data.get("start_line") or {}).get("mark") or "O"
     drawn = 0
     for m in data["marks"]:
         x, y = m["xy"]
@@ -877,7 +880,7 @@ def build_marks(scene: bpy.types.Scene, coll: bpy.types.Collection, data: Dict[s
         if not in_course and math.hypot(x, y) > reach:
             continue     # a passage mark far beyond the sea plane
         drawn += 1
-        r = BUOY_RADIUS_M * (1.3 if m["code"] == "O" else 1.0)
+        r = BUOY_RADIUS_M * (1.3 if m["code"] == start_mark else 1.0)
         buoy = _cylinder(f"Mark {m['code']}", r, BUOY_HEIGHT_M, (x, y, BUOY_HEIGHT_M / 2.0 - 1.0),
                          buoy_course if in_course else buoy_other, segments=20)
         _link(scene, coll, buoy)

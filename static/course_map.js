@@ -7,6 +7,8 @@
 (function () {
   'use strict';
 
+  // The start mark comes with the page, as data-start-finish-mark, from
+  // start_finish.json. This is only for a page that does not say: Pwllheli's.
   const MARK_START = 'O';
   const BASE_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
   const SEAMARK_TILE_URL = 'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png';
@@ -56,14 +58,20 @@
     return [code];
   }
 
-  // Build the plotted route. Every course starts at ODM O, matching the
-  // app's simplified start/finish reference for course geometry. Compound
-  // marks such as Y/A are expanded into their physical corner points so the
-  // chart matches the leg analysis while course-board text remains compact.
-  function routePoints(allMarks, courseMarks) {
+  function startMarkOf(container) {
+    return String((container && container.dataset.startFinishMark) || MARK_START).trim().toUpperCase();
+  }
+
+  // Build the plotted route. Every course starts at the start line's mark (ODM
+  // O at Pwllheli), matching the app's simplified start/finish reference for
+  // course geometry. Compound marks such as Y/A are expanded into their
+  // physical corner points so the chart matches the leg analysis while
+  // course-board text remains compact.
+  function routePoints(allMarks, courseMarks, startMark) {
     const route = [];
-    const start = allMarks[MARK_START];
-    if (validLatLon(start)) route.push({mark: MARK_START, label: markDisplayCode(allMarks, MARK_START), rounding: 'start', lat: start.lat, lon: start.lon, meta: start});
+    const startCode = startMark || MARK_START;
+    const start = allMarks[startCode];
+    if (validLatLon(start)) route.push({mark: startCode, label: markDisplayCode(allMarks, startCode), rounding: 'start', lat: start.lat, lon: start.lon, meta: start});
     (courseMarks || []).map(normaliseMark).filter(Boolean).forEach((m) => {
       // A waypoint bends the leg and is not rounded. Taken from the mark record
       // rather than from the saved rounding, so a course stored before the mark
@@ -114,18 +122,21 @@
       .map(k => ({mark: k, label: markDisplayCode(allMarks, k), lat: allMarks[k].lat, lon: allMarks[k].lon, meta: allMarks[k]}));
   }
 
-  // The **start** line: the CHPSC Bridge window to the ODM. Always this one.
-  // Races start here whatever line they finish on, so this must not be relabelled
-  // when a race finishes elsewhere.
+  // The **start** line: its shore point to its mark, both from start_finish.json
+  // (the CHPSC Bridge window and the ODM at Pwllheli). Always this one. Races
+  // start here whatever line they finish on, so this must not be relabelled
+  // when a race finishes elsewhere. The shore point still arrives as
+  // data-bridge-lat/lon, the names it had when it could only be Pwllheli's.
   function startFinishPoints(container, allMarks) {
     const d = container.dataset;
-    const bridgeLat = parseNumber(d.bridgeLat);
-    const bridgeLon = parseNumber(d.bridgeLon);
-    const markName = String(d.startFinishMark || MARK_START).trim().toUpperCase();
+    const shoreLat = parseNumber(d.bridgeLat);
+    const shoreLon = parseNumber(d.bridgeLon);
+    const markName = startMarkOf(container);
     const odm = allMarks && allMarks[markName];
-    if (bridgeLat === null || bridgeLon === null || !validLatLon(odm)) return null;
+    if (shoreLat === null || shoreLon === null || !validLatLon(odm)) return null;
+    const label = d.startShoreLabel || 'Shore end';
     return {
-      shore: {mark: 'Bridge', lat: bridgeLat, lon: bridgeLon, meta: {name: 'CHPSC Bridge window'}},
+      shore: {mark: d.startShoreShortLabel || label, lat: shoreLat, lon: shoreLon, meta: {name: label}},
       seaward: {mark: markName, lat: odm.lat, lon: odm.lon, meta: odm}
     };
   }
@@ -288,7 +299,7 @@
     state.layers.forEach(layer => state.map.removeLayer(layer));
     state.layers = [];
 
-    const route = routePoints(allMarks, courseMarks);
+    const route = routePoints(allMarks, courseMarks, startMarkOf(container));
     const known = allKnownPoints(allMarks);
     const startFinish = startFinishPoints(container, allMarks);
     const separateFinish = finishLinePoints(container);
@@ -321,13 +332,16 @@
         })
       }).addTo(state.map);
       state.layers.push(label);
+      // Sized to its label so it stays centred on the point: "Bridge" at
+      // Pwllheli, but a club's label can be longer.
+      const shoreWidth = Math.max(54, 7 * String(startFinish.shore.mark).length + 16);
       const bridgeIcon = L.divIcon({
         className: 'course-map-bridge-marker',
-        html: '<span>Bridge</span>',
-        iconSize: [54, 22],
-        iconAnchor: [27, 11]
+        html: `<span>${escapeHtml(startFinish.shore.mark)}</span>`,
+        iconSize: [shoreWidth, 22],
+        iconAnchor: [shoreWidth / 2, 11]
       });
-      const bridgeMarker = L.marker([startFinish.shore.lat, startFinish.shore.lon], {icon: bridgeIcon, interactive: true}).bindPopup('<strong>CHPSC Bridge window</strong><br>Shore end of start/finish line');
+      const bridgeMarker = L.marker([startFinish.shore.lat, startFinish.shore.lon], {icon: bridgeIcon, interactive: true}).bindPopup(`<strong>${escapeHtml(startFinish.shore.meta.name)}</strong><br>Shore end of start/finish line`);
       bridgeMarker.addTo(state.map); state.layers.push(bridgeMarker);
     }
 
@@ -429,7 +443,12 @@
     if (fit.length) {
       state.map.fitBounds(L.latLngBounds(fit), {padding: [28, 28], maxZoom: 14});
     } else {
-      state.map.setView([52.87, -4.40], 13);
+      // Nothing on the page has a position. Centre on the start line's shore
+      // point if the page gave one; otherwise there is nowhere to centre on.
+      const shoreLat = parseNumber(container.dataset.bridgeLat);
+      const shoreLon = parseNumber(container.dataset.bridgeLon);
+      if (shoreLat !== null && shoreLon !== null) state.map.setView([shoreLat, shoreLon], 13);
+      else state.map.setView([0, 0], 2);
     }
     const missing = (courseMarks || []).map(normaliseMark).filter(m => m && !validLatLon(allMarks[m.mark])).map(m => m.mark);
     const msg = container.closest('.course-map-wrap')?.querySelector('.course-map-message');
@@ -447,7 +466,7 @@
 
   // SVG fallback for offline/test environments without Leaflet or web tiles.
   function makeSvgMap(container, allMarks, courseMarks) {
-    const route = routePoints(allMarks, courseMarks);
+    const route = routePoints(allMarks, courseMarks, startMarkOf(container));
     const known = allKnownPoints(allMarks);
     const startFinish = startFinishPoints(container, allMarks);
     const fit = route.length ? route.slice() : known.slice();

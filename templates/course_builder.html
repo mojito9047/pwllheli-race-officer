@@ -84,7 +84,7 @@
   <h3>Manual course chart</h3>
   <p class="small muted">The chart updates as marks are added or removed. Red legs lead to port roundings; green legs lead to starboard roundings. A grey leg leads to a <strong>waypoint</strong>: a turning point that bends the course round a headland, which boats do not round and which does not appear on the course board.</p>
   <div class="course-map-wrap">
-    <div id="builderCourseMap" class="course-map" data-base-tile-url="{{ course_chart.course_chart_tile_url }}" data-overlay-tile-url="{{ course_chart.course_chart_overlay_url }}" data-all-marks='{{ marks_data|tojson }}' data-course-marks='{{ initial_marks|tojson }}' data-wind-direction="{{ latest_wind.twd if latest_wind and latest_wind.twd is not none else '' }}" data-start-finish-mark="{{ course_chart.start_finish_mark }}" data-bridge-lat="{{ course_chart.bridge_window_lat }}" data-bridge-lon="{{ course_chart.bridge_window_lon }}"></div>
+    <div id="builderCourseMap" class="course-map" data-base-tile-url="{{ course_chart.course_chart_tile_url }}" data-overlay-tile-url="{{ course_chart.course_chart_overlay_url }}" data-all-marks='{{ marks_data|tojson }}' data-course-marks='{{ initial_marks|tojson }}' data-wind-direction="{{ latest_wind.twd if latest_wind and latest_wind.twd is not none else '' }}" data-start-finish-mark="{{ course_chart.start_finish_mark }}" data-bridge-lat="{{ course_chart.bridge_window_lat }}" data-bridge-lon="{{ course_chart.bridge_window_lon }}" data-start-shore-label="{{ course_chart.start_shore_label }}" data-start-shore-short-label="{{ course_chart.start_shore_short_label }}"></div>
     <p class="small muted course-map-message"></p>
   </div>
 </section>

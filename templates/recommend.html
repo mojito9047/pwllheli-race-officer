@@ -136,7 +136,7 @@
           <details>
             <summary>Course chart and leg analysis for course {{ c.course_no }}</summary>
             <div class="course-map-wrap compact-map">
-              <div class="course-map" data-base-tile-url="{{ course_chart.course_chart_tile_url }}" data-overlay-tile-url="{{ course_chart.course_chart_overlay_url }}" data-all-marks='{{ marks_data|tojson }}' data-course-marks='{{ c.marks|tojson }}' data-wind-direction="{{ twd if twd is not none else '' }}" data-start-finish-mark="{{ course_chart.start_finish_mark }}" data-bridge-lat="{{ course_chart.bridge_window_lat }}" data-bridge-lon="{{ course_chart.bridge_window_lon }}"></div>
+              <div class="course-map" data-base-tile-url="{{ course_chart.course_chart_tile_url }}" data-overlay-tile-url="{{ course_chart.course_chart_overlay_url }}" data-all-marks='{{ marks_data|tojson }}' data-course-marks='{{ c.marks|tojson }}' data-wind-direction="{{ twd if twd is not none else '' }}" data-start-finish-mark="{{ course_chart.start_finish_mark }}" data-bridge-lat="{{ course_chart.bridge_window_lat }}" data-bridge-lon="{{ course_chart.bridge_window_lon }}" data-start-shore-label="{{ course_chart.start_shore_label }}" data-start-shore-short-label="{{ course_chart.start_shore_short_label }}"></div>
               <p class="small muted course-map-message"></p>
             </div>
             <table class="compact nested live-leg-analysis" data-course-no="{{ c.course_no }}" data-api="{{ url_for('api_course_leg_analysis', course_no=c.course_no) }}">
