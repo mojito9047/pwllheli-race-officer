@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.017
+# Pwllheli Race Officer v1.018
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -27,6 +27,14 @@ Setup, hardware, video, tracking, the public pages and the rest are listed under
 
 
 ## Recent releases
+
+### v1.018 update
+
+- **The start line comes from `start_finish.json`**: its mark and shore point are no longer Pwllheli's in the
+  code, so courses and charts work with another club's files.
+- **3D replay land is built from every elevation tile the race area touches**, and a film never carries another
+  club's logos.
+- **The relay keeps its access log for weeks**: the automatic update checks are no longer logged.
 
 ### v1.017 update
 
@@ -62,16 +70,6 @@ Setup, hardware, video, tracking, the public pages and the rest are listed under
   start photo.
 - **After installing:** Settings &rarr; Camera zoom / PTZ presets &rarr; *Save and test camera login only*,
   then *Save and take a test start photo*.
-
-### v1.013 update
-
-- **The hut stopped answering after the last boats finished**, because every finish clip made
-  its 4K web copy at once. They are now made one at a time, below the race sheet's priority.
-- **A second press of Finish for the same boat within 30 seconds is the same finish** &mdash; no
-  second horn or video &mdash; and the button greys out when pressed.
-- **A half-made video can no longer be uploaded.** Retry checks every copy first and rebuilds the
-  broken ones; press it once after racing, then queue races 97 and 98's 3D replays again.
-- **A render machine leaves out a clip it cannot play** instead of stopping. Update it too.
 
 ## Main features
 

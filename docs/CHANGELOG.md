@@ -1,5 +1,43 @@
 # Change log
 
+## v1.018
+
+**The start line comes from `start_finish.json`, so the app can run at another
+club.** Pwllheli's start line -- mark O and the CHPSC bridge window -- was
+written into the code. Given Liverpool Yacht Club's files the finish line was
+right, because that already came from the file, but every course length came
+out blank (the Mersey has no O) and the charts drew Pwllheli's line. The start
+mark and shore point are now read from `start_line` in `start_finish.json`, then
+from the default finish line, then from the old `bridge_window` block
+(`core/startfinish.py`). Everything that measured or drew from O uses it: course
+legs and lengths, made-up course suggestions, every course chart, the Virtual
+Race Officer's forecast and its description of the line, the bar TV's rounding
+caption and the 3D replay's start buoy. Pwllheli's line comes out the same to
+the last digit.
+
+- **The chart's shore chip** takes its text from the line's `short_label`
+  ("Bridge") and its pop-up from `label`. An installation that copies its old
+  `data` folder across keeps its own `start_finish.json`, which has no
+  `short_label`, so its chip reads "CHPSC Bridge window" until
+  `"short_label": "Bridge"` is added to the club line's `shore`.
+- **3D replay land across a degree line.** The render machine built the land
+  from the one elevation tile the scene's centre fell in and drew the rest as
+  sea. Pwllheli sits inside one tile; the Mersey does not, as 3 degrees west
+  runs along the Birkenhead shore. It now uses every tile the area touches. The
+  render machine needs updating to get this.
+- **No other club's logos in a film.** The render machine no longer falls back
+  to Pwllheli's logo list when a job names none, or to the Pwllheli logo for the
+  title card. `MANIFEST_URL` in `renderer.env` can name a list instead.
+  Pwllheli's jobs name their own, so its films are unchanged.
+- **The relay's access log lasts weeks, not three days.** The pages' and the
+  hut's automatic update checks were 85% of its lines, and the 14 files it kept
+  held under three days. They are now left out of the log (`@polling` in the
+  relay's Caddyfile) and 70 files are kept, so the 90-day limit is what ends it.
+  Live on the relay since 20 October; the repo copy, its README and the Relay
+  Guide now match.
+- **The GitHub README** opens with four screenshots and links to the four
+  guides.
+
 ## v1.017
 
 **The start line goes to the buoy, not to a boat near it.** Making the 2026
