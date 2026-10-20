@@ -184,15 +184,12 @@ def land_for_scene(scene: Dict[str, Any], out_dir: str, *,
         return None
     print(f"  elevation: {len(dem_paths)} tile(s) {dem_counts}")
 
-    # One tile is the normal case at a club. Two only happens on a passage race
-    # that crosses a degree line, and stitching those is not built yet.
-    if len(dem_paths) > 1:
-        print(f"  land: the scene spans {len(dem_paths)} elevation tiles; using the one "
-              f"the origin falls in")
-    origin_tile = dem_tile_name(int(math.floor(bounds["lat0"])), int(math.floor(bounds["lon0"])))
-    dem_path = next((p for p in dem_paths if origin_tile in p), dem_paths[0])
-
-    grid = terrain_grid(dem_path, bounds["lat0"], bounds["lon0"], bounds["reach_m"], cell_m)
+    # Every tile the area touches. One is the usual case at Pwllheli, but a club
+    # can sit on a degree line: 3 degrees west runs along the Birkenhead shore
+    # of the Mersey, and with only the tile the origin fell in, the Wirral bank
+    # came out flat at sea level under its own satellite picture. A tile that
+    # is missing (an all-sea one is never published) leaves its part as sea.
+    grid = terrain_grid(dem_paths, bounds["lat0"], bounds["lon0"], bounds["reach_m"], cell_m)
 
     tiles = imagery_tiles_for(bounds, zoom)
     try:

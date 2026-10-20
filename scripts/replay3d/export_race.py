@@ -65,6 +65,7 @@ from core.replay3d import (  # noqa: E402
     DEFAULT_STEP_S,
     DEFAULT_TAIL_S,
     _parse_iso,
+    branding_manifest_url,
     build_scene,
 )
 import core.track as track_module  # noqa: E402  (re-pointed by use_data_dir)
@@ -216,7 +217,7 @@ def fetch_clips(clips: List[Dict[str, Any]], out_dir: str, race_id: int) -> List
 def export_race(race_id: int, *, step_s: float = DEFAULT_STEP_S, lead_s: float = DEFAULT_LEAD_S,
                 tail_s: float = DEFAULT_TAIL_S, dem_path: Optional[str] = None,
                 dem_radius_m: float = 7000.0, dem_cell_m: float = 60.0,
-                branding_url: Optional[str] = BRANDING_MANIFEST_URL,
+                branding_url: Optional[str] = None,
                 branding_dir: Optional[str] = None,
                 imagery_path: Optional[str] = None, out_dir: Optional[str] = None,
                 videos: bool = False) -> Dict[str, Any]:
@@ -224,6 +225,10 @@ def export_race(race_id: int, *, step_s: float = DEFAULT_STEP_S, lead_s: float =
     out = build_scene(race_id, step_s=step_s, lead_s=lead_s, tail_s=tail_s, videos=videos)
     folder = out_dir or str(DEFAULT_OUT_DIR)
 
+    if branding_url is None:
+        # The data's own club: the address the hut would put in a render job,
+        # read from the settings of whichever data directory this is reading.
+        branding_url = BRANDING_MANIFEST_URL or branding_manifest_url()
     out["branding"] = copy_branding(folder, branding_url, branding_dir)
     if videos:
         out["videos"] = fetch_clips(out.get("videos") or [], folder, race_id)
@@ -339,8 +344,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--backup", help="read from a Race Officer backup ZIP (e.g. from the hut) instead of data/")
     ap.add_argument("--data", help="read from an unpacked data directory instead of data/")
     ap.add_argument("--tracks", help="track_positions.db to use when the backup/data dir has none")
-    ap.add_argument("--branding-url", default=BRANDING_MANIFEST_URL,
-                    help="the club's public branding manifest; empty string to skip it")
+    ap.add_argument("--branding-url", default=None,
+                    help="the club's public branding manifest (default: MANIFEST_URL, else the "
+                         "data's own public address); empty string to skip it")
     ap.add_argument("--branding-dir",
                     help="unencrypted directory of logos to use if the manifest is unreachable "
                          "(never a hut backup: those are encrypted and the key stays at the club)")
@@ -382,8 +388,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     # The title and results cards, drawn now so the builder only has to show them.
     from cards import build_cards
+    # The club's uploaded logo, then the one this installation shows when none
+    # is uploaded -- not Pwllheli's by name, which turned up on other clubs' cards.
     branding = [str(appstate.BRANDING_DIR / "club_logo.png"),
-                str(appstate.BASE_DIR / "static" / "img" / "pwllheli_sailing_club_logo_white.png"),
                 str(appstate.DEFAULT_CLUB_LOGO_PATH)]
     try:
         data["cards"] = build_cards(data, out_dir, os.path.join(out_dir, "fonts"), branding, int(args.race))

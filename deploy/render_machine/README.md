@@ -107,7 +107,9 @@ Fill in the five `R2_*` values from the app's **Settings → Video** page and a
 **On the hut, check Settings → Web server → "Public address" is set.** That is
 where the render machine reads the club's logos from, so the film carries the
 same club mark and rotating sponsors as the start and finish videos. Unset, the
-film still renders — just unbranded, and the log says so.
+film still renders — just unbranded, and the log says so. (`MANIFEST_URL` in
+`renderer.env` can name the logo list for a hut that has no public address; the
+render machine has no club's built in.)
 
 ## 3. Prove it before trusting it
 

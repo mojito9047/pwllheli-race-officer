@@ -295,9 +295,9 @@ def run_job(store: Store, job: Dict[str, Any], who: str, blender: str) -> str:
     # The club mark and the sponsors, from the club's own public manifest.
     # Not carried in the job: it is read now, which may be hours later, and a
     # sponsor added this morning should be on this afternoon's film.
-    # The hut names its own public address; falling back to the club's usual
-    # one means a render machine still gets the logos when the hut has no
-    # public base URL configured, which is the normal state in development.
+    # The hut names its own public address. Failing that, MANIFEST_URL if this
+    # machine sets one -- never a built-in club's, which would put that club's
+    # sponsors on another club's film.
     manifest = (meta.get("branding_manifest") or "").strip() or BRANDING_MANIFEST_URL
     if manifest:
         try:
@@ -324,10 +324,11 @@ def run_job(store: Store, job: Dict[str, Any], who: str, blender: str) -> str:
     from cards import build_cards
 
     brand = scene.get("branding") or {}
+    # The club's own mark, from its manifest, and nothing else. There used to be
+    # a fallback to the Pwllheli logo shipped with the app, which put Pwllheli's
+    # burgee on any other club's film whenever its manifest could not be read.
+    # A card without a logo is better than one with somebody else's.
     logos = [os.path.join(work, brand["club"])] if brand.get("club") else []
-    # Shipped with the app, so a render machine that could not reach the club's
-    # manifest still gets a mark on the card rather than a blank corner.
-    logos.append(os.path.join(_ROOT, "static", "img", "pwllheli_sailing_club_logo_white.png"))
     try:
         scene["cards"] = build_cards(scene, work, os.path.join(work, "fonts"), logos, race_id)
         drawn = [k for k, v in (scene["cards"] or {}).items() if v]

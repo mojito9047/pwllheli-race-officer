@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import math
 import os
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 
 # ---------------------------------------------------------------------------
@@ -35,23 +35,24 @@ def _geotiff_georef(tif: Any) -> Tuple[float, float, float, float]:
     return lon0, lat0, sx, -sy
 
 
-def terrain_grid(dem_path: str, lat0: float, lon0: float, radius_m: float, cell_m: float) -> Dict[str, Any]:
-    """Sample a regular height grid (metres, sea = 0) around the origin from a GeoTIFF DEM.
+def terrain_grid(dem_paths: Union[str, Sequence[str]], lat0: float, lon0: float,
+                 radius_m: float, cell_m: float) -> Dict[str, Any]:
+    """Sample a regular height grid (metres, sea = 0) around the origin from GeoTIFF DEMs.
+
+    ``dem_paths`` is one GeoTIFF or several -- the one-degree elevation tiles the
+    area touches -- and each point is taken from the tile it falls in. Built from
+    the origin's tile alone, everything past that tile's edge came out as sea:
+    on the Mersey, where 3 degrees west runs along the Birkenhead shore, the
+    whole Wirral bank.
 
     Nearest-cell sampling: the Blender mesh is far coarser than a 30 m DEM, so
     interpolation would add nothing visible. Values at or below sea level become
-    0 so the sea plane meets the shore cleanly.
+    0 so the sea plane meets the shore cleanly, and so does anywhere no tile covers.
     """
     import numpy as np
     import tifffile
 
-    with tifffile.TiffFile(dem_path) as tif:
-        lon_edge, lat_edge, dlon, dlat = _geotiff_georef(tif)
-        data = tif.asarray()
-    if data.ndim == 3:
-        data = data[0]
-    rows, cols = data.shape
-    nodata = None
+    paths = [dem_paths] if isinstance(dem_paths, (str, os.PathLike)) else list(dem_paths)
     n = int(round(2 * radius_m / cell_m)) + 1
     xs = np.linspace(-radius_m, radius_m, n)
     ys = np.linspace(-radius_m, radius_m, n)
@@ -59,19 +60,27 @@ def terrain_grid(dem_path: str, lat0: float, lon0: float, radius_m: float, cell_
     m_per_deg_lon = 111_320.0 * math.cos(math.radians(lat0))
     lons = lon0 + xs / m_per_deg_lon
     lats = lat0 + ys / m_per_deg_lat
-    ci = np.clip(np.floor((lons - lon_edge) / dlon).astype(int), 0, cols - 1)
-    ri = np.clip(np.floor((lats - lat_edge) / dlat).astype(int), 0, rows - 1)
-    inside_lon = (lons >= lon_edge) & (lons <= lon_edge + cols * dlon)
-    inside_lat = (lats <= lat_edge) & (lats >= lat_edge + rows * dlat)
-    grid = data[np.ix_(ri, ci)].astype(float)
-    grid[~np.isfinite(grid)] = 0.0
-    if nodata is not None:
-        grid[grid == nodata] = 0.0
-    grid[grid < 0.0] = 0.0
-    grid[~inside_lat, :] = 0.0
-    grid[:, ~inside_lon] = 0.0
+    grid = np.zeros((n, n), dtype=float)
+    for path in paths:
+        with tifffile.TiffFile(path) as tif:
+            lon_edge, lat_edge, dlon, dlat = _geotiff_georef(tif)
+            data = tif.asarray()
+        if data.ndim == 3:
+            data = data[0]
+        rows, cols = data.shape
+        inside_lon = (lons >= lon_edge) & (lons <= lon_edge + cols * dlon)
+        inside_lat = (lats <= lat_edge) & (lats >= lat_edge + rows * dlat)
+        if not inside_lon.any() or not inside_lat.any():
+            continue
+        ci = np.clip(np.floor((lons - lon_edge) / dlon).astype(int), 0, cols - 1)
+        ri = np.clip(np.floor((lats - lat_edge) / dlat).astype(int), 0, rows - 1)
+        tile = data[np.ix_(ri, ci)].astype(float)
+        tile[~np.isfinite(tile)] = 0.0
+        tile[tile < 0.0] = 0.0
+        covered = np.outer(inside_lat, inside_lon)
+        grid[covered] = tile[covered]
     return {
-        "source": os.path.basename(dem_path),
+        "source": ", ".join(os.path.basename(p) for p in paths),
         "x0": float(xs[0]), "y0": float(ys[0]),
         "cell_m": float(cell_m), "nx": n, "ny": n,
         # Row-major, y (north) outer, x (east) inner; heights in metres.

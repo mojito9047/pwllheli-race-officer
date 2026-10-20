@@ -312,6 +312,10 @@ live-stream relay reads:
 python scripts/replay3d/export_race.py --race 69     --branding-url https://pro.pwllhelisailingclub.org/api/branding/live
 ```
 
+Without `--branding-url` it uses `MANIFEST_URL` if that is set, and otherwise the public
+address saved in the data it is reading (`--backup` or `--data` included), which is the
+address the hut itself would put in a render job. There is no built-in club.
+
 `https://hut-origin.pwllhelisailingclub.org/api/branding/live` answers today as well, but
 do not depend on it: that hostname is the relay's own way in to the hut and the September
 2026 security check flagged it as a public bypass of the relay and of every rule scoped to

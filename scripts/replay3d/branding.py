@@ -24,9 +24,12 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 BRANDING_ROTATE_S = 5
-# The same manifest the live-stream relay reads (deploy/live_stream/relay_branded_source.py).
-BRANDING_MANIFEST_URL = os.environ.get(
-    "MANIFEST_URL", "https://pro.pwllhelisailingclub.org/api/branding/live")
+# The club's public branding manifest -- the same one the live-stream relay reads
+# (deploy/live_stream/relay_branded_source.py) -- for a job or an export that does
+# not name its own. Set MANIFEST_URL on the machine to have one. There is no
+# built-in address: the one that used to be here was Pwllheli's, so a film for
+# any other club whose hut had no public address set carried Pwllheli's sponsors.
+BRANDING_MANIFEST_URL = os.environ.get("MANIFEST_URL", "").strip()
 
 
 def branding_take(src: Path, dest: Path) -> Optional[str]:
