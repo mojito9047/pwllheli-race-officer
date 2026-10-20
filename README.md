@@ -5,6 +5,16 @@ A human-supervised race-management app for Pwllheli Sailing Club racing. It help
 Race-office support software. It does not decide anything: official race decisions remain with the race officer and race committee, and results are provisional until they confirm them.
 
 
+## Guides
+
+- [Race Officer's Guide](docs/Pwllheli_Race_Officer_Series_Guide.pdf) — running a series of races and publishing results.
+- [Competitor's Guide](docs/Pwllheli_Competitor_Guide.pdf) — what to expect on the public race-day pages.
+- [Reference Manual](docs/Pwllheli_Race_Officer_Reference_Manual.pdf) — installation, hardware integration and every admin function.
+- [Relay & Front Door Guide](docs/Pwllheli_Relay_Guide.pdf) — the one machine the club is reached through: front door, live camera and GPS tracking.
+
+Setup, hardware, video, tracking, the public pages and the rest are listed under [Documentation](#documentation) below.
+
+
 ## Recent releases
 
 ### v1.017 update
