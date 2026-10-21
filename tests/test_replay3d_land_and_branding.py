@@ -180,3 +180,67 @@ class TestNoOtherClubsBranding:
             source = (_REPLAY3D / name).read_text(encoding="utf-8")
             assert "pwllheli_sailing_club_logo" not in source, name
             assert "pwllhelisailingclub.org" not in source, name
+
+
+class TestNoMapboxToken:
+    """A render machine with no Mapbox token still makes the film.
+
+    read_token raises SystemExit when there is none, which is right for the
+    command-line fetchers and wrong inside the renderer: SystemExit is not an
+    Exception, so it went past every handler, the renderer stopped mid-job and
+    the race was left claimed until the claim went stale. It was also asked for
+    before the cache was looked at, so even water whose tiles were all on disk
+    needed a token.
+    """
+
+    @pytest.fixture()
+    def no_token(self, tmp_path, monkeypatch):
+        assets = _load("assets")
+        monkeypatch.delenv("MAPBOX_TOKEN", raising=False)
+        # This may be the render machine, with a real token on disk.
+        monkeypatch.setitem(assets.read_token.__globals__, "TOKEN_FILE", str(tmp_path / "no_token.txt"))
+        monkeypatch.setattr(assets, "MAPBOX_CACHE", str(tmp_path / "mapbox"))
+        fetched = []
+        monkeypatch.setattr(assets, "fetch_tile", lambda z, x, y, tok: fetched.append((z, x, y)))
+        return assets, tmp_path / "mapbox", fetched
+
+    @staticmethod
+    def cache(root, z, x, y):
+        path = root / str(z) / str(x) / f"{y}.jpg"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"jpeg")
+
+    def test_cached_tiles_need_no_token(self, no_token):
+        assets, root, fetched = no_token
+        for y in (1, 2):
+            self.cache(root, 15, 7, y)
+        assert assets.ensure_imagery_tiles([(15, 7, 1), (15, 7, 2)]) == {"disk": 2, "source": 0}
+        assert fetched == []
+
+    def test_a_tile_to_fetch_is_an_ordinary_failure(self, no_token):
+        assets, root, fetched = no_token
+        self.cache(root, 15, 7, 1)
+        with pytest.raises(RuntimeError, match="no Mapbox token"):
+            assets.ensure_imagery_tiles([(15, 7, 1), (15, 7, 2)])
+        assert fetched == []
+
+    def test_a_refused_token_is_an_ordinary_failure_too(self, no_token, monkeypatch):
+        """A token Mapbox rejects (401/403), or a tile that fails three times."""
+        assets, _root, _fetched = no_token
+        monkeypatch.setenv("MAPBOX_TOKEN", "pk.expired")
+
+        def refused(z, x, y, tok):
+            raise SystemExit("Mapbox rejected the token (401); check it is valid and has tile scope")
+
+        monkeypatch.setattr(assets, "fetch_tile", refused)
+        with pytest.raises(RuntimeError, match="rejected the token"):
+            assets.ensure_imagery_tiles([(15, 7, 1)])
+
+    def test_the_land_is_still_built(self, no_token, mersey_tiles, tmp_path, monkeypatch):
+        """Height colours instead of the satellite picture, but land, and a film."""
+        assets, _root, _fetched = no_token
+        monkeypatch.setattr(assets, "ensure_dem_tiles", lambda names: (list(mersey_tiles), {"disk": 2, "source": 0}))
+        scene = {"origin": {"lat": ORIGIN[0], "lon": ORIGIN[1]}, "extent_m": 3000.0, "race": {"id": 1}}
+        grid = assets.land_for_scene(scene, str(tmp_path), cell_m=300.0)
+        assert grid["nx"] > 1 and "imagery" not in grid
+        assert "imagery" not in (grid.get("far") or {})

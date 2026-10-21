@@ -140,15 +140,35 @@ def _http_get(url: str, timeout: float = 180.0) -> bytes:
 
 def ensure_imagery_tiles(tiles: List[Tuple[int, int, int]],
                          token: Optional[str] = None, workers: int = 6) -> Dict[str, int]:
-    """Make sure every satellite tile is on local disk. Returns where they came from."""
-    tok = read_token(token)
+    """Make sure every satellite tile is on local disk. Returns where they came from.
+
+    The token is looked for only when a tile has to be fetched, so water whose
+    tiles are all cached needs none. read_token exits when there is none, and
+    fetch_tile when Mapbox refuses the token or a tile fails three times -- right
+    for the command-line fetchers, but SystemExit is not an Exception, so it went
+    past every handler in the renderer and stopped it mid-job with the race left
+    claimed. Here both are ordinary failures, which the callers skip past: the
+    land is then drawn in its height colours.
+    """
     counts = {"disk": 0, "source": 0}
+    tok: List[str] = []
+
+    def token_now() -> str:
+        if not tok:
+            try:
+                tok.append(read_token(token))
+            except SystemExit as exc:
+                raise RuntimeError(str(exc)) from None
+        return tok[0]
 
     def one(z: int, x: int, y: int) -> str:
         path = os.path.join(MAPBOX_CACHE, str(z), str(x), f"{y}.jpg")
         if os.path.exists(path) and os.path.getsize(path) > 0:
             return "disk"
-        fetch_tile(z, x, y, tok)                       # writes into the disk cache itself
+        try:
+            fetch_tile(z, x, y, token_now())           # writes into the disk cache itself
+        except SystemExit as exc:
+            raise RuntimeError(str(exc)) from None
         return "source"
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:

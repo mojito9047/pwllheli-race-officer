@@ -18,9 +18,9 @@
   starting, and only once the relay has answered at all -- see the three cases
   below. That matters for who pays for what:
 
-    * A still is 88 KB and comes from the hut, over a domestic broadband line
-      that is at the same time recording the racing. Every viewer costs the hut
-      that, every refresh.
+    * A still is 88 KB and comes from the hut, over its 4G link, which is at
+      the same time carrying the racing. Every viewer costs the hut that, every
+      refresh.
     * The stream comes from the relay, and Cloudflare fans it out. MediaMTX
       pulls the camera once however many people are watching -- so the first
       viewer starts it and everyone after that is free.
@@ -39,14 +39,17 @@
                            visitor would hide it while the club paid for it.
 
   It still pauses when the tab is in the background and when it is scrolled out
-  of sight, which also lets the relay drop the stream when nobody is looking.
+  of sight, which also lets the relay drop the stream when nobody is looking,
+  and it stops after fifteen minutes on screen until somebody asks again.
 
-  Nothing is loaded from anywhere else: no libraries, no fonts, no trackers.
+  Nothing third-party is loaded: no libraries, no fonts, no trackers. The stills
+  and the live page are both served through the club's relay.
 
   The relay refuses to be framed by origins it does not know, so
   pwllhelisailingclub.co.uk must be in `frame-ancestors` in
   deploy/live_stream/Caddyfile. It is, as of v0.267 -- but if the video never
-  appears and the stills carry on for ever, that is the first thing to check.
+  appears and the caption says the live view is unavailable, that is the first
+  thing to check.
   See README.md beside this file.
 -->
 <style>
@@ -166,6 +169,7 @@
   var iframe = null;
   var snapTimer = null;
   var graceTimer = null;
+  var idleTimer = null;
   var startedAt = 0;
   var failures = 0;
   var ticks = 0;
@@ -201,7 +205,7 @@
     };
     next.onerror = function () {
       failures += 1;
-      // One miss is nothing on a domestic line. Three in a row means the camera
+      // One miss is nothing on a 4G link. Three in a row means the camera
       // really is down, and there is no point hammering it.
       if (failures >= 3) {
         image.classList.remove("shown");
@@ -213,7 +217,6 @@
 
   function snapshotTick() {
     if (document.hidden || !onScreen || streaming) return;
-    if (IDLE_STOP && Date.now() - startedAt > IDLE_STOP) { stop(true); return; }
     loadSnapshot();
   }
 
@@ -326,6 +329,16 @@
     stoppedForIdle = false;
     startedAt = Date.now();
     failures = 0;
+    // Its own timer, not a check on the stills' beat: the stills stop once the
+    // video plays, and a check riding on them never fired for a playing stream,
+    // so a tablet left on this page held the camera open all afternoon.
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = IDLE_STOP ? setTimeout(function () {
+      idleTimer = null;
+      // A refused frame asks nothing of anybody already; pausing it would only
+      // swap its picture for a button that cannot bring the stream back.
+      if (!blocked) stop(true);
+    }, IDLE_STOP) : null;
     say("Starting the live view…", false);
     // Exactly one still, so there is something to look at straight away. The
     // refreshing loop does NOT start here: until the relay answers we do not
@@ -336,6 +349,7 @@
   }
 
   function stop(forIdle) {
+    if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
     stopSnapshots();
     removeStream();               // lets the relay drop the stream
     if (forIdle) {

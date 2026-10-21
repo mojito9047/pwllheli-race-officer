@@ -51,7 +51,7 @@ sys.path.insert(0, _HERE)          # cards.py and replay_time.py sit beside this
 os.environ.setdefault("RO_INITIAL_ADMIN_PASSWORD", "export-only")
 
 from core import appstate  # noqa: E402
-from core.db import row_get  # noqa: E402
+from core.db import get_db, row_get  # noqa: E402
 import core.db as _core_db  # noqa: E402
 
 # The scorer calls init_db, and only app.py normally registers the schema
@@ -68,7 +68,9 @@ from core.replay3d import (  # noqa: E402
     branding_manifest_url,
     build_scene,
 )
+from core.races import get_entries, race_first_start_dt  # noqa: E402
 import core.track as track_module  # noqa: E402  (re-pointed by use_data_dir)
+from core.track import positions_for_entry_since  # noqa: E402
 from fonts import ensure_fonts, font_trouble  # noqa: E402  (beside this script)
 from branding import (  # noqa: E402  (beside this script)
     BRANDING_MANIFEST_URL,

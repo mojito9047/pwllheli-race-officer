@@ -1,4 +1,5 @@
 import os
+import re
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _REPO = os.path.dirname(_HERE)
 from playwright.sync_api import sync_playwright
@@ -25,6 +26,25 @@ def elem_shot(page, selector, name):
     print("saved", name)
 
 
+# A tracker's id is its IMEI, a 15-digit number, and these pictures go into
+# published guides. scripts/README.md said this capture checked for them; it
+# never did. It does now: the visible text and the visible form fields (the edit
+# boxes hold ids too). An id drawn into an image would still get past it, so the
+# picture wants a look before it is committed.
+IMEI = re.compile(r"(?<!\d)\d{15}(?!\d)")
+
+
+def refuse_if_imei(page, selector, name):
+    box = page.locator(selector)
+    fields = box.locator("input, textarea, select").evaluate_all(
+        "els => els.filter(e => e.type !== 'hidden' && e.offsetParent !== null).map(e => e.value)")
+    found = IMEI.findall(box.inner_text() + "\n" + "\n".join(fields))
+    if found:
+        # The count only: printing the ids would put them in a terminal log instead.
+        raise SystemExit(f"not saving {name}: {len(found)} 15-digit tracker id(s) on the page, "
+                         "which would publish real IMEIs. Capture against a sandbox with made-up ids.")
+
+
 with sync_playwright() as p:
     browser = p.chromium.launch()
     context = browser.new_context(viewport={"width": 1440, "height": 1000})
@@ -47,6 +67,7 @@ with sync_playwright() as p:
     # --- Trackers page ---
     page.goto(f"{BASE}/admin/trackers", wait_until="load")
     page.wait_for_timeout(1500)  # let the live status poll populate the RAG dots
+    refuse_if_imei(page, "section.card", "trackers_page.png")
     elem_shot(page, "section.card", "trackers_page.png")
 
     # --- Race sheet Course & start tab: live map + leaderboard ---
