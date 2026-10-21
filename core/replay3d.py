@@ -454,11 +454,19 @@ def race_results(race: Any, colour_by_boat: Optional[Dict[str, Any]] = None) -> 
     rule = str(row_get(race, "rating_rule", "") or "").upper()
     groups: List[Dict[str, Any]] = []
     try:
-        if rule == "DUAL":
+        if str(row_get(race, "race_type", "") or "").lower() == "pursuit":
+            # Decided by the order they finish, on handicap starts set from one
+            # rating: one table, not the same order twice.
+            groups = [compute_rating_result_group(race, entries, "YTC" if rule == "YTC" else "IRC")]
+        else:
+            # Both ratings, as the results page and the printed sheet score every
+            # standard race whatever rating_rule says. Choosing by it here sent a
+            # race left at the default 'IRC_TCC' -- Pwllheli's races 1 to 13, and
+            # any race made without picking DUAL -- to the scorer as a result type
+            # it does not have, so every boat came back unscored and the film closed
+            # on the finishing order, with the finish clock time as "corrected".
             dual = compute_dual_results(race, entries)
             groups = [dual["irc"], dual["ytc"]]
-        else:
-            groups = [compute_rating_result_group(race, entries, rule or "IRC")]
     except Exception as ex:
         print(f"  results: the scorer refused this race ({ex!r}); using finishing order")
 
