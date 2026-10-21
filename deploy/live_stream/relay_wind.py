@@ -34,7 +34,7 @@ import urllib.request
 # The hut's public wind endpoint. Already public (it is what the competitor page
 # and the clubhouse display poll), so no credentials travel to the relay.
 WIND_URL = os.environ.get(
-    "WIND_URL", "https://hut-app.pwllhelisailingclub.org/api/weather/current")
+    "WIND_URL", "https://pro.pwllhelisailingclub.org/api/weather/current")
 # Off unless asked for, like every other overlay here.
 WIND_OVERLAY = os.environ.get("WIND_OVERLAY", "0").strip().lower() in ("1", "true", "yes", "on")
 # How often the hut is asked. The station itself samples far slower than this;

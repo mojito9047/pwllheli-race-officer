@@ -195,11 +195,13 @@ As root on the relay:
    CAM_HOSTNAME=hut-cam.pwllhelisailingclub.org
    CAM_ACCESS_ID=<Access service token Client ID from step 2>
    CAM_ACCESS_SECRET=<Access service token Client Secret from step 2>
+   HUT_ACCESS_ID=<relay-to-hut service token Client ID from step 4>
+   HUT_ACCESS_SECRET=<relay-to-hut service token Client Secret from step 4>
    ```
-4. Start everything:
+4. Start everything. Caddy is **restarted**, not reloaded: it reads the `HUT_ACCESS_*`
+   pair from this file through its environment, and a reload does not re-read that.
    ```
-   systemctl restart mediamtx cloudflared-tunnel cloudflared-camera
-   systemctl reload caddy
+   systemctl restart mediamtx cloudflared-tunnel cloudflared-camera caddy
    ```
 
 Services (all autostart on boot): `mediamtx`, `caddy`, `cloudflared-tunnel`,
@@ -211,8 +213,10 @@ Services (all autostart on boot): `mediamtx`, `caddy`, `cloudflared-tunnel`,
 
 Nothing here is version-locked to the hut app: the relay is updated by copying
 the file that changed and reloading the one service that reads it. Rerunning
-`lxc/setup.sh` is for a fresh machine, not an update — it would overwrite
-`/etc/relay/relay.env`.
+`lxc/setup.sh` is for a fresh machine, not an update. It keeps an existing
+`/etc/relay/relay.env`, but it copies the repo's `Caddyfile` over
+`/etc/caddy/Caddyfile` without asking, and the live one carries edits of its own
+(the `/stats` block and its password hash among them).
 
 **The Caddyfile** (`/etc/caddy/Caddyfile`) is the one that changes most:
 
@@ -236,16 +240,19 @@ systemctl reload caddy
 If the diff shows local edits worth keeping, apply the new block by hand instead
 of copying the file — the change is usually one `handle` block.
 
-**The other files** follow the same shape: `mediamtx.yml` →
-`/opt/relay/mediamtx.yml` then `systemctl restart mediamtx`; the site pages and
-`relay_branded_source.py` → `/opt/relay/` (the stream re-reads them when it next
-starts, so close all viewers or `systemctl restart mediamtx`).
+**The other files** follow the same shape:
+
+- `mediamtx.yml` → `/opt/relay/mediamtx.yml`, then `systemctl restart mediamtx`.
+- `relay_branded_source.py`, `relay_wind.py`, `relay_startline.py`, `odm_detector.py`
+  and `startline_config.json` → `/opt/relay/`. The stream loads them when it next
+  starts, so close all viewers or `systemctl restart mediamtx`.
+- `site/index.html` and `site/hut_offline.html` → `/opt/relay/site/`. Caddy serves
+  them as they are, so the next page load has them.
 
 Check it worked from outside, not just from the relay:
 
 ```bash
-curl -sS -o /dev/null -w "%{http_code} %{time_total}s
-"      https://pro.pwllhelisailingclub.org/
+curl -sS -o /dev/null -w "%{http_code} %{time_total}s\n" https://pro.pwllhelisailingclub.org/
 ```
 
 ---
@@ -275,8 +282,9 @@ uplink stays flat.
 
 ## 7. GPS tracking (Traccar) — optional
 
-Boats carry Queclink **GL521MG** LTE trackers. They report to a **Traccar** server on this
-same relay; the hut app then *pulls* positions from Traccar's REST API over the existing
+Boats carry LTE trackers: the club runs five Teltonika **ATC700s** and two Queclink
+**GL521MGs** (`docs/TRACKERS.md` compares them and gives each one's settings). They report
+to a **Traccar** server on this same relay; the hut app then *pulls* positions from Traccar's REST API over the existing
 Cloudflare tunnel (outbound only — **no inbound port on the hut**). Traccar shows the fleet
 live on the race course chart and can detect finish-line crossings (see the app's
 `docs/TRACKING.md`).
@@ -294,28 +302,28 @@ live on the race course chart and can detect finish-line crossings (see the app'
 
    | Device | Traccar protocol | Port |
    |---|---|---|
+   | Teltonika **ATC700**, the **RUTX50** router on Mojito, FMB/FMC series | `teltonika` | **5027/tcp** |
    | Queclink **GL521MG** (and the rest of the GL/GV series) | `gl200` | **5004/tcp** |
-   | Teltonika **RUTX50** router, FMB/FMC series | `teltonika` | **5027/tcp** |
    | Traccar Client phone app, `simulate_trackers.py` | `osmand` | **5055/tcp** (HTTP) |
 
-   > **5027 is Teltonika, not Queclink.** Earlier versions of this guide said to use 5027 for
-   > the boat trackers — that is the port the club's RUTX50 test device uses, and it is wrong
-   > for a GL521MG. Point a Queclink tracker at 5027 and it connects to Traccar's Teltonika
-   > decoder, which cannot parse @Track messages: the tracker reports happily, nothing appears
-   > in Traccar, and no error is logged anywhere. Use **5004** for the GL521MGs. Traccar's own
-   > protocol reference is at `traccar.org/protocol/5004-gl200/` — the port is in the URL.
+   > **Each make has its own port.** Point a Queclink tracker at 5027 and it connects to
+   > Traccar's Teltonika decoder, which cannot parse @Track messages: the tracker reports
+   > happily, nothing appears in Traccar, and no error is logged anywhere. The same happens
+   > the other way round. ATC700s go to **5027**, GL521MGs to **5004**. Traccar's protocol
+   > references give the port in the URL: `traccar.org/protocol/5027-teltonika/` and
+   > `traccar.org/protocol/5004-gl200/`.
 
 2. **Open the inbound port(s) for the trackers.** This is the only inbound access the whole
    system needs; everything else is outbound-only, and the hut PC still opens nothing.
-   - **On a VPS:** allow **5004/tcp** in the provider's firewall/security group *and* in the
-     host firewall (`ufw allow 5004/tcp`), then point `track.pwllhelisailingclub.org` at the
-     VPS's IP as a **DNS-only** A record (grey cloud — Cloudflare cannot proxy a raw TCP
-     socket).
-   - **On a home Proxmox LXC:** port-forward **5004/tcp** on the router to the container, and
+   - **On a VPS:** allow each tracker port in the provider's firewall/security group *and* in
+     the host firewall (`ufw allow 5027/tcp`, `ufw allow 5004/tcp`), then point
+     `track.pwllhelisailingclub.org` at the VPS's IP as a **DNS-only** A record (grey cloud —
+     Cloudflare cannot proxy a raw TCP socket).
+   - **On a home Proxmox LXC:** port-forward the same ports on the router to the container, and
      point the same DNS-only record at your home public IP.
 
-   The club currently has three open: **5004** for the Queclink trackers, **5027** for the
-   Teltonika RUTX50 on the committee boat, and **5055** for `osmand`. Leave anything else
+   The club currently has three open: **5027** for the Teltonika ATC700s (and the RUTX50 on
+   Mojito), **5004** for the Queclink GL521MGs, and **5055** for `osmand`. Leave anything else
    closed.
 
    **Port 80 must be closed to the internet, and this is not theoretical.** Cloudflare does
@@ -347,8 +355,7 @@ live on the race course chart and can detect finish-line crossings (see the app'
    will always answer:
 
    ```bash
-   curl -sS -m 10 -o /dev/null -w '%{http_code}
-' http://track.pwllhelisailingclub.org/
+   curl -sS -m 10 -o /dev/null -w '%{http_code}\n' http://track.pwllhelisailingclub.org/
    ```
 
    It should fail to connect. The trackers are unaffected: their ports are Traccar's, not
@@ -359,24 +366,25 @@ live on the race course chart and can detect finish-line crossings (see the app'
    the server to `http://track.pwllhelisailingclub.org:5055` and a device identifier, add that
    identifier on the app's Trackers page, and a phone in a pocket becomes a tracker. That is
    the cheapest way to put a real moving boat on the chart — a rescue RIB, the committee boat,
-   or a volunteer's phone during a race — without waiting for GL521MG hardware or burning its
-   battery. The second is `scripts/simulate_trackers.py`, which reports over the same protocol,
+   or a volunteer's phone during a race — without a spare tracker or burning its battery. The second is `scripts/simulate_trackers.py`, which reports over the same protocol,
    so a whole simulated fleet can be sailed round the course through the real relay.
 
    It is plain HTTP with no authentication beyond the device identifier, so treat it the same
    way as the other two: Traccar only accepts identifiers it knows (unless
    `database.registerUnknown` is on), and nothing behind it is reachable from that port.
-3. **Provision each tracker** to report to `track.pwllhelisailingclub.org:5004` using the
-   Queclink @Track configuration commands for the model (`AT+GTQSS` / `AT+GTSRI` on this
-   family — check the GL521MG protocol document that ships with the units). The "Main server
-   IP/domain" field accepts a hostname.
+3. **Provision each tracker** to report to `track.pwllhelisailingclub.org` on its make's
+   port. Both take a hostname as the server address. `docs/TRACKERS.md` has the full
+   settings for each, and the traps found setting them up:
+   - **ATC700**: server `track.pwllhelisailingclub.org`, port **5027**, TCP, set with
+     Teltonika's configurator, an SMS, or remotely through Traccar. The club's SIM roams in
+     the UK, so set the **roaming** half of each paired Teltonika parameter. The home half is
+     accepted, reads back as set, and is ignored.
+   - **GL521MG**: port **5004**, with the Queclink @Track commands (`AT+GTQSS` / `AT+GTSRI`;
+     check the GL521MG protocol document that ships with the units).
 
-   Set a **frequent reporting interval for race days**. The GL521MG is a battery asset
-   tracker built for up-to-a-year standby, so its out-of-the-box schedule is far too coarse
-   for finish order — but the reverse is also true: a race-day rate that is fast enough to
-   time a line crossing will flatten the battery in a fraction of that. Plan on **charging
-   between race days** (the GL521MG charges wirelessly, Qi), and keep the fast rate for
-   racing rather than leaving it on permanently.
+   Set a **frequent reporting interval for race days**, and plan on **charging between race
+   days**. An ATC700 at 10 s uses about 10 % of its battery an hour. The GL521MG cannot
+   report faster than once a minute, and it charges wirelessly (Qi).
 
    You can then add each device from the app's **Trackers** page (it creates it in Traccar
    for you) instead of the Traccar UI — or, with `database.registerUnknown` enabled, just
@@ -436,7 +444,7 @@ synthetic boats.
   plain copy if branding is off or unreachable. Also composites the optional ODM
   start-line overlay (below) when enabled.
 - `relay_startline.py` + `odm_detector.py` + `startline_config.json` — the **ODM
-  start-line overlay** (prototype, see below).
+  start-line overlay** (see below).
 - `Caddyfile` — the front door: watch page at `/live`, `/hut/*` → MediaMTX (with the
   caching/cookie handling), and everything else proxied to the hut app with a holding-page
   fallback when the hut is unreachable.
@@ -455,10 +463,24 @@ synthetic boats.
   asks for playback whenever new data arrives, watches for a loaded-but-paused player, and
   offers *"Tap to start the live view"* if autoplay is refused outright.
   The `Caddyfile`'s `frame-ancestors` list controls **who may embed this page** — it covers
-  `pro.…` itself plus `http://localhost:5050` and `http://127.0.0.1:5050` for the app running
-  directly on a PC (the hut machine's race sheet, or a test server). Anything not listed gets
-  a *"refused to connect"* box, so after changing that line run `systemctl reload caddy`.
+  the page itself, any `https://*.pwllhelisailingclub.org` host, the club website
+  (`pwllhelisailingclub.co.uk` and `www.`), and `http://localhost:5050` and
+  `http://127.0.0.1:5050` for the app running directly on a PC (the hut machine's race
+  sheet, or a test server). Anything not listed gets a *"refused to connect"* box, so after
+  changing that line run `systemctl reload caddy`.
 - `site/hut_offline.html` — the holding page shown when the hut app is down.
+- `relay_wind.py` — the optional wind readout on the stream (see *Wind readout* below).
+- `relay_stats.sh` — builds the optional GoAccess report served at `/stats` (see *Access
+  logging* below).
+- `traccar-forward.xml` — the entries to merge into Traccar's config so it pushes each fix
+  to the app (section 7, step 5b).
+- `lxc/` — `setup.sh` + systemd units for the native Debian install (this guide). The name
+  is historical: it is a plain Debian script and runs the same on a VPS.
+- `docker/` — an alternative Docker Compose stack (if you'd rather run it under Docker).
+
+To change branding: edit it in the app (Settings → Club name and branding). The relay re-reads
+the manifest each time the stream starts, so restart the stream (close viewers, or
+`systemctl restart mediamtx`) to pick up new logos.
 
 ### How long the relay waits for the hut
 
@@ -496,15 +518,8 @@ complain. The archive is 262 MB of database read down to a 34 MB ZIP — 102 MB 
 in far less than either limit.
 
 If the model is ever configured to allow longer than 30 s, raise this to match.
-- `lxc/` — `setup.sh` + systemd units for the native Debian install (this guide). The name
-  is historical: it is a plain Debian script and runs the same on a VPS.
-- `docker/` — an alternative Docker Compose stack (if you'd rather run it under Docker).
 
-To change branding: edit it in the app (Settings → Club name and branding). The relay re-reads
-the manifest each time the stream starts, so restart the stream (close viewers, or
-`systemctl restart mediamtx`) to pick up new logos.
-
-## ODM start-line overlay (prototype)
+## ODM start-line overlay
 
 The relay can draw the **actual start line** on the stream — from the foreground pole
 base to the orange Outer Distance Mark (ODM) buoy, which swings on its anchor. It's a
@@ -532,10 +547,10 @@ confidently found, the stream simply runs without the line (never fails).
 - The line is drawn **under** the corner logos. It only reflects the buoy position at the
   moment the stream started; a periodic refresh can be added later if drift matters.
 
-> **Prototype status:** verified on stills (detection + overlay render + ffmpeg command
-> build), but the live ffmpeg encode path has not yet been smoke-tested on the relay. First
-> deploy: watch `journalctl -u mediamtx` for the `startline:` log line and confirm the line
-> lands on the buoy before relying on it.
+> **Checking it:** the overlay runs on the club's relay and the line lands on the buoy. On a
+> new relay, or after re-tuning, watch `sudo journalctl -u mediamtx` for the `startline:` log
+> line when a viewer opens the stream, and confirm the line lands on the buoy before relying
+> on it.
 
 ---
 
@@ -547,7 +562,7 @@ at without a second screen.
 
 - **Turn it on:** `WIND_OVERLAY=1` in the MediaMTX unit's environment. Off by default.
 - **Where the numbers come from:** `WIND_URL`, default
-  `https://hut-app.pwllhelisailingclub.org/api/weather/current`. That endpoint is already
+  `https://pro.pwllhelisailingclub.org/api/weather/current`. That endpoint is already
   public — it is what the competitor page and the clubhouse display poll — so no credentials
   travel to the relay.
 - **How often:** `WIND_POLL_SECONDS` (default 5).
@@ -611,8 +626,7 @@ running service — an edit to `relay.env` needs a `systemctl restart mediamtx`,
 reload. `relay.env` is `0600 root`, so both of these want `sudo`:
 
     sudo grep WIND /etc/relay/relay.env
-    sudo tr '\0' '
-' < /proc/$(pgrep -x mediamtx)/environ | grep -i WIND
+    sudo tr '\0' '\n' < /proc/$(pgrep -x mediamtx)/environ | grep -i WIND
 
 The second is the one that settles it: it reads the environment the process actually
 holds. Do **not** reach for `systemctl show mediamtx -p Environment` — that lists only

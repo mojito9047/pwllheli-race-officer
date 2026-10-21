@@ -78,6 +78,8 @@ systemctl enable --now traccar >/dev/null 2>&1 || true
 echo "== relay files =="
 install -m 0644 "$SRC_DIR/mediamtx.yml"            "$RELAY_DIR/mediamtx.yml"
 install -m 0755 "$SRC_DIR/relay_branded_source.py" "$RELAY_DIR/relay_branded_source.py"
+# Wind readout (optional; off unless WIND_OVERLAY=1 in relay.env)
+install -m 0644 "$SRC_DIR/relay_wind.py"           "$RELAY_DIR/relay_wind.py"
 # ODM start-line overlay (optional; tune/disable via startline_config.json)
 install -m 0644 "$SRC_DIR/relay_startline.py"      "$RELAY_DIR/relay_startline.py"
 install -m 0644 "$SRC_DIR/odm_detector.py"         "$RELAY_DIR/odm_detector.py"

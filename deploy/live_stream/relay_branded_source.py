@@ -18,10 +18,10 @@ raw sub-stream. MediaMTX kills this process when the last viewer leaves
 Env (MediaMTX sets MTX_PATH and RTSP_PORT automatically):
   CAMERA_URL    camera RTSP via the cloudflared bridge
                 (default rtsp://VIEWUSER:VIEWPASS@localhost:18554/Streaming/Channels/102)
-  MANIFEST_URL  hut branding manifest (default https://hut-app.pwllhelisailingclub.org/api/branding/live)
+  MANIFEST_URL  hut branding manifest (default https://pro.pwllhelisailingclub.org/api/branding/live)
   CAMERA_FPS    sub-stream fps, used for -g (default 15)
   WIND_OVERLAY  set to 1 to burn the hut's TWD/TWS/gust across the top (default off)
-  WIND_URL      hut wind endpoint (default https://hut-app.pwllhelisailingclub.org/api/weather/current)
+  WIND_URL      hut wind endpoint (default https://pro.pwllhelisailingclub.org/api/weather/current)
 """
 import json
 import os
@@ -31,7 +31,7 @@ import tempfile
 import urllib.request
 
 CAMERA_URL = os.environ.get("CAMERA_URL", "rtsp://VIEWUSER:VIEWPASS@localhost:18554/Streaming/Channels/102")
-MANIFEST_URL = os.environ.get("MANIFEST_URL", "https://hut-app.pwllhelisailingclub.org/api/branding/live")
+MANIFEST_URL = os.environ.get("MANIFEST_URL", "https://pro.pwllhelisailingclub.org/api/branding/live")
 FPS = int(os.environ.get("CAMERA_FPS", "15"))
 PUBLISH_URL = f"rtsp://localhost:{os.environ.get('RTSP_PORT', '8554')}/{os.environ.get('MTX_PATH', 'hut')}"
 

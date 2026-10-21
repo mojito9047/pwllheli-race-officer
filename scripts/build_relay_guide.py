@@ -274,12 +274,12 @@ def architecture_diagram():
     # --- The one direct link ------------------------------------------------
     trk_x, trk_w = W * 0.68, W * 0.32 - 10
     _box(d, trk_x, hut_pc_y, trk_w, 40, "Boat trackers",
-         ["Queclink GL521MG", "LTE — raw TCP, no Cloudflare"], dashed=True)
+         ["ATC700 and GL521MG", "LTE — raw TCP, no Cloudflare"], dashed=True)
     trk_mid = trk_x + trk_w / 2
     _arrow(d, trk_mid, hut_pc_y + 40, trk_mid, relay_y, colour=GOLD)
     label_y = (hut_pc_y + 40 + relay_y) / 2
     # Right-aligned to the left of the line, so the arrow doesn't run through the text.
-    d.add(String(trk_mid - 6, label_y + 4, "direct — port 5004",
+    d.add(String(trk_mid - 6, label_y + 4, "direct — ports 5027, 5004",
                  fontName="Helvetica-Bold", fontSize=6.6, fillColor=GOLD, textAnchor="end"))
     d.add(String(trk_mid - 6, label_y - 6, "the one way in",
                  fontName="Helvetica", fontSize=6.6, fillColor=MUTED, textAnchor="end"))
@@ -621,7 +621,9 @@ story.append(PageBreak())
 # ============================================================== 6
 story += chapter_heading("Chapter 6", "GPS tracking with Traccar")
 story.append(Paragraph(
-    "Boats carry Queclink <b>GL521MG</b> LTE trackers. They report to Traccar on this relay, and "
+    "Boats carry LTE trackers: the club runs five Teltonika <b>ATC700s</b> and two Queclink "
+    "<b>GL521MGs</b> (docs/TRACKERS.md compares them and gives each one's settings). They "
+    "report to Traccar on this relay, and "
     "Traccar gets their positions to the hut app two ways at once — it answers the app's polls, "
     "and it pushes each fix as it decodes it. The live race map, the position-on-the-water list "
     "and the automated finishes all run on this.", styles["Body"]))
@@ -632,17 +634,18 @@ story.append(Paragraph(
     styles["Body"]))
 story += header_table(
     ["Device", "Traccar protocol", "Port"],
-    [["Queclink <b>GL521MG</b>, and the rest of the GL/GV series", "gl200", "<b>5004/tcp</b>"],
-     ["Teltonika <b>RUTX50</b> router, FMB/FMC series", "teltonika", "5027/tcp"],
+    [["Teltonika <b>ATC700</b>, the <b>RUTX50</b> router on Mojito, FMB/FMC series", "teltonika",
+      "<b>5027/tcp</b>"],
+     ["Queclink <b>GL521MG</b>, and the rest of the GL/GV series", "gl200", "<b>5004/tcp</b>"],
      ["Traccar Client phone app, simulate_trackers.py", "osmand", "5055 (HTTP)"]],
     col_widths=[CONTENT_W - 7.4 * cm, 4.0 * cm, 3.4 * cm])
 story += note_box(
-    "<b>5027 is Teltonika, not Queclink.</b> Guides before v0.197 said to use 5027 for the boat "
-    "trackers — that is the port the club's RUTX50 test device uses, and it is <b>wrong for a "
-    "GL521MG</b>. Point a Queclink tracker at 5027 and it reaches Traccar's Teltonika decoder, "
-    "which cannot parse @Track messages: the tracker reports happily, nothing appears in "
-    "Traccar, and nothing is logged anywhere to say why. Use <b>5004</b>. Traccar's own protocol "
-    "reference has the port in its address — <b>traccar.org/protocol/5004-gl200/</b>.",
+    "<b>Each make has its own port.</b> Point a Queclink tracker at 5027 and it reaches "
+    "Traccar's Teltonika decoder, which cannot parse @Track messages: the tracker reports "
+    "happily, nothing appears in Traccar, and nothing is logged anywhere to say why. The same "
+    "happens the other way round. ATC700s go to <b>5027</b>, GL521MGs to <b>5004</b>. Traccar's "
+    "protocol references have the port in their addresses — "
+    "<b>traccar.org/protocol/5027-teltonika/</b> and <b>traccar.org/protocol/5004-gl200/</b>.",
     kind="warn")
 
 story.append(Paragraph("The inbound port", styles["H2"]))
@@ -651,25 +654,26 @@ story.append(Paragraph(
     "raw TCP socket, and there is no tunnel client on the device to carry it — which is why "
     "this one cannot go through Cloudflare like everything else.", styles["Body"]))
 story.append(bullets([
-    "<b>On a VPS:</b> allow <b>5004/tcp</b> in the provider's firewall or security group "
-    "<i>and</i> in the host firewall (<b>ufw allow 5004/tcp</b>), then point "
+    "<b>On a VPS:</b> allow each tracker port in the provider's firewall or security group "
+    "<i>and</i> in the host firewall (<b>ufw allow 5027/tcp</b>, <b>ufw allow 5004/tcp</b>), "
+    "then point "
     "<b>track.pwllhelisailingclub.org</b> at the VPS's IP as a <b>DNS-only</b> A record — grey "
     "cloud, because Cloudflare cannot proxy a raw TCP socket.",
-    "<b>On a home server:</b> forward <b>5004/tcp</b> on the router to the container, and point "
+    "<b>On a home server:</b> forward the same ports on the router to the container, and point "
     "the same DNS-only record at your home public IP.",
 ]))
 story += note_box(
     "Open one port per protocol you actually use, and leave the rest closed. The club currently "
-    "has three: <b>5004</b> for the Queclink trackers, <b>5027</b> for the Teltonika RUTX50 on the "
-    "committee boat, and <b>5055</b> for osmand. This is the only inbound access anywhere in the "
+    "has three: <b>5027</b> for the Teltonika ATC700s (and the RUTX50 on Mojito), <b>5004</b> for "
+    "the Queclink GL521MGs, and <b>5055</b> for osmand. This is the only inbound access anywhere in the "
     "system — the hut PC still opens nothing at all.")
 story.append(Paragraph(
     "<b>5055 is worth keeping open.</b> It carries the OsmAnd protocol, and two useful things speak "
     "it. The free <b>Traccar Client</b> phone app is the first: set its server to "
     "<b>track.pwllhelisailingclub.org:5055</b>, give it a device identifier, add that identifier on "
     "the app's Trackers page, and a phone in a pocket becomes a tracker — the cheapest way to put a "
-    "rescue RIB, the committee boat or a volunteer's boat on the chart without waiting for GL521MG "
-    "hardware or burning its battery. The second is <b>simulate_trackers.py</b>, which reports over "
+    "rescue RIB, the committee boat or a volunteer's boat on the chart without a spare tracker or "
+    "burning its battery. The second is <b>simulate_trackers.py</b>, which reports over "
     "the same protocol, so a whole simulated fleet can be sailed round the course through the real "
     "relay. It is plain HTTP with no authentication beyond the device identifier, so treat it as you "
     "do the other two: Traccar accepts only identifiers it knows, and nothing behind it is reachable "
@@ -677,16 +681,20 @@ story.append(Paragraph(
 
 story.append(Paragraph("Provisioning the trackers", styles["H2"]))
 story.append(Paragraph(
-    "Point each tracker at <b>track.pwllhelisailingclub.org:5004</b> with the Queclink @Track "
-    "configuration commands for the model (<b>AT+GTQSS</b> / <b>AT+GTSRI</b> on this family — "
-    "check the GL521MG protocol document supplied with the units). The <i>Main server "
-    "IP/domain</i> field accepts a hostname.", styles["Body"]))
+    "Point each tracker at <b>track.pwllhelisailingclub.org</b> on its make's port; both take a "
+    "hostname as the server address. <b>docs/TRACKERS.md</b> has the full settings for each, and "
+    "the traps found setting them up.", styles["Body"]))
+story.append(bullets([
+    "<b>ATC700:</b> port <b>5027</b>, TCP, set with Teltonika's configurator, an SMS, or remotely "
+    "through Traccar. The club's SIM roams in the UK, so set the <b>roaming</b> half of each "
+    "paired Teltonika parameter: the home half is accepted, reads back as set, and is ignored.",
+    "<b>GL521MG:</b> port <b>5004</b>, with the Queclink @Track commands (<b>AT+GTQSS</b> / "
+    "<b>AT+GTSRI</b>; check the GL521MG protocol document supplied with the units).",
+]))
 story += note_box(
-    "The GL521MG is a battery asset tracker designed for up to a year of standby, so its "
-    "out-of-the-box reporting is far too coarse to order a finish. Set a <b>fast reporting rate "
-    "for race days</b> — and plan to <b>charge the units between race days</b>, because a rate "
-    "quick enough to time a line crossing costs a large multiple of the standby drain. They "
-    "charge wirelessly (Qi).", kind="warn")
+    "Set a <b>fast reporting rate for race days</b>, and plan to <b>charge the units between race "
+    "days</b>. An ATC700 at 10 s uses about 10 % of its battery an hour. The GL521MG cannot report "
+    "faster than once a minute, and it charges wirelessly (Qi).", kind="warn")
 
 story.append(Paragraph("Connecting the hut app", styles["H2"]))
 story.append(Paragraph(
@@ -927,8 +935,8 @@ story += field_table([
     ("Caddyfile", "The front door: <b>/live</b> watch page, <b>/hut/*</b> to MediaMTX, "
      "<b>/traccar/*</b> to Traccar's API, everything else proxied to the hut app with the "
      "holding-page fallback — plus the access log and the optional <b>/stats</b> block. Its "
-     "<b>frame-ancestors</b> list controls who may embed the watch page; the app's own origins "
-     "are in it, so reload Caddy after changing that line."),
+     "<b>frame-ancestors</b> list controls who may embed the watch page: the club's own hosts, "
+     "the club website, and the app run directly on a PC. Reload Caddy after changing that line."),
     ("mediamtx.yml", "MediaMTX: mpegts HLS with 1-second segments, on-demand source, stream "
      "dropped 20 s after the last viewer."),
     ("relay_branded_source.py", "Pulls the camera, burns in the club and sponsor logos from the "
@@ -936,7 +944,7 @@ story += field_table([
      "branding is off or unreachable."),
     ("relay_startline.py, odm_detector.py, startline_config.json",
      "The optional start-line overlay: a colour-based detector that finds the orange ODM buoy "
-     "and draws the line from the pole base to it. Best-effort and <b>prototype</b> — if "
+     "and draws the line from the pole base to it. Best-effort — if "
      "anything is missing or the buoy is not confidently found, the stream simply runs without "
      "the line. Detection runs once when the stream starts, so the line is fixed for that "
      "viewing session."),
@@ -960,8 +968,10 @@ story += field_table([
 story += note_box(
     "The relay holds no race data. Everything it serves either comes from the hut app live, or "
     "is a config file in the repository — so rebuilding it is a matter of re-running "
-    "<b>setup.sh</b> and restoring <b>/etc/relay/relay.env</b>. The one thing worth keeping a "
-    "copy of is that env file, because it holds the tunnel and camera Access tokens. Traccar's "
+    "<b>setup.sh</b> and restoring <b>/etc/relay/relay.env</b> and <b>/etc/caddy/Caddyfile</b>. "
+    "Keep a copy of both: the env file holds the tunnel and Access tokens, and the live Caddyfile "
+    "carries edits of its own, such as the /stats password, which setup.sh would replace with "
+    "the repository's copy. Traccar's "
     "own database (devices, users, tokens) lives on the relay and is <b>not</b> in the app's "
     "backups — if you use tracking, back up <b>/opt/traccar/data/</b> as well.")
 
