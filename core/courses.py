@@ -393,7 +393,19 @@ def course_for_race(race: sqlite3.Row) -> Dict[str, Any]:
     custom = custom_course_from_race(race)
     if custom:
         return custom
-    return course_for_display(appstate.COURSE_BY_NO[int(race["course_no"])])
+    try:
+        fixed = appstate.COURSE_BY_NO.get(int(race["course_no"]))
+    except (TypeError, ValueError, KeyError, IndexError):
+        fixed = None
+    if fixed is None:
+        # A club with no fixed courses -- Liverpool sets every course on the day,
+        # so its courses.json is empty -- still gives a new race course number 1,
+        # and looking that up raised KeyError on the race sheet and on every
+        # public page while the race was the current one. No course is what it
+        # has, until one is made up; course_set still says nothing was chosen.
+        return course_for_display(course_from_sequence(
+            [], course_no="No course set", wind_label="No course set", source="none"))
+    return course_for_display(fixed)
 
 
 def mark_sort_key(mark: str) -> Tuple[int, Any]:
