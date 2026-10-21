@@ -1,5 +1,46 @@
 # Change log
 
+## v1.019
+
+**The club's name and logos are settings.** Pwllheli's were written into the
+pages: "Pwllheli Race Officer" at the top of every race office page and tab, the
+Pwllheli banner across every public page, the bundled burgee in the side menu
+and on published results, and PWLLHELI SAILING CLUB on the films. A new section,
+**Settings → Club name and branding**, straight after Users, holds the club name,
+the word before "Race Officer", the club logo and an optional public page
+header. Pwllheli's are the defaults, so an installation that sets nothing looks
+as it did. The footers keep the software's name, Pwllheli Race Officer.
+`docs/CLUB_CUSTOMISATION.md` lists everything a new club sets.
+
+- **Public page header.** Without an uploaded banner the public pages and the
+  bar TV show the club logo beside the club name; Pwllheli's own banner is shown
+  only while the club name is still Pwllheli Sailing Club.
+- **The films** take the club's name from the job for their title and results
+  cards, and **their closing card is scored on IRC and YTC**, as the results page
+  is. It chose by the race's rating rule and knew only DUAL, so a race left at
+  the default IRC_TCC -- Pwllheli's 2025 races, or an IRC pursuit -- closed on
+  the finishing order with the finish clock time as "corrected".
+- **The films' land goes out to the horizon.** It reached 6 km beyond the racing
+  while the sea ran on to nine times the race's extent, so on the Mersey the land
+  stopped in straight lines with sea behind Bootle and the Wirral. The render
+  machine now adds a coarse ring of land out to where the sea and haze end,
+  capped at 60 km. The first film over a stretch of water fetches its ring's
+  tiles once.
+- **VHF announcements** say Pwllheli's names for its lettered marks only when the
+  mark is that mark, and otherwise a mark's own name ("Pluckington"), so another
+  club's C is not "the causeway". Pwllheli's announcements are unchanged.
+- **A club with no fixed courses can open a new race.** With an empty
+  courses.json a new race's sheet, and every public page while it was current,
+  answered with a server error.
+- **Cloud storage (Cloudflare R2)** has its own Settings section, out of Video
+  Recording, because published results and the 3D films use the bucket too. Its
+  test no longer insists on video publishing being on.
+- **Fixed on the way:** uploading a club logo saved it and then showed a server
+  error; a style meant for one page stopped every checkbox label wrapping, which
+  pushed the Settings page sideways by 345 px on a desk and over 1100 on a
+  phone; published results always carried the bundled logo; the course builder
+  named "ODM O" rather than the configured start mark.
+
 ## v1.018
 
 **The start line comes from `start_finish.json`, so the app can run at another

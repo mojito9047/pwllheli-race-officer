@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.018
+# Pwllheli Race Officer v1.019
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -27,6 +27,14 @@ Setup, hardware, video, tracking, the public pages and the rest are listed under
 
 
 ## Recent releases
+
+### v1.019 update
+
+- **The club's name and logos are settings** (Settings → Club name and branding), for running the app at
+  another club; Pwllheli's are the defaults. See `docs/CLUB_CUSTOMISATION.md`.
+- **3D films**: the club's name on the cards, IRC and YTC on the closing card whatever the rating rule, and
+  land out to the horizon.
+- **Cloud storage (Cloudflare R2)** has its own Settings section; a club with no fixed courses can open a race.
 
 ### v1.018 update
 
@@ -59,17 +67,6 @@ Setup, hardware, video, tracking, the public pages and the rest are listed under
 - **Race pages reload up to three seconds apart** at a start or a finish, not all in the same second.
 - **Windows Defender exclusions that cover every version folder**, in DEPLOYMENT_WINDOWS.md; the hut's
   still named version 0.257's. The PC check script now finds the daily slow-request log.
-
-### v1.014 update
-
-- **A Start photo tab on the public race page** shows the camera's own photo at each start signal, with
-  the start line and the club logo, a few seconds after the gun &mdash; public at once, so competitors can
-  see whether they were over. A phone left on the tab gets it by itself.
-- **Finish answers as soon as the horn starts**, not after the three-second blast.
-- **A zoom-only camera's login is no longer taken for a wrong password**, which would have stopped the
-  start photo.
-- **After installing:** Settings &rarr; Camera zoom / PTZ presets &rarr; *Save and test camera login only*,
-  then *Save and take a test start photo*.
 
 ## Main features
 
