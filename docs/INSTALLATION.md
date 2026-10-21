@@ -14,17 +14,13 @@ Recommended race-office PC:
 - `pyzipper` from `requirements.txt` if the nightly off-site backup is used. It writes the AES-256 encrypted archive; without it the app refuses to run an off-site backup rather than uploading a readable one. See [`DATA_AND_BACKUP.md`](DATA_AND_BACKUP.md).
 
 
-## Novice Windows guide
+## The hut PC
 
-For a step-by-step Windows guide aimed at first-time users, including Python installation, virtual-environment setup, optional FFmpeg/video setup, restarting the app and basic troubleshooting, see [`GETTING_STARTED_WINDOWS.md`](GETTING_STARTED_WINDOWS.md).
+To install the app on the race-office PC, follow [`DEPLOYMENT_WINDOWS.md`](DEPLOYMENT_WINDOWS.md). It is the one guide for the hut, written for somebody new to Python: install Python, unzip the release, run one installer, and from then on a Windows Scheduled Task called **Pwllheli Race Officer** starts the app whenever the race-office user logs in. It also covers FFmpeg, the club network, running it day to day and upgrading.
 
-## Race-hut PC deployment
+The rest of this page is the general reference: running the app by hand on any operating system, for development or testing, and every environment variable it reads.
 
-For the hut PC, use the deployment scripts in `deploy/windows/` rather than leaving a Command Prompt open. See [`DEPLOYMENT_WINDOWS.md`](DEPLOYMENT_WINDOWS.md).
-
-The normal deployment is a Windows Scheduled Task called **Pwllheli Race Officer**. It starts the Waitress app automatically when the race-office Windows user logs in.
-
-## Install Python dependencies
+## Running it by hand
 
 From the unzipped project folder:
 
@@ -85,6 +81,8 @@ python app.py
 ```
 
 ## Upgrade from an older version
+
+On the hut PC, follow *Upgrading to a new version* in [`DEPLOYMENT_WINDOWS.md`](DEPLOYMENT_WINDOWS.md): the startup task has to be installed again from the new folder. Elsewhere:
 
 1. Stop the old app.
 2. Back up your existing `data/` folder. For older versions, also back up the root `race_officer.db` and any required `data/video/clips/` files.

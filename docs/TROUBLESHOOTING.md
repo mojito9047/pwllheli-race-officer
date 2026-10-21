@@ -470,7 +470,7 @@ the app. `deploy\windows\check_hut_pc.ps1`, run as administrator, then showed
 the Windows Defender exclusions still naming `pwllheli_ro_mvp_v0_257`'s folders
 from August, so every version since had been scanned on every write. Exclude
 the data folders for every version at once: see
-[`DEPLOYMENT_WINDOWS.md`](DEPLOYMENT_WINDOWS.md#windows-defender-exclusions).
+[`DEPLOYMENT_WINDOWS.md`](DEPLOYMENT_WINDOWS.md#6-windows-defender-exclusions).
 
 ## The hut stops answering after the last boats finish
 

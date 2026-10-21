@@ -7,8 +7,8 @@ tell which was actually biting, because nothing recorded how long a request took
 Guessing wrong there means fixing three things that were fine and leaving the one
 that was not.
 
-So this records, to ``runtime/logs/slow.log``, any request over a threshold, with
-the path, the method, the status and the duration. Nothing else: a full access
+So this records, to ``runtime/logs/slow-<date>.log`` (one file a day), any
+request over a threshold, with the path, the method, the status and the duration. Nothing else: a full access
 log on a race-office PC serving video would be large and would itself cost
 something, and the fast requests are not the ones in question.
 

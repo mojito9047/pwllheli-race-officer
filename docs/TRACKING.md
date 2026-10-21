@@ -20,13 +20,16 @@ private simply by leaving it disabled.
 
 ## How it fits together
 
-Boats carry Queclink **GL521MG** LTE trackers. They report to a **Traccar** server on the
-relay; the hut app pulls positions from Traccar over the internet (outbound only — no open
-port on the hut PC). See [`deploy/live_stream/README.md`](../deploy/live_stream/README.md)
-section 7 for the one-time relay/Traccar setup and the single inbound port the trackers need.
+Boats carry LTE trackers: the club runs five Teltonika **ATC700s** (Traccar protocol
+`teltonika`, port 5027) and two Queclink **GL521MGs** (`gl200`, port 5004).
+[`TRACKERS.md`](TRACKERS.md) compares them and gives each one's settings. They report to a
+**Traccar** server on the relay; the hut app pulls positions from Traccar over the internet
+(outbound only — no open port on the hut PC). See
+[`deploy/live_stream/README.md`](../deploy/live_stream/README.md) section 7 for the one-time
+relay/Traccar setup and the inbound ports the trackers need, one per make.
 
 ```
-GL521MG ──▶ Traccar (relay) ──push (forward)──▶ hut app ──▶ map + finish detection
+tracker ──▶ Traccar (relay) ──push (forward)──▶ hut app ──▶ map + finish detection
                             └─pull (REST poll)─┘   safety net + back-fill
 ```
 
@@ -54,12 +57,13 @@ Positions reach the app two ways, and both are wanted:
 With push working you can raise the poll interval to about 30 seconds; it is no longer
 carrying the latency.
 
-**Coverage & accuracy reality:** tracking is cellular (LTE Cat M1/NB2 with 2G fallback), so it
-thins offshore; and the GL521MG is a battery asset tracker built for very long standby, so its
-default reporting is far too coarse for finish order. Set a **frequent reporting interval on
-race days** — and expect to **charge the units between race days**, because a rate fast enough
-to time a line crossing costs a large multiple of the standby drain. Treat GPS finishes as
-proposals to confirm: the finish video is the arbiter.
+**Coverage & accuracy reality:** tracking is cellular, so it thins offshore; and both models
+are battery asset trackers built for long standby, so their default reporting is far too coarse
+for finish order. Set a **frequent reporting interval on race days** — and expect to **charge
+the units between race days**, because a rate fast enough to time a line crossing costs a large
+multiple of the standby drain: an ATC700 at 10 s uses about 10% of its battery an hour, and the
+GL521MG cannot report faster than once a minute ([`TRACKERS.md`](TRACKERS.md) has the figures).
+Treat GPS finishes as proposals to confirm: the finish video is the arbiter.
 
 **What the delay is made of.** A recorded finish *time* does not depend on how quickly the
 app hears about a fix — crossings are interpolated between fix timestamps — but the automatic

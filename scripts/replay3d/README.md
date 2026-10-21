@@ -24,12 +24,14 @@ on different machines:
 - **`core/replay3d.py`** is the hut half, because it is the half that needs the database.
   It imports no Blender, no PIL, no GeoTIFF reader and nothing from `scripts/`, so it ships
   with the app.
-- **`scripts/replay3d/*`** is the renderer half. Every file there imports nothing from
-  `core/`, which is what lets a render machine hold a copy of this folder, Blender, and no
-  app at all.
-- **`export_race.py`** is a developer's way in to both from one command, and the home of
-  the things a hut has no business doing: decoding a digital elevation model, draping
-  imagery, downloading clips, drawing cards.
+- **`scripts/replay3d/*`** is the renderer half. Apart from `export_race.py`, nothing there
+  needs the app: `renderer.py` takes two modules from `core/`, the S3 signer (`core/r2.py`)
+  and the bucket contract it shares with the hut (`core/replay3d_protocol.py`), and the rest
+  take none. That is what lets a render machine run it with Blender and never start the app.
+- **`export_race.py`** is a developer's way in to both from one command. It imports the app,
+  and it does by hand the things a hut has no business doing: the terrain from a DEM you
+  give it, draped imagery, downloading clips, drawing cards. For a job the renderer does
+  the same for itself (`assets.py`, `terrain.py`, `cards.py`).
 
 A scene deliberately carries no terrain, and names none. Fifty-four thousand height
 samples in every job would be silly, and the coastline is the same for every race at one
@@ -45,6 +47,10 @@ or more, and satellite tiles at the zoom that keeps them to a dozen across. The 
 square cut out of it and tucks under its edge. Without it, a race with land all round -- the
 Mersey -- showed the land stopping in straight lines and sea running on to the horizon
 behind it.
+
+That is the renderer's land (`assets.py`), and both parts are stitched from every
+one-degree elevation tile the area touches. `export_race.py --dem` builds only the detailed
+grid, from the one GeoTIFF it is given (see Terrain).
 
 ### The job and the status beside it
 
@@ -105,12 +111,16 @@ before the first start and after the last finish (300 / 120), `--out` path, and 
 | key | what |
 |-----|------|
 | `origin` | lat/lon of the course-mark centroid; every `xy` is metres east/north of it, using the same projection as `core.track` |
+| `extent_m` | how far the course, the lines and the tracks reach from the origin; the sea plane, the haze and the land are all sized from it |
 | `time` | window start (`t0_epoch`), `first_start_rel`, `duration_s`, `step_s` |
 | `marks` | every mark with a position that day (`core.track.race_marks`), `in_course` flagged |
 | `course` | the expanded course points after any shortening, ending at the finish line's midpoint |
+| `start_line` | the line that race started on (`start_line_points`), which is not always the finish line |
 | `finish_line` | the line that race was sailed to (`race_finish_line_points`) |
-| `wind` | mean true wind over the window from the hut's samples, else the course's design wind |
+| `wind` | true wind over the window from the hut's samples: the mean, and a `series` binned every 30 s that the sails, heel and kite follow; else the course's design wind |
 | `boats` | per tracked entry: `samples` of `[t_rel, x, y, heading_deg, speed_kn]`; `null` x/y where the boat was out of sight |
+| `results` | the closing card's tables, from `core.series`: IRC and YTC for a standard race, one table for a pursuit race, else the finishing order |
+| `club` | `name`, the club's name from Settings, for the cards |
 | `terrain` | optional height grid: `x0, y0, cell_m, nx, ny, heights[]` (row-major, south row first), plus draped `imagery` and its required `credit` |
 | `videos` | optional hut-camera clips: window on the replay clock, where the event falls inside the file, duration and frame rate |
 
@@ -235,37 +245,17 @@ What is in the scene:
   settles over the finish. Both are drawn by `cards.py` with PIL at the film's own
   resolution: the title on the instrument ground with the club's mark, and the results as a
   broadcast timing tower, dark and staged, each boat carrying the hull colour it wore round
-  the course and everyone behind the winner shown as a corrected-time gap. The result comes
-  from `core.series`, so it says what the results page says. The app's own tables are
+  the course and everyone behind the winner shown as a corrected-time gap. Both carry the
+  club's name from the scene file (`club.name`). The result comes from `core.series`, so it says
+  what the results page says: a standard race is scored in both IRC and YTC and the card
+  shows both tables, a pursuit race shows one. Up to four tables fit, and a fleet too long
+  for the card is cut short and says how many more there were. The app's own tables are
   deliberately plain because they are documents; this is the end of a film.
 - **Cameras** — see below.
 
 ### The overlay
 
 Boat names, mark numbers, the clock, the course board, the credit line and the cards are
-### What compositing costs, and why it is split up
-
-The compose stage was 51 ms a frame, and **54% of that was converting a picture into the
-same picture**: `frame.to_image()` takes a slow path from YUV to RGB and PIL then copies the
-whole frame again to add an alpha channel. Asking swscale for RGBA in one pass and letting
-PIL wrap the buffer is **0.61 ms against 11.25**, and byte-identical.
-
-What is left is PIL drawing the overlay (about 15 ms), the conversion back out (about 8 ms,
-which is already the fastest of the three ways tried) and x264. So the stage is CPU-bound and
-single-threaded on a machine whose graphics card has just gone idle, which is why
-`render_parallel.py` composes it in **slices** -- one per core up to `MAX_COMPOSE_SLICES`,
-joined afterwards by `concat_mp4` copying packets rather than encoding twice. Each slice
-encodes independently, so each opens on a keyframe and the join is sound.
-
-Frame numbers stay absolute inside a slice, so the clock, the hut-camera inset and the cards
-draw exactly what they would have drawn in one pass. The check that matters is not that the
-films are identical -- each slice starts a fresh GOP, so h264 makes different choices -- but
-that nothing spikes at a slice boundary.
-
-The slices share out the encoder threads between them. Left to take every core each, eight
-slices would ask for eight times the machine's threads and spend the difference context
-switching.
-
 **not in the 3D scene**. They are drawn in pixels by `overlay.py` while `compose_film.py`
 assembles the film. They used to be geometry parented to whichever camera was live, and
 that was wrong three ways over, all of which showed:
@@ -306,6 +296,29 @@ The style is the app's race-document one: the instrument panel (near-black, thin
 `runtime/replay3d/fonts/` (needs `pip install fonttools brotli`; SIL OFL); without them
 PIL's built-in face is used.
 
+### What compositing costs, and why it is split up
+
+The compose stage was 51 ms a frame, and **54% of that was converting a picture into the
+same picture**: `frame.to_image()` takes a slow path from YUV to RGB and PIL then copies the
+whole frame again to add an alpha channel. Asking swscale for RGBA in one pass and letting
+PIL wrap the buffer is **0.61 ms against 11.25**, and byte-identical.
+
+What is left is PIL drawing the overlay (about 15 ms), the conversion back out (about 8 ms,
+which is already the fastest of the three ways tried) and x264. So the stage is CPU-bound and
+single-threaded on a machine whose graphics card has just gone idle, which is why
+`render_parallel.py` composes it in **slices** -- one per core up to `MAX_COMPOSE_SLICES`,
+joined afterwards by `concat_mp4` copying packets rather than encoding twice. Each slice
+encodes independently, so each opens on a keyframe and the join is sound.
+
+Frame numbers stay absolute inside a slice, so the clock, the hut-camera inset and the cards
+draw exactly what they would have drawn in one pass. The check that matters is not that the
+films are identical -- each slice starts a fresh GOP, so h264 makes different choices -- but
+that nothing spikes at a slice boundary.
+
+The slices share out the encoder threads between them. Left to take every core each, eight
+slices would ask for eight times the machine's threads and spend the difference context
+switching.
+
 ### Branding
 
 The film carries the club's marks the same way its start and finish videos do: the club
@@ -322,7 +335,11 @@ python scripts/replay3d/export_race.py --race 69     --branding-url https://pro.
 
 Without `--branding-url` it uses `MANIFEST_URL` if that is set, and otherwise the public
 address saved in the data it is reading (`--backup` or `--data` included), which is the
-address the hut itself would put in a render job. There is no built-in club.
+address the hut itself would put in a render job. Only the renderer has no built-in club.
+`export_race.py`, being the developer's path, still falls back to this checkout's own logo:
+its title and results cards always take `data/branding/club_logo.png`, else
+`static/img/pwllheli_sailing_club_logo.png`, whatever the manifest or the backup says, and
+`--branding-dir` uses the same fallback when its folder names no club logo.
 
 `https://hut-origin.pwllhelisailingclub.org/api/branding/live` answers today as well, but
 do not depend on it: that hostname is the relay's own way in to the hut and the September
@@ -337,7 +354,8 @@ manifest too, so the film and the live stream stay in step.
 It deliberately does **not** read the logos out of a hut backup. Backups are encrypted, and
 nothing about making a film should need the backup key to travel to a render machine.
 `--branding-dir` is there for a caller who already holds the images unencrypted and wants
-to work offline; without either, the film simply carries no branding.
+to work offline; without either, the film carries no burgee or sponsors (the exporter's
+cards keep the fallback logo above).
 
 One wrinkle inherited from the club's own output: a sponsor supplied as a JPEG has no
 transparency, so it shows as a white panel. The same is true of the start and finish
@@ -420,9 +438,9 @@ the line would put the camera over land (checked against the terrain grid). Both
 
 `export_race.py --videos` adds the race's start and finish clips to the export, and the
 builder shows each one bottom right while the replay clock is inside the window it covers,
-captioned with its kind and event time. Evidence video is deliberately left out of backups,
-so a clip's file is taken from the data directory when it is there and otherwise fetched
-from the public copy the app published to the club's CDN, cached under
+captioned with its kind and event time. Only clips the app has published to the club's
+bucket are listed, because a render machine cannot reach the hut and evidence video is
+deliberately left out of backups; their public copies are downloaded and cached under
 `runtime/replay3d/video/race_<id>/`.
 
 Two things the app already knew and this reuses rather than re-deriving:
@@ -476,7 +494,7 @@ builds once, exports one boat's hull parts to GLB at the origin, and rebuilds wi
 `--boat-model`. Export the model **at the origin**: the importer measures the model's
 bounding box to scale it, and a hull parked a kilometre away measures a kilometre long.
 
-Render settings are pre-set to 1920×1080 EEVEE at 16 samples, H.264 MP4 into
+Render settings are pre-set to 1920×1080 EEVEE at 8 samples, H.264 MP4 into
 `runtime/replay3d/renders/`. Nothing is rendered by `build()` itself.
 
 ## Step 3 — render the film
@@ -491,7 +509,7 @@ blender -b --python scripts/replay3d/build_scene.py -- runtime/replay3d/race_457
 
 `--render` builds the scene and renders the whole animation; `--out PATH` overrides the
 output prefix. Progress is written to `<output>.progress.log` beside the MP4 (a line at
-the start, every 50 frames with an ETA, and on completion or failure), because the
+the start, every 25 frames with an ETA, and on completion or failure), because the
 Microsoft Store build of Blender can only be started through `blender-launcher.exe`,
 which shows no console. From PowerShell that looks like:
 
@@ -632,5 +650,5 @@ own renders with attribution.
 
 ## Tuning
 
-Constants at the top of `build_scene.py`: `BOAT_SCALE`, `BUOY_RADIUS_M`, `LABEL_SIZE_M`,
+Constants at the top of `build_scene.py`: `BOAT_SCALE`, `BUOY_RADIUS_M`, `LABEL_PER_METRE`,
 `MAX_HEEL_DEG`, `TERRAIN_Z_SCALE`, `PALETTE`, `FPS`, `DEFAULT_SPEED`.

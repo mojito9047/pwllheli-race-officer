@@ -12,10 +12,11 @@ renders. The hut cannot render a film in a useful time and should not try; it
 produces this file, puts it where a render machine can find it, and waits.
 
 What it deliberately leaves out are the things that are the same for every race
-at one club: the terrain grid and the satellite imagery draped on it. Those are
-built once by ``scripts/replay3d`` and uploaded as shared assets, and a scene
-refers to them by name. Carrying a 54,000-point height grid in every job would
-be silly, and it would put GeoTIFF decoding on the hut for no reason.
+at one club: the terrain grid and the satellite imagery draped on it. A scene
+carries neither and names neither: the render machine works out which map tiles
+the origin and ``extent_m`` cover and keeps them in a cache of its own
+(``scripts/replay3d/assets.py``). Carrying a 54,000-point height grid in every
+job would be silly, and it would put GeoTIFF decoding on the hut for no reason.
 
 Coordinates: x is metres east and y metres north of the origin, the centroid of
 the course marks. The projection is the same equirectangular one core.track
@@ -637,8 +638,8 @@ def build_scene(race_id: int, *, step_s: float = DEFAULT_STEP_S, lead_s: float =
                 tail_s: float = DEFAULT_TAIL_S, videos: bool = True) -> Dict[str, Any]:
     """One race as a scene file: marks, course, lines, wind, tracks, results.
 
-    Terrain and imagery are not here; a scene names the shared assets it wants
-    and the renderer fetches those separately.
+    Terrain and imagery are not here: the origin and ``extent_m`` say where the
+    race was, and the render machine fetches and caches the tiles for it.
     """
     race = get_race(race_id)
     if race is None:

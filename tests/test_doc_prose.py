@@ -137,7 +137,7 @@ class TestTheWorkedExamplesAreCurrent:
             python - <<'X'
             import pathlib, re
             v = pathlib.Path("VERSION").read_text().strip().replace(".", "_")
-            for f in ("docs/GETTING_STARTED_WINDOWS.md", "docs/DEPLOYMENT_WINDOWS.md"):
+            for f in ("docs/DEPLOYMENT_WINDOWS.md", "docs/INSTALLATION.md"):
                 p = pathlib.Path(f)
                 p.write_text(re.sub(r"pwllheli_[a-z_]+_v[\\d_]+", f"pwllheli_race_officer_v{v}",
                                     p.read_text(encoding="utf-8")), encoding="utf-8")
@@ -145,7 +145,7 @@ class TestTheWorkedExamplesAreCurrent:
         """
         version = (REPO / "VERSION").read_text(encoding="utf-8").strip()
         folder = "pwllheli_race_officer_v" + version.replace(".", "_")
-        for name in ("docs/GETTING_STARTED_WINDOWS.md", "docs/DEPLOYMENT_WINDOWS.md"):
+        for name in ("docs/DEPLOYMENT_WINDOWS.md", "docs/INSTALLATION.md"):
             stale = {m for m in re.findall(r"pwllheli_(?:ro_mvp|race_officer)_v[\d_]+", docs[name]) if m != folder}
             assert not stale, f"{name} names {sorted(stale)}; this release unpacks into {folder}"
 

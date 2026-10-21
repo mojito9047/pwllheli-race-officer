@@ -58,7 +58,7 @@ def branding_from_api(dest, url: str, timeout: float = 10.0) -> Optional[Dict[st
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             manifest = json.loads(resp.read().decode("utf-8"))
     except Exception as ex:
-        print(f"  branding: hut api unreachable ({type(ex).__name__}); using the data directory")
+        print(f"  branding: hut api unreachable ({type(ex).__name__}); no logos from the manifest")
         return None
     if not manifest.get("enabled"):
         print("  branding: the club has it switched off")

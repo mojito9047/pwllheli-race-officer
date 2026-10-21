@@ -81,7 +81,7 @@ if ($NeedsSettings -or $checkFailed) {
     if ($NeedsSettings) {
         Write-Host "  1. Put the club's settings in:"
         Write-Host "       $EnvFile"
-        Write-Host "     The five R2 values come from the app's Settings -> Video page,"
+        Write-Host "     The five R2 values come from the app's Settings -> Cloud storage (Cloudflare R2),"
         Write-Host "     and they must match it exactly or this machine will sit here"
         Write-Host "     seeing no work for ever."
     }

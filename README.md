@@ -76,7 +76,7 @@ Setup, hardware, video, tracking, the public pages and the rest are listed under
 - Recommends a course from live start-hut wind, the selected boat polar, sail chart and a target race duration; or build a made-up course by hand from marks. Compound marks such as `Y` and `A` stay compact on the course board but expand into their physical corners for charting and leg analysis.
 - Draws the course chart with the CHPSC Bridge-to-ODM start/finish line and a live wind overlay.
 - Stores the **first warning signal**; the first start is warning + 5 minutes. Runs RRS 26-style warning, preparatory, one-minute and start signals for up to six planned starts, with rating-band classes assigned graphically to each.
-- Displays the numeral class pennants and P flag that are currently up, in both the race-office and public flag panels.
+- Displays the numeral class pennants and P flag that are currently up, and AP while a race is postponed, in both the race-office and public flag panels.
 - **Shortens the course** at a mark mid-race: Code flag S shows, the chart redraws to end there, and GPS progress and finishes follow the shortened course.
 - Runs **pursuit races**, with per-boat start times derived from the rating system and a finishing-order result.
 
@@ -85,21 +85,23 @@ Setup, hardware, video, tracking, the public pages and the rest are listed under
 - Boat database with IRC and YTC ratings, looked up from the configured RORC/TopYacht and YTC sources.
 - Ratings are **snapshotted onto race entries** when a boat is added, and are editable per race. Boat-database changes never rewrite an existing entry.
 - IRC and YTC results split by rating-band class, series scoring with a per-series discard profile and Appendix A tie-breaks, and entries kept synchronised across the races in a series.
-- Exports a standalone Sailwave-style HTML file for the club website.
+- Exports a standalone Sailwave-style HTML file for the club website, or publishes it straight to the club's bucket and gives a link to paste.
 
 **On the water**
 
-- **GPS tracking** of the fleet from Queclink trackers via a Traccar relay — the boats on the course chart, a *Position on the water* list, and finish-line crossings detected to propose or auto-confirm finishes. A phone running Traccar Client works as a tracker too. See [`docs/TRACKING.md`](docs/TRACKING.md).
+- **GPS tracking** of the fleet from Teltonika ATC700 and Queclink GL521MG trackers via a Traccar relay — the boats on the course chart, a *Position on the water* list, and finish-line crossings detected to propose or auto-confirm finishes. A phone running Traccar Client works as a tracker too. See [`docs/TRACKING.md`](docs/TRACKING.md).
 - Records **start and finish video** from a USB camera or RTSP stream with FFmpeg, publishes branded web copies to Cloudflare R2, and can draw the real start line on them.
 - **Re-measures a mark that has drifted** — marks can be edited, or set from a phone taken out in a RIB. It matters because everything measured from a mark is measured from the position on file: distance to go, the leg bearings, the chart, and in the end whether a boat is seen to round it. Each race keeps the mark positions it was sailed with, so a correction today does not redraw races already run.
 - Reads the start-hut **weather station** for live wind and a wind history plot.
 - The dashboard carries a **map of the marks and any tracker reporting in the last hour**, so "is anything on the water" is one glance rather than a page change.
 - Monitors **hut power** (Victron VE.Direct) as a separate time-series store.
+- A **Virtual Race Officer** page for running a race from a boat: type an instruction, the app reads back what it would do, and nothing happens until you say **Yes**. Behind login and a per-user permission. See [`docs/VIRTUAL_RACE_OFFICER.md`](docs/VIRTUAL_RACE_OFFICER.md).
 
 **What everyone else sees**
 
 - Public **competitor pages** — one responsive page for phones, tablets and PCs. Its **Chart** tab shows the fleet live, winds back through the race so far and plays it at up to 60x, with a translucent leaderboard rolling up over it.
 - That leaderboard offers the order on the water or an **estimated IRC/YTC corrected order**, projected from its average pace since the start (the default), its pace over the last twenty minutes, or its pace against its polar. Whichever is chosen drives the order *and* the times beside it. It is labelled an estimate, not a result.
+- A **Start photo** tab on the public race page: the hut camera's own photograph at each start signal, a few seconds after the gun, with the start line drawn on it when the buoy can be found.
 - A **clubhouse display** at `/bar` for a television in the club bar: the chart zoomed to the boats still racing, the leaderboards cycling beside it, and the start-hut camera at the start, at each rounding of the ODM and at each finish. No controls — open it once and leave it. See [`docs/BAR_DISPLAY.md`](docs/BAR_DISPLAY.md).
 - A **3D replay film** of a sailed race: the fleet in three dimensions over the real coastline, sailing the course they actually sailed, trimmed to the wind of the moment, with the hut camera cut in at the start and the finishes and the club's own branding on it. The hut PC cannot render a film and does not try — it queues the job in the club's R2 bucket and a render machine elsewhere makes it. Competitors get a link on the public pages and in the published results. See [`docs/RACE_REPLAY_3D.md`](docs/RACE_REPLAY_3D.md).
 - An optional **live camera** view, served on demand through the relay.
@@ -107,7 +109,7 @@ Setup, hardware, video, tracking, the public pages and the rest are listed under
 **Running it**
 
 - **Backup and restore** of the database, settings, courses and marks, polars, branding, GPS tracks, hut power history and optionally the video evidence.
-- A nightly **off-site backup**: the same ZIP, AES-256 encrypted and pushed to a private Cloudflare R2 bucket, held back while racing or while videos are uploading, verified after upload, with its age on the dashboard. See [`docs/DATA_AND_BACKUP.md`](docs/DATA_AND_BACKUP.md).
+- A nightly **off-site backup**: the same ZIP without the saved videos, AES-256 encrypted and pushed to a private Cloudflare R2 bucket, held back while racing or while videos are uploading, verified after upload, with its age on the dashboard. See [`docs/DATA_AND_BACKUP.md`](docs/DATA_AND_BACKUP.md).
 - The bundled markdown documentation **readable in the app**, on the Documentation page, alongside the PDF guides.
 - A daily-rotating **activity log** of who did what, and a race event log.
 - Users and roles (admin / race officer / mark layer), with self-service password change.
@@ -115,9 +117,9 @@ Setup, hardware, video, tracking, the public pages and the rest are listed under
 ## What runs where: the hut PC, the relay and Cloudflare
 
 The app itself is one Windows PC in the start hut, and on a club LAN that is all you
-need. But four of the things above reach beyond that PC — competitors on their phones,
-the live camera, GPS tracking and published video — and those go through a second
-machine the club owns: **the relay**, a small Debian VPS.
+need. But three of the things above reach beyond that PC — competitors on their phones,
+the live camera and GPS tracking — and those go through a second machine the club owns:
+**the relay**, a small Debian VPS.
 
 ```text
   competitors on phones, the bar TV      the boats' trackers
@@ -129,7 +131,7 @@ machine the club owns: **the relay**, a small Debian VPS.
   | THE RELAY   a Debian VPS - the club's single front door   |
   |                                                           |
   |   Caddy      pro.pwllhelisailingclub.org  ->  the hut app |
-  |   MediaMTX   /live - one camera stream, served on demand  |
+  |   MediaMTX   /hut/ - one camera stream, served on demand  |
   |   Traccar    5004 Queclink | 5027 Teltonika | 5055 phone  |
   +-----------------------------------------------------------+
                  |  outbound only, in both directions
@@ -138,7 +140,7 @@ machine the club owns: **the relay**, a small Debian VPS.
                  |
                  +-- the hut camera, on the hut LAN
 
-     Cloudflare R2 - published race videos and the public live JPEG
+     Cloudflare R2 - race videos, the live JPEG, start photos, 3D films, published results
 ```
 
 What the relay is for:
@@ -171,7 +173,7 @@ working copy of the procedures and config beside the files themselves in
 ## Quick start
 
 ```bash
-cd pwllheli_race_officer
+cd pwllheli_race_officer_v1_0xx    # the folder the release ZIP unpacks to; a git clone is pwllheli-race-officer
 python -m venv .venv
 ```
 
@@ -201,6 +203,8 @@ http://localhost:5050/admin
 
 The root page `http://localhost:5050` is the public read-only current-race page.
 
+Login cookies are marked `Secure`, so signing in from another PC over plain `http://` (for example `http://192.168.1.25:5050/admin`) just returns you to the login page. Do race-office work on the hut PC itself or over HTTPS through the Cloudflare Tunnel, or, on a trusted club network only, start the app with `RO_COOKIE_SECURE=0`.
+
 First-run login:
 
 ```text
@@ -225,13 +229,13 @@ If neither `RO_INITIAL_ADMIN_PASSWORD` nor an existing database user is present,
 4. Create a new **Race**. Course and first warning-signal time are set after creation.
 5. On the race page, use **Course & start** to set the first warning-signal time and either recommend, select or build a course.
 6. Check the race start plan. Series races use the series default unless the race override is enabled.
-7. Use **Add entries** to add all active boats, a boat from the database, or a whole fleet/class. In a series, entries are synchronised across all races in that series.
+7. Use **Add entries** to add all active boats or one boat from the database. In a series, entries are synchronised across all races in that series.
 8. Use **Start console & log** to run or supervise the start sequence, horns, recalls and race log.
 9. Use **Entries & finish times** to record finishes and edit race-specific IRC/YTC ratings if a race needs to use a different value from the boat database.
 10. Use **Results** for provisional IRC/YTC corrected results and video-evidence links.
 11. If the wind drops or time runs short, use **Shorten course** to finish the race at a mark.
 12. Open the public competitor page as a pop-out display when required, and put `/bar` on the clubhouse television if the club has one.
-13. From the series page, use **Publish HTML** / **Download HTML** when you need a static results file for the website.
+13. From the series page, use **Publish to website** to put the results online and get a link to paste, or **Download HTML** when you need a static results file.
 
 A printable race-day checklist is in [`docs/OPERATIONAL_CHECKLIST.md`](docs/OPERATIONAL_CHECKLIST.md).
 
@@ -239,11 +243,11 @@ A printable race-day checklist is in [`docs/OPERATIONAL_CHECKLIST.md`](docs/OPER
 
 Detailed documentation is in the `docs/` folder:
 
-- [`docs/GETTING_STARTED_WINDOWS.md`](docs/GETTING_STARTED_WINDOWS.md) — step-by-step Windows setup for novice users.
-- [`docs/DEPLOYMENT_WINDOWS.md`](docs/DEPLOYMENT_WINDOWS.md) — race-hut PC deployment with Windows Scheduled Task auto-start.
+- [`docs/DEPLOYMENT_WINDOWS.md`](docs/DEPLOYMENT_WINDOWS.md) — installing on the hut PC, step by step for somebody new to Python: from installing Python to the app starting by itself at login, then running it day to day and upgrading.
 - [`docs/INSTALLATION.md`](docs/INSTALLATION.md) — installation, first run and upgrade notes.
 - [`docs/OPERATIONAL_CHECKLIST.md`](docs/OPERATIONAL_CHECKLIST.md) — race-day checks before, during and after racing.
 - [`docs/RACE_OFFICER_WORKFLOW.md`](docs/RACE_OFFICER_WORKFLOW.md) — normal race-day workflow.
+- [`docs/VIRTUAL_RACE_OFFICER.md`](docs/VIRTUAL_RACE_OFFICER.md) — the Virtual Race Officer: running a race from a boat by typed instructions.
 - [`docs/SETTINGS_AND_ADMIN.md`](docs/SETTINGS_AND_ADMIN.md) — settings sections and administration.
 - [`docs/CLUB_CUSTOMISATION.md`](docs/CLUB_CUSTOMISATION.md) — setting the app up for another club: its marks and line, its name and logos, and what stays Pwllheli's.
 - [`docs/CLASSES_AND_STARTS.md`](docs/CLASSES_AND_STARTS.md) — IRC/YTC rating-band classes, start plans and series entry synchronisation.
@@ -252,6 +256,7 @@ Detailed documentation is in the `docs/` folder:
 - [`docs/FLAGS_AND_START_SEQUENCE.md`](docs/FLAGS_AND_START_SEQUENCE.md) — dynamic flag model and scheduled signal plan.
 - [`docs/VIDEO_RECORDING.md`](docs/VIDEO_RECORDING.md) — FFmpeg, camera setup, live preview and video troubleshooting.
 - [`docs/TRACKING.md`](docs/TRACKING.md) — GPS yacht tracking, *Position on the water* and automated finishes.
+- [`docs/TRACKERS.md`](docs/TRACKERS.md) — the trackers themselves: the ATC700 and GL521MG compared, their settings, battery and accuracy.
 - [`docs/Pwllheli_Relay_Guide.pdf`](docs/Pwllheli_Relay_Guide.pdf) — **the relay**: the single machine the club is reached through (front door, live camera, Traccar, visitor logging). Working copy of the procedures: [`deploy/live_stream/README.md`](deploy/live_stream/README.md).
 - [`docs/WEATHER_STATION.md`](docs/WEATHER_STATION.md) — start-hut weather station setup.
 - [`docs/PUBLIC_COMPETITOR_PAGE.md`](docs/PUBLIC_COMPETITOR_PAGE.md) — the public competitor home and race pages.
@@ -282,9 +287,10 @@ app.py                    Flask app core: setup, auth/CSRF/session, settings for
 routes/                   The HTTP route handlers, split out of app.py
 core/                     Domain and hardware logic: db, scoring, courses, weather, video, tracking, ...
 data/                     Database, courses, marks, sail charts, polars, branding and saved video clips
+club_configs/             Other clubs' marks, courses and lines, as worked examples; not in the release
 runtime/                 Temporary caches, video buffer, live preview, FFmpeg and activity logs
-deploy/                   Race-hut PC deployment scripts, and the relay (Traccar, live stream)
-scripts/                  Documentation tooling: PDF builders, screenshot capture, simulators, verifiers
+deploy/                   Race-hut PC scripts, the relay (Traccar, live stream), the 3D render machine, the website camera embed
+scripts/                  Developer tooling (PDF builders, screenshots, simulators, verifiers), and replay3d/, the 3D film renderer
 static/                   CSS, JavaScript, images and icons
 templates/                Flask/Jinja web templates
 tests/                    pytest suite
@@ -299,7 +305,7 @@ docs/                     User, operations and technical documentation, and the 
 - Server/race-office PC time is used for start/finish timing and video timestamps. The PC should be GPS/NTP-disciplined before racing.
 - Live wind is the **wind at the hut**, not necessarily the wind across the whole course.
 - Camera/video evidence is advisory and should be reviewed by the race officer.
-- The visual flag panel shows the app’s current signal-plan state; recall/postponement/abandonment flag states are still manually managed by the race officer.
+- The visual flag panel shows the app’s current signal-plan state, including AP postponements; recall and abandonment flags are not shown there and are still managed by the race officer.
 
 ## Safety notes
 

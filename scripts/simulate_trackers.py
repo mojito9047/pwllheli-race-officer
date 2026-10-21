@@ -71,7 +71,7 @@ def load_finish_line(data_dir, key=None):
 
     The club sails to more than one line: the default `psc` line runs from the ODM
     (mark O) to the bridge window, and `isora_plas_heli` runs from the Pwllheli
-    Fairway Buoy (mark F) to a point off Plas Heli — 1172 m away from the ODM. The
+    Fairway Buoy (mark F) to a point off Plas Heli — 1275 m away from the ODM. The
     boats start and finish across whichever line the *race* is set to, so the
     simulator has to be told which one, or it sails to the club line and a race set
     to the ISORA line never sees a finish at all. On course 1 the simulated path

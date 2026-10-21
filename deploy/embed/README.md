@@ -2,7 +2,7 @@
 
 `club_website_camera.html` is a self-contained page showing the view from the
 start hut, for `https://pwllhelisailingclub.co.uk`. Upload it anywhere on the
-club site and embed it:
+club site and embed it, with `src` changed to wherever you put it:
 
 ```html
 <iframe src="/club_website_camera.html" title="Start hut camera"
@@ -11,8 +11,9 @@ club site and embed it:
         allow="autoplay; fullscreen"></iframe>
 ```
 
-No libraries, fonts, cookies or trackers, and nothing loaded from any other
-host.
+No libraries, fonts, cookies or trackers. The stills and the live page are both
+served through the club's relay at `pro.pwllhelisailingclub.org`; nothing third-party
+is loaded.
 
 ## How it behaves, and why
 
@@ -23,7 +24,7 @@ That split follows who pays for what:
 
 | | Comes from | Cost of another viewer |
 | --- | --- | --- |
-| A still, 88 KB | the **hut**, over a domestic line also recording the racing | another 88 KB per refresh, off the hut |
+| A still, 88 KB | the **hut**, over its 4G link, which also carries the racing | another 88 KB per refresh, off the hut |
 | The stream | the **relay**, fanned out by Cloudflare | nothing — MediaMTX pulls the camera once however many are watching |
 
 So the first person to look starts the stream and pays for a handful of stills
@@ -33,8 +34,10 @@ none for as long as the video plays.
 
 It also stops entirely while the tab is in the background or scrolled out of
 sight, which is how the relay learns nobody is watching and drops the stream —
-and after fifteen minutes it stops and waits to be asked, so a page left open
-on a kitchen tablet is not holding the camera open all afternoon.
+and after fifteen minutes on screen it stops and waits to be asked, so a page
+left open on a kitchen tablet is not holding the camera open all afternoon.
+That timer runs whether or not the video is playing. It used to ride on the
+stills, which stop once the video plays, so a playing stream never stopped.
 
 ### The three cases
 
@@ -65,33 +68,27 @@ header Content-Security-Policy "frame-ancestors 'self' https://*.pwllhelisailing
 ```
 
 Both the bare domain and `www` are there because either may serve the page and
-they are separate origins. To apply it on the relay:
+they are separate origins. To apply it on the relay, follow
+`deploy/live_stream/README.md` §5a. Diff the live `/etc/caddy/Caddyfile` against
+the repository's first: it carries edits of its own, the `/stats` block among
+them, and if it does, add the `frame-ancestors` line by hand rather than copying
+the file over it.
 
-```bash
-cd /opt/relay-config && git pull
-sudo install -m 0644 deploy/live_stream/Caddyfile /etc/caddy/Caddyfile
-sudo caddy validate --config /etc/caddy/Caddyfile
-sudo systemctl reload caddy
-```
-
-(See `deploy/live_stream/README.md` §5a for the canonical version of those
-steps.)
-
-**If the video never appears and the stills carry on for ever, this is the first
-thing to check.** In the browser console on the club site you will see a
-`frame-ancestors` refusal.
+**If the video never appears and the caption says the live view is unavailable
+here, this is the first thing to check.** In the browser console on the club site
+you will see a `frame-ancestors` refusal.
 
 ## Still worth doing: publish the stills to R2
 
 The stills come from the hut, and although only the first viewer needs them,
 that is still the hut's uplink during the seconds when several people arrive at
-once. The app can publish the same picture to Cloudflare R2 instead. It is
-currently **switched off** — `/public/video/status` reports
-`public_live_r2: enabled: false`.
+once. The app can publish the same picture to Cloudflare R2 instead.
+`/public/video/status` says whether it is on: `public_live_r2: enabled`.
 
-Turning it on (Settings → Video, public live image → R2, with the credentials
-already there for video publishing) and pointing `data-snapshot-src` at the R2
-URL removes the hut from the picture entirely, in every state.
+Turning it on (Settings → Video Recording → **Public live image**: *Upload latest
+JPEG to Cloudflare R2*, with the bucket and keys under **Cloud storage (Cloudflare
+R2)**) and pointing `data-snapshot-src` at `…/live/latest_public.jpg` in that
+bucket removes the hut from the picture entirely, in every state.
 
 ## Settings on the page
 
@@ -104,4 +101,4 @@ On the `<figure>`:
 | `data-snapshot-refresh-ms` | `4000` | brisk, because it only runs for a few seconds |
 | `data-blocked-ms` | `8000` | silence this long means the frame was refused |
 | `data-starting-ms` | `120000` | how long to let MediaMTX spin up before showing the player anyway |
-| `data-idle-stop-ms` | `900000` | give up after this and wait to be asked |
+| `data-idle-stop-ms` | `900000` | after this long on screen, playing or not, stop and wait to be asked |

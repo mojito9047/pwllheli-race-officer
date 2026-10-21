@@ -33,12 +33,15 @@ fresh clone. Run them from the repo root, e.g. `python scripts/build_release_zip
 | `capture_track_screens.py` | GPS-tracking figures, incl. the Course & start tab → `screenshots/`. Also needs `RO_CAP_RACE_ID`. |
 | `capture_v253_screens.py` | Dashboard, tracker-battery warning and activity log → `screenshots/`. Two sources: `RO_CAP_BASE` for the dashboard, `RO_CAP_DEMO_BASE` for the two that must not show real data. |
 | `capture_video_splits.py` | The `s_video_1/2/3` crops of the video settings section → `ref_screens/`. |
-| `capture_crops.py` | The `crop_*` figures and `marks_top.png`, cut from the element each one is a picture of. These used to be cropped by hand in Pillow, so re-cutting them meant pixel offsets nobody had written down — and once a page grew, the old offsets framed the wrong thing. Note `crop_classes` is the **discards** section and `crop_classes2` the rating bands, which is the other way round from how they read. |
+| `capture_crops.py` | The `crop_classes`, `crop_classes2`, `crop_startplan` and `crop_course_*` figures and `marks_top.png`, cut from the element each one is a picture of. These used to be cropped by hand in Pillow, so re-cutting them meant pixel offsets nobody had written down — and once a page grew, the old offsets framed the wrong thing. Note `crop_classes` is the **discards** section and `crop_classes2` the rating bands, which is the other way round from how they read. |
 | `capture_competitor_screens.py` | Public competitor pages → `competitor_screens/`. |
 | `capture_pursuit_screens.py` | Pursuit race/console/public screenshots. |
 | `capture_power_screens.py` | Hut-power dashboard card / history / settings. |
 | `capture_entries_tab.py` | The entries tab screenshot. |
 | `capture_onwater_screens.py` | The Virtual Race Officer page → `ref_screens/`, as two phone screens of one conversation: three courses offered as numbered cards, then the second chosen and read back, waiting for Yes. Needs **no running app** and writes to no database of yours: it runs the app in-process against a sanitised copy of the newest backup in `HutData/` (the same copy `eval_vro.py` uses) and answers the browser's every request from it. The interpreter is a script returning what a model would for those sentences, so the figure costs nothing and comes out the same every time; the look-up, the cards, the checks and the read-back are the app's own. |
+| `capture_postpone_screens.py` | The Start console & log tab (`10_race_tab3_start.png`) and AP flying (`race_tab_start_postponed.png`) → `screenshots/`. It postpones race `RO_CAP_RACE_ID` (default 1) by writing straight into `RO_CAP_DB` (default `data/race_officer.db`), so that must be the database the app at `RO_CAP_BASE` is running on. The race and its first entry are put back as it found them. |
+| `capture_start_photo_screen.py` | The public Start photo tab at phone size → `competitor_screens/07_race_start_photo_mobile.png`. Needs **no running app**: it runs the app in-process from a throwaway copy of `data/` with one finished race seeded into it, serves it on 127.0.0.1:5059, and downloads race 90's published start photo from `assets.pwllhelisailingclub.org`, so it needs the internet. |
+| `capture_theme_refresh.py` | The figures no other capture script owns: `crop_login` and the `crop_results_*` pair → `screenshots/`, and `marks_compound`, `marks_edit`, `marks_top_check`, `marks_ping` and `s_polars_top` → `ref_screens/`. It also re-takes `dash_battery_warning.png` and `activity_log.png`, staging the flat battery by writing two low-battery fixes into the `track_positions.db` beside `RO_CAP_DB`. **Run it against a sandbox only, never the race-office PC**: there those fixes would land on a real boat's track and raise a real battery warning, and the activity-log figure would show the club's trackers by IMEI in a published PDF. |
 
 ### Simulate & verify
 
@@ -50,7 +53,12 @@ fresh clone. Run them from the repo root, e.g. `python scripts/build_release_zip
 | `verify_leaderboard.py` | Measure how good the predicted leaderboard is. See [Measuring the predicted leaderboard](#measuring-the-predicted-leaderboard). |
 | `compare_rounding_tests.py` | Compare ways of deciding a boat has rounded a mark, over recorded tracks. See [Re-examining how a rounding is decided](#re-examining-how-a-rounding-is-decided). |
 | `tracker_latency.py` | How late each tracker's fixes reach Traccar, and whether a change to one of them helped. See [Measuring tracker delay](#measuring-tracker-delay). |
+| `eval_vro.py` | Score the Virtual Race Officer against the sentences people actually type: the real interpret endpoint and the model configured on this dev box, against a copy of the newest hut backup in `HutData/` (`--zip` for another) with every credential blanked and everything outbound switched off. Only the interpret endpoint is called, never the confirm. The model calls cost a few pence a run. `--repeat N`, `--only TEXT`, `--model`, `--base-url`, `--json FILE`. |
+| `verify_assistant_model.py` | How well the configured model reads race-officer commands, over a fixed list of sentences. `--grammar` scores the built-in fallback instead; `--repeat N`, because a model is not deterministic. Nothing is executed, so it is safe against the live database, but it needs an API key and every run costs a little. |
 | `fix_track_misattribution.py` | Detach one tracker's fixes from a boat they were never that boat's fixes &mdash; a device paired to one boat while physically aboard another. Dry run by default; it reports day by day which boat the device was really sitting on, measured against that boat's own tracker. Symptom and worked example: [`docs/TROUBLESHOOTING.md`](../docs/TROUBLESHOOTING.md). |
+| `refile_race_finishes.py` | Move a day's finishes, horn events and video clips off the race they were recorded against by mistake (`--from ID`) onto the race actually sailed (`--to ID`), renaming each clip's files and bucket key to what the app would have called them. `--restore-from <backup ZIP or .db>` also puts the wrong race back as a pre-incident backup has it. Dry run without `--apply`. Run it on the hut, after a backup; the bucket objects themselves are copied and the old ones deleted separately. Written for 19 September 2026, when race 87 was scored against race 1. |
+| `make_start_photos.py` | One-off: start photos for races sailed before the app took them (v1.014), cut from each start's evidence clip with the line and club logo drawn on, then uploaded and recorded against the start clip. Run **on the hut** with the installed app's own Python: `make_start_photos.py <app folder> --series N`, with `--race ID` to limit it, `--redo` to replace a photo, and `--preview <folder>` to write them out and upload and record nothing. Needs the app at v1.016 or later. |
+| `use_hut_data.py` | Run the dev box against a copy of the hut's databases (`--from <folder>`), with the credentials blanked and recording, horns, audio, uploads and ingest switched off the moment they are copied in, so it cannot act on the club's services. Your own databases are kept beside them as `*.devcopy`; `--restore` puts them back. Do that before taking screenshots: the guides are photographed from your own database. Stop the app first: it refuses while anything holds a database open. |
 
 ### 3D replay
 
@@ -91,16 +99,25 @@ fresh clone. Run them from the repo root, e.g. `python scripts/build_release_zip
    ```
    python scripts/build_release_zip.py
    ```
-   Produces `pwllheli_race_officer_v<version>.zip` in the repo root. It excludes `.git`, `.venv`,
-   `runtime`, `__pycache__`, the three SQLite databases, saved video clips
-   and previously built ZIPs — and, by relative path, the two folders of **vendor
-   manuals**: `docs/hardware` (start-hut hardware, ~84 MB) and `docs/Trackers` (tracker
-   protocol and command manuals, ~47 MB). Both are reference material for installing
-   kit rather than anything needed to run the app, and together they would be six times
-   the size of everything else over the hut's 4G link. `data/dem` goes the same way:
-   hand-pulled GeoTIFF scratch from the 3D replay work, untracked, and 30 MB on the
-   machine that fetched it. Check what comes out: **~17 MB is right** (most of it the four PDFs), ~150 MB means an
-   exclusion has stopped matching.
+   Produces `pwllheli_race_officer_v<version>.zip` in the repo root, with the version's
+   dots turned to underscores (v1.019 is `pwllheli_race_officer_v1_019.zip`). It excludes `.git`,
+   `.venv`, `.claude`, `runtime`, `__pycache__`, `HutData`, `club_configs`, `odm_frames`,
+   every file with `.db` anywhere in its name (databases, their `-wal` sidecars and
+   parked copies alike), saved video clips, any `.env` file and previously built ZIPs —
+   and, by relative path, the two folders of **vendor manuals**: `docs/hardware`
+   (start-hut hardware, ~84 MB) and `docs/Trackers` (tracker protocol and command
+   manuals and configurator downloads, ~94 MB). Both are reference material for
+   installing kit rather than anything needed to run the app, and together they would be
+   several times the size of everything else over the hut's 4G link. `data/dem` goes the
+   same way: hand-pulled GeoTIFF scratch from the 3D replay work, untracked, and 30 MB on
+   the machine that fetched it.
+
+   On top of those rules, anything git's ignore rules match is left out too, because
+   `renderer.env` (v1.002) and the relay's Caddyfile (v1.011) both shipped while sitting
+   in `.gitignore`. If git cannot be asked, it warns and packages on the rules alone. A
+   file that is only *untracked* is not ignored, so it still ships: check `git status`
+   for strays first. Check what comes out: **~19 MB is right** (most of it the four
+   PDFs), ~150 MB means an exclusion has stopped matching.
 
    All of `scripts/` is excluded **except `scripts/replay3d`**, which is the 3D replay
    renderer: a render machine is built by unzipping a release like everything else at
@@ -133,17 +150,23 @@ fresh clone. Run them from the repo root, e.g. `python scripts/build_release_zip
 
 The `screenshots/`, `ref_screens/`, and `competitor_screens/` folders hold the
 committed PNGs the PDF builders embed. The `crop_*` figures and `marks_top.png`
-were once cut by hand; `capture_crops.py` now takes each from the element it is a
-picture of, so run it alongside the others.
+were once cut by hand. `capture_crops.py` now takes `crop_classes`, `crop_classes2`,
+`crop_startplan`, `crop_course_*` and `marks_top.png` from the element each is a
+picture of, and `capture_theme_refresh.py` does the same for `crop_login` and the
+`crop_results_*` pair in `screenshots/` (the Competitor's Guide's own pair comes from
+`capture_competitor_screens.py`), so run both alongside the others.
 
-**Take the club's real trackers out first.** The dev database holds four real
+**Take the club's real trackers out first.** The dev database holds eight real
 15-digit IMEIs, and these PDFs are published. Deleting the tracker rows app-side
 is *not* enough on its own — it moves the same devices into *Trackers seen on the
 network*, which is read live from Traccar, so the page ends up listing more IMEIs
 than before. Clear `traccar_base_url` and `traccar_token` for the capture as well,
-and put both back afterwards. The Trackers-page capture asserts no 15-digit id is
-visible before it saves, which is the check that should have existed all along:
-the version committed before v0.263 mapped six real IMEIs to named club boats.
+and put both back afterwards. Before `capture_track_screens.py` saves
+`trackers_page.png` it reads the page's visible text and visible form fields, and if
+any 15-digit number is in them, it raises an error and saves nothing. That is the
+check that should have existed all along: the version committed before v0.263 mapped
+six real IMEIs to named club boats. It catches an IMEI shown as text, not one baked into an image, so the picture
+still wants a look before it is committed.
 
 The capture scripts drive Playwright against a running app. Start a **temporary
 instance** (do not disturb a live one) with security cookies relaxed so the
@@ -161,15 +184,19 @@ RO_CAP_BASE=http://127.0.0.1:5058 RO_CAP_PASSWORD=<admin password> \
   .venv/Scripts/python.exe scripts/capture_screens.py
 ```
 
-`RO_CAP_BASE` defaults to `http://localhost:5050`. `RO_CAP_PASSWORD` falls back to
-`runtime/initial_admin_password.txt` if unset. The scripts capture from series 1 /
-race 1 in the current database.
+`RO_CAP_BASE` defaults to `http://localhost:5050`, except in `capture_v253_screens.py`,
+which has no default and skips the shots it is given no base for. `RO_CAP_PASSWORD`
+falls back to `runtime/initial_admin_password.txt` if unset. The scripts capture from
+series 1 / race 1 in the current database.
 
-Run **every** capture script with `RO_CAP_BASE` set. Three of them
+Run **every** capture script that drives an app with `RO_CAP_BASE` set. Three of them
 (`capture_power_screens`, `capture_entries_tab`, `capture_pursuit_screens`) used to
 hard-code a port and silently ignored it — two therefore drove the *live* app on
-5050, creating and deleting a race in the real database. Fixed in v0.194; they all
-honour `RO_CAP_BASE` now.
+5050, creating and deleting a race in the real database. Fixed in v0.194; they
+honour `RO_CAP_BASE` now. Two drive no app of yours and ignore it:
+`capture_onwater_screens.py` and `capture_start_photo_screen.py` run the app in their
+own process, and the second serves it on **127.0.0.1:5059**, so stop any temporary
+instance on 5059 before running it.
 
 `capture_track_screens.py` also needs **`RO_CAP_RACE_ID`** — the race whose Course &
 start tab is captured — or it skips `race_track_map.png` and
@@ -207,9 +234,10 @@ the browser opens. Beware two traps that cost time the first time round:
   which looks exactly like a bug in the rounding rule.
 
 Log lines for the activity-log figure are made by performing the actions, not by
-writing them into the file. Delete `runtime/logs/activity.log` first (stop the app
-— Windows holds it open) or the fresh instance's first settings save, which
-diffs every key from blank, fills the figure.
+writing them into the file. Delete the day's `runtime/logs/activity-YYYY-MM-DD.log`
+first (one file per day, named for it; stop the app — Windows holds it open) or the
+fresh instance's first settings save, which diffs every key from blank, fills the
+figure.
 
 ## Simulating a fleet
 
@@ -239,7 +267,7 @@ startup banner prints which one is in use.
 python scripts/simulate_trackers.py --course 4 --finish-line isora_plas_heli ...
 ```
 
-The two lines' seaward ends are **1172 m apart**, so this is not a detail. Before the
+The two lines' seaward ends are **about 1275 m apart**, so this is not a detail. Before the
 option existed the simulator always sailed to the club line: on course 1 the simulated
 path crossed the ISORA line *zero* times, so an ISORA race could never be finished
 however long it ran — and 26 of the courses include mark F.

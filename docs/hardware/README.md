@@ -1,11 +1,13 @@
 # Start-hut hardware documentation
 
 > **Vendor manuals are not in this repository.** The manufacturer datasheets and
-> user manuals for the camera, router, weather station and Victron power kit are
-> other companies' copyrighted documents, so they are kept in the club's private
-> archive rather than republished here. What remains is the club's own work: the
-> hut wiring diagram and the horn control box drawing. Everything below describes
-> where to file material in that private archive.
+> user manuals for the camera, router, weather station, power kit and horn parts
+> are other companies' copyrighted documents, so they are kept in the club's
+> private archive rather than republished here. What remains is the club's own
+> work: the hut wiring diagram and the horn control box drawing. The lists below
+> are what is filed in this folder on the club's own copies; `.gitignore` keeps
+> the vendor PDFs out of the repository, so a fresh clone has only those two
+> drawings.
 
 Reference material for the physical equipment in the Pwllheli start hut — the
 race-office PC and everything wired to it. Keep vendor manuals, datasheets,

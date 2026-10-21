@@ -8,7 +8,7 @@ Files:
 
 - `start_race_officer.cmd` / `.ps1` — interactive/manual start script. It opens a console window, creates `.venv` if needed, installs requirements when `requirements.txt` changes and writes `runtime/logs/race_officer.log`.
 - `install_startup_task.cmd` / `.ps1` — creates or updates the scheduled task and starts it.
-- `restart_startup_task.cmd` / `.ps1` — restarts the scheduled task after an update or settings change.
+- `restart_startup_task.cmd` / `.ps1` — restarts the scheduled task after a settings change. Not after an upgrade: each version is its own folder (`C:\RaceOfficer\pwllheli_race_officer_v1_0xx`) and the task runs the folder it was installed from, so restarting it starts the old version again. After an upgrade, run the new folder's `install_startup_task.cmd`.
 - `status_startup_task.cmd` / `.ps1` — shows task status, HTTP status and recent log lines.
 - `uninstall_startup_task.cmd` / `.ps1` — removes the scheduled task.
 
@@ -20,7 +20,7 @@ The scheduled task uses PowerShell RunLevel `Limited`, not `Highest`. This keeps
 
 ## Visible command window
 
-The installed Scheduled Task should run hidden. If a black command window is left open after login, reinstall the task with the current scripts:
+The installed Scheduled Task should run hidden. If a black command window is left open after login, reinstall the task with the current scripts, from the installed version's `deploy\windows` folder:
 
 ```cmd
 uninstall_startup_task.cmd
@@ -38,8 +38,13 @@ If pip prints `WARNING: Cache entry deserialization failed, entry ignored`, it i
 ## Checking the race-office PC
 
 ```cmd
+cd /d C:\RaceOfficer\pwllheli_race_officer_v1_0xx
 powershell -ExecutionPolicy Bypass -File deploy\windows\check_hut_pc.ps1
 ```
+
+The `cd` is to the installed version's folder. It matters when elevated: an
+administrator prompt opens in `C:\Windows\System32`, where the relative path
+finds nothing.
 
 Reports, and changes nothing. Written after the app started refusing connections
 mid-race with four plausible causes in the code and none of them measured.
@@ -47,9 +52,9 @@ mid-race with four plausible causes in the code and none of them measured.
 It answers: is the CPU throttling (the hut's MINIX NEO Z350-0dB is fanless, so
 turbo is a burst and the sustained speed is what matters); how many sockets are
 actually open on port 5050, which is what the connection limit counts rather than
-people; what is in `runtime/logs/slow.log`, grouped by endpoint and ranked by
-total time held; how full the disk is and how big the video and databases have
-grown; and whether the Windows settings that quietly cost this app - Defender
+people; what is in the newest `runtime/logs/slow-<date>.log`, grouped by endpoint
+and ranked by total time held; how full the disk is and how big the video and
+databases have grown; and whether the Windows settings that quietly cost this app - Defender
 real-time scanning of the video and database paths, USB selective suspend on a
 horn adapter, sleep, Delivery Optimization eating the 4G uplink - are as expected.
 
