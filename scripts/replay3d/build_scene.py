@@ -57,6 +57,7 @@ if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 from replay_time import TimeWarp, finish_shot_times  # noqa: E402
 from replay_style import BOAT_COLOURS, to_linear  # noqa: E402
+from terrain import HAZE_FAR, land_mesh  # noqa: E402  (no numpy at import)
 from wind import Wind  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -95,7 +96,7 @@ HUD_MARGIN_X = 0.975
 HUD_MARGIN_Y = 0.965
 # Haze: clear inside HAZE_NEAR x extent, HAZE_MAX of the way to sky colour at HAZE_FAR x extent.
 HAZE_NEAR = 1.5
-HAZE_FAR = 9.0
+# HAZE_FAR is terrain.HAZE_FAR, so the land is fetched as far as the scene reaches.
 HAZE_MAX = 0.45
 # The sun is never let below this elevation: a race sailed into dusk still has to be visible.
 MIN_SUN_ELEVATION_DEG = 10.0
@@ -762,26 +763,18 @@ def _terrain_image(terrain: Dict[str, Any], json_path: str) -> Optional[bpy.type
     return img
 
 
-def build_terrain(scene: bpy.types.Scene, coll: bpy.types.Collection, terrain: Dict[str, Any],
-                  extent: float, haze: Tuple[float, float, float], json_path: str) -> Optional[bpy.types.Object]:
+def _land_object(scene: bpy.types.Scene, coll: bpy.types.Collection, name: str, terrain: Dict[str, Any],
+                 extent: float, haze: Tuple[float, float, float], json_path: str,
+                 hole: Optional[Sequence[float]] = None) -> Optional[bpy.types.Object]:
+    """One height grid as a draped mesh: the detailed land, or the coarse ring round it."""
     nx, ny = int(terrain["nx"]), int(terrain["ny"])
-    heights = terrain["heights"]
-    if nx < 2 or ny < 2 or len(heights) != nx * ny:
+    if nx < 2 or ny < 2 or len(terrain["heights"]) != nx * ny:
         return None
     x0, y0, cell = float(terrain["x0"]), float(terrain["y0"]), float(terrain["cell_m"])
-    verts: List[Tuple[float, float, float]] = []
-    for j in range(ny):
-        for i in range(nx):
-            h = float(heights[j * nx + i])
-            # Cells at sea level sit just below the water so the sea plane draws the shore.
-            z = h * TERRAIN_Z_SCALE if h > 0.2 else -4.0
-            verts.append((x0 + i * cell, y0 + j * cell, z))
-    faces = []
-    for j in range(ny - 1):
-        for i in range(nx - 1):
-            a = j * nx + i
-            faces.append((a, a + 1, a + nx + 1, a + nx))
-    mesh = bpy.data.meshes.new("Land")
+    verts, faces = land_mesh(terrain, hole=hole, z_scale=TERRAIN_Z_SCALE)
+    if not faces:
+        return None
+    mesh = bpy.data.meshes.new(name)
     mesh.from_pydata(verts, [], faces)
     mesh.update()
     mesh.shade_smooth()
@@ -792,7 +785,7 @@ def build_terrain(scene: bpy.types.Scene, coll: bpy.types.Collection, terrain: D
         vx, vy, _vz = mesh.vertices[loop.vertex_index].co
         uv.data[loop.index].uv = ((vx - x0) / width, (vy - y0) / height)
 
-    mat = _new_material("Land")
+    mat = _new_material(name)
     nodes, links = mat.node_tree.nodes, mat.node_tree.links
     bsdf = nodes.get("Principled BSDF")
     bsdf.inputs["Roughness"].default_value = 0.95
@@ -822,8 +815,21 @@ def build_terrain(scene: bpy.types.Scene, coll: bpy.types.Collection, terrain: D
         links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
     _add_haze(mat, extent, haze)
     mesh.materials.append(mat)
-    land = bpy.data.objects.new("Land", mesh)
+    land = bpy.data.objects.new(name, mesh)
     return _link(scene, coll, land)
+
+
+def build_terrain(scene: bpy.types.Scene, coll: bpy.types.Collection, terrain: Dict[str, Any],
+                  extent: float, haze: Tuple[float, float, float], json_path: str) -> Optional[bpy.types.Object]:
+    """The land: the detailed square round the racing, and the coarse ring out to the
+    scene's edge when the export has one (assets.far_land_for_scene). The ring has
+    the square cut out of it and tucks under its edge, so where the two meet there
+    is neither a gap nor two surfaces fighting over the same pixels."""
+    land = _land_object(scene, coll, "Land", terrain, extent, haze, json_path)
+    far = terrain.get("far")
+    if far and far.get("hole"):
+        _land_object(scene, coll, "Land far", far, extent, haze, json_path, hole=far["hole"])
+    return land
 
 
 # ---------------------------------------------------------------------------

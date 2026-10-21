@@ -102,6 +102,70 @@ class TestTheLandAcrossADegreeLine:
         assert west == {40.0} and east == {20.0}
 
 
+class TestTheLandReachesTheHorizon:
+    """The detailed land ended 6 km beyond the racing and the sea ran on to nine
+    times the race's extent, so on the Mersey -- land all round -- the land
+    stopped in straight lines and sea filled the view behind Bootle and the Wirral."""
+
+    SCENE = {"origin": {"lat": ORIGIN[0], "lon": ORIGIN[1]}, "extent_m": 2683.0, "race": {"id": 1}}
+
+    def land(self, assets, tiles, tmp_path, monkeypatch, scene=None):
+        monkeypatch.setattr(assets, "ensure_dem_tiles", lambda names: (list(tiles), {"disk": 2, "source": 0}))
+        monkeypatch.setattr(assets, "ensure_imagery_tiles",
+                            lambda tiles, token=None: (_ for _ in ()).throw(RuntimeError("offline")))
+        return assets.land_for_scene(scene or self.SCENE, str(tmp_path), cell_m=300.0)
+
+    def test_a_coarse_ring_goes_out_to_the_edge_of_the_sea(self, mersey_tiles, tmp_path, monkeypatch):
+        assets = _load("assets")
+        terrain = _load("terrain")
+        grid = self.land(assets, mersey_tiles, tmp_path, monkeypatch)
+        far = grid["far"]
+        reach = 2683.0 * terrain.HAZE_FAR
+        assert far["x0"] == pytest.approx(-reach) and far["cell_m"] >= assets.FAR_MIN_CELL_M
+        # Its hole is exactly the detailed square.
+        near_side = (grid["nx"] - 1) * grid["cell_m"]
+        assert far["hole"] == pytest.approx([grid["x0"], grid["y0"], grid["x0"] + near_side, grid["y0"] + near_side])
+
+    def test_the_ring_has_the_wirral_and_liverpool_in_it(self, mersey_tiles, tmp_path, monkeypatch):
+        grid = self.land(_load("assets"), mersey_tiles, tmp_path, monkeypatch)
+        west, east = heights_either_side({**grid["far"], "x0": grid["far"]["x0"]})
+        assert west == {40.0} and east == {20.0}
+
+    def test_no_ring_when_the_detailed_land_already_reaches_the_edge(self, mersey_tiles, tmp_path, monkeypatch):
+        scene = dict(self.SCENE, extent_m=500.0)        # 4.5 km of scene, 6.5 km of detailed land
+        grid = self.land(_load("assets"), mersey_tiles, tmp_path, monkeypatch, scene)
+        assert "far" not in grid
+
+    def test_a_passage_race_does_not_send_it_out_180_km(self, mersey_tiles, tmp_path, monkeypatch):
+        assets = _load("assets")
+        scene = dict(self.SCENE, extent_m=20_000.0)
+        grid = self.land(assets, mersey_tiles, tmp_path, monkeypatch, scene)
+        assert grid["far"]["x0"] == pytest.approx(-assets.FAR_MAX_REACH_M)
+
+    def test_the_ring_s_tiles_stay_a_dozen_across(self):
+        assets = _load("assets")
+        bounds = assets.scene_bounds(self.SCENE, margin_m=2683.0 * 8)
+        zoom = assets.far_zoom(bounds)
+        across = assets.lon_to_tile_x(bounds["east"], zoom) - assets.lon_to_tile_x(bounds["west"], zoom)
+        assert across <= assets.FAR_MAX_TILES_ACROSS and zoom >= 9
+
+    def test_the_ring_tucks_under_the_detailed_square(self):
+        terrain = _load("terrain")
+        grid = {"nx": 5, "ny": 5, "x0": -200.0, "y0": -200.0, "cell_m": 100.0, "heights": [30.0] * 25}
+        verts, faces = terrain.land_mesh(grid, hole=(-150.0, -150.0, 150.0, 150.0), drop_m=25.0)
+        assert len(faces) == 16 - 4                      # the four quads wholly inside are gone
+        centre = verts[12]
+        assert centre[:2] == (0.0, 0.0) and centre[2] == 5.0   # dropped under the fine grid
+        assert verts[0][2] == 30.0                       # the edge of the ring is at its height
+
+    def test_without_a_hole_it_is_the_land_as_before(self):
+        terrain = _load("terrain")
+        grid = {"nx": 3, "ny": 3, "x0": 0.0, "y0": 0.0, "cell_m": 60.0, "heights": [0.0, 12.0] + [5.0] * 7}
+        verts, faces = terrain.land_mesh(grid)
+        assert len(faces) == 4
+        assert verts[0][2] == terrain.LAND_UNDER_SEA_Z and verts[1][2] == 12.0
+
+
 class TestNoOtherClubsBranding:
     def test_there_is_no_built_in_manifest(self, monkeypatch):
         monkeypatch.delenv("MANIFEST_URL", raising=False)

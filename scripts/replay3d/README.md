@@ -38,6 +38,14 @@ cache of its own under `runtime/`: the first film over a stretch of water pays f
 area, every film after it is free, and nobody has to build or name anything before the
 first render or when somebody sets a longer course.
 
+The land comes in two parts. A detailed square reaches 6 km beyond the racing: 60 m
+height cells and zoom-15 satellite tiles. A coarse ring then goes on to where the sea plane
+and the haze end, nine times the race's extent and never more than 60 km: cells of 240 m
+or more, and satellite tiles at the zoom that keeps them to a dozen across. The ring has the
+square cut out of it and tucks under its edge. Without it, a race with land all round -- the
+Mersey -- showed the land stopping in straight lines and sea running on to the horizon
+behind it.
+
 ### The job and the status beside it
 
 For a render on another machine the scene travels inside a **job**, and the renderer writes

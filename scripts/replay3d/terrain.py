@@ -13,7 +13,57 @@ from __future__ import annotations
 
 import math
 import os
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
+
+# How far the scene reaches, in multiples of the race's extent (as build_scene
+# takes it: at least 500 m). The haze is as thick as it gets there, the sea
+# plane ends there, and so must the land: land that stops short of it shows as
+# sea from its edge to the horizon, which on the Mersey -- land on every side --
+# was a straight-edged sea where Bootle and the Wirral should have been.
+HAZE_FAR = 9.0
+
+# Below this a cell counts as sea and sits just under the water, so the sea
+# plane draws the shore.
+SEA_LEVEL_CUTOFF_M = 0.2
+LAND_UNDER_SEA_Z = -4.0
+
+
+def land_mesh(grid: Dict[str, Any], hole: Optional[Sequence[float]] = None,
+              z_scale: float = 1.0, drop_m: float = 25.0
+              ) -> Tuple[List[Tuple[float, float, float]], List[Tuple[int, int, int, int]]]:
+    """Vertices and quads for a height grid, laid out as build_scene draws it.
+
+    With ``hole`` -- (x0, y0, x1, y1), the square a finer grid covers -- the quads
+    wholly inside it are left out and the vertices inside it dropped ``drop_m``.
+    The coarse ring then tucks under the fine grid's edge: no gap where the two
+    meet, and no two surfaces fighting for the same pixels.
+    """
+    nx, ny = int(grid["nx"]), int(grid["ny"])
+    heights = grid["heights"]
+    x0, y0, cell = float(grid["x0"]), float(grid["y0"]), float(grid["cell_m"])
+    verts: List[Tuple[float, float, float]] = []
+    inside: List[bool] = []
+    for j in range(ny):
+        y = y0 + j * cell
+        for i in range(nx):
+            x = x0 + i * cell
+            h = float(heights[j * nx + i])
+            z = h * z_scale if h > SEA_LEVEL_CUTOFF_M else LAND_UNDER_SEA_Z
+            covered = bool(hole) and hole[0] < x < hole[2] and hole[1] < y < hole[3]
+            if covered:
+                z -= drop_m
+            inside.append(covered)
+            verts.append((x, y, z))
+    faces: List[Tuple[int, int, int, int]] = []
+    for j in range(ny - 1):
+        for i in range(nx - 1):
+            a = j * nx + i
+            quad = (a, a + 1, a + nx + 1, a + nx)
+            if hole and all(inside[k] for k in quad):
+                continue
+            faces.append(quad)
+    return verts, faces
 
 
 # ---------------------------------------------------------------------------

@@ -37,7 +37,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
 
 from fetch_mapbox import CACHE_DIR as MAPBOX_CACHE, TILE_PX, fetch_tile, lat_to_tile_y, lon_to_tile_x, read_token  # noqa: E402
-from terrain import imagery_for_terrain, terrain_grid  # noqa: E402
+from terrain import HAZE_FAR, imagery_for_terrain, terrain_grid  # noqa: E402
 
 # Copernicus GLO-30, one degree per tile, served without credentials.
 DEM_HOST = "https://copernicus-dem-30m.s3.amazonaws.com"
@@ -51,6 +51,20 @@ USER_AGENT = "pwllheli-race-officer-replay3d/1.0"
 LAND_MARGIN_M = 6000.0
 DEFAULT_ZOOM = 15
 DEFAULT_CELL_M = 60.0
+
+# Beyond that detailed square, a coarse ring of land out to where the sea plane
+# and the haze end (terrain.HAZE_FAR). It is only ever seen far off and through
+# the haze, so its cells are a few hundred metres and its satellite tiles the
+# zoom that keeps them to a dozen across: the same detail over 48 km would be
+# thousands of tiles and a gigapixel picture.
+FAR_MIN_CELL_M = 240.0
+FAR_MAX_CELLS = 300
+FAR_MAX_TILES_ACROSS = 12
+FAR_ZOOMS = (13, 12, 11, 10, 9)
+# Never further than this. A passage race's nine extents could be 180 km, two
+# dozen elevation tiles of 30-50 MB each to download; 60 km is near the horizon
+# from the film's highest cameras and at most a handful of tiles.
+FAR_MAX_REACH_M = 60_000.0
 
 
 # ---------------------------------------------------------------------------
@@ -203,7 +217,71 @@ def land_for_scene(scene: Dict[str, Any], out_dir: str, *,
         grid["imagery_info"] = info
     except Exception as exc:
         print(f"  imagery: skipped ({type(exc).__name__}: {exc})")
+    try:
+        far = far_land_for_scene(scene, grid, out_dir, token=token)
+        if far:
+            grid["far"] = far
+    except Exception as exc:
+        # The detailed land is still worth having without the distance.
+        print(f"  far land: skipped ({type(exc).__name__}: {exc})")
     return grid
+
+
+def far_zoom(bounds: Dict[str, float]) -> int:
+    """The most detailed satellite zoom that keeps the box to a dozen tiles across."""
+    for zoom in FAR_ZOOMS:
+        across = max(lon_to_tile_x(bounds["east"], zoom) - lon_to_tile_x(bounds["west"], zoom),
+                     lat_to_tile_y(bounds["south"], zoom) - lat_to_tile_y(bounds["north"], zoom))
+        if across <= FAR_MAX_TILES_ACROSS:
+            return zoom
+    return FAR_ZOOMS[-1]
+
+
+def far_land_for_scene(scene: Dict[str, Any], near: Dict[str, Any], out_dir: str, *,
+                       token: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """The rest of the land the camera can see, from the detailed square to the scene's edge.
+
+    The detailed square ends 6 km beyond the racing, and the sea plane goes on to
+    nine times the race's extent. Where the racing is on open water that is fine:
+    what lies beyond really is sea. Where the land is all round, it is not -- on
+    the Mersey the land stopped in straight lines and the sea ran on behind
+    Bootle and the Wirral. Returns a grid like ``terrain_grid``'s with a ``hole``
+    (the detailed square, in the same metres) for build_scene to leave out, or
+    None when the detailed square already reaches the edge.
+    """
+    extent_m = float(scene.get("extent_m") or 500.0)
+    reach = min(FAR_MAX_REACH_M, max(500.0, extent_m) * HAZE_FAR)
+    near_half = (int(near["nx"]) - 1) * float(near["cell_m"]) / 2.0
+    if reach <= near_half * 1.15:
+        return None
+    bounds = scene_bounds(scene, margin_m=reach - extent_m)
+    race_id = int((scene.get("race") or {}).get("id") or 0)
+
+    dem_paths, dem_counts = ensure_dem_tiles(dem_tiles_for(bounds))
+    if not dem_paths:
+        return None
+    cell = max(FAR_MIN_CELL_M, 2.0 * reach / FAR_MAX_CELLS)
+    far = terrain_grid(dem_paths, bounds["lat0"], bounds["lon0"], reach, cell)
+    x0, y0 = float(near["x0"]), float(near["y0"])
+    far["hole"] = [x0, y0, x0 + (int(near["nx"]) - 1) * float(near["cell_m"]),
+                   y0 + (int(near["ny"]) - 1) * float(near["cell_m"])]
+    print(f"  far land: {reach / 1000:.0f} km out, {cell:.0f} m cells, "
+          f"elevation {len(dem_paths)} tile(s) {dem_counts}")
+
+    zoom = far_zoom(bounds)
+    tiles = imagery_tiles_for(bounds, zoom)
+    try:
+        counts = ensure_imagery_tiles(tiles, token)
+        print(f"  far imagery: {len(tiles)} tile(s) at zoom {zoom} {counts}")
+        mosaic = _mosaic_path(bounds, zoom, out_dir)
+        _build_mosaic(tiles, bounds, zoom, mosaic)
+        png = os.path.join(out_dir, f"race_{race_id}_imagery_far.png")
+        info = imagery_for_terrain(mosaic, far, bounds["lat0"], bounds["lon0"], png)
+        far["imagery"] = info["file"]
+        far["imagery_info"] = info
+    except Exception as exc:
+        print(f"  far imagery: skipped ({type(exc).__name__}: {exc})")
+    return far
 
 
 def _mosaic_path(bounds: Dict[str, float], zoom: int, out_dir: str) -> str:
