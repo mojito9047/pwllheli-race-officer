@@ -16,8 +16,12 @@ OUT = SRC / f"{TOP_FOLDER}.zip"
 # HutData is where copies of the hut's own backups and the relay's live config
 # are dropped for diagnosis. v1.011 shipped HutData/Caddyfile -- the relay's real
 # Caddyfile, with the bcrypt hash of its /stats password -- in a public release.
+# club_configs holds other clubs' marks, courses and lines, and a development-only
+# simulated race app beside them. They are worked examples for setting the app up
+# somewhere else, kept in the repository; a club's installation has its own files in
+# data/, and nothing in that folder belongs on a hut PC.
 EXCLUDE_DIRS = {".venv", ".claude", "runtime", "__pycache__", ".pytest_cache", ".git", "video_clips", "odm_frames",
-                "HutData"}
+                "HutData", "club_configs"}
 # scripts/ is developer tooling -- PDF builders, screenshot capture, one-off
 # analysis -- and does not ship. With one exception: scripts/replay3d is the 3D
 # replay renderer, and a render machine is built from a release ZIP like

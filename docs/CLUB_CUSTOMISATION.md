@@ -12,6 +12,10 @@ other application, not a claim about which club is using it.
 
 These describe where the club races. Replace all three; nothing else needs editing.
 
+A complete worked example for Liverpool Yacht Club is in `club_configs/liverpool_yc` in
+the [repository](https://github.com/mojito9047/pwllheli-race-officer/tree/master/club_configs)
+(it is not in the release download).
+
 ### `marks.json`: the marks
 
 One entry per mark, keyed by the code the club uses on its course boards (`O`, `4`,

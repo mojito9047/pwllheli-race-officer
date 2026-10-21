@@ -246,6 +246,20 @@ class TestNoCredentialsShip:
                            + chr(10).join(found))
 
 
+class TestOtherClubsDoNotShip:
+    """club_configs is tracked, as worked examples for another club, but a hut
+    installs Pwllheli's data/ and nothing else. It also holds a development-only
+    app (a simulated race, a test login in a text file, plain-http cookies) that
+    has no place on a race office PC."""
+
+    def test_the_folder_is_excluded(self):
+        assert "club_configs" in _rules()["EXCLUDE_DIRS"]
+
+    def test_the_folder_is_where_the_rule_expects(self):
+        """A renamed folder would leave the rule matching nothing, silently."""
+        assert (_ROOT / "club_configs" / "liverpool_yc" / "marks.json").is_file()
+
+
 class TestNothingGitIgnoresShips:
     """v1.011 shipped HutData/Caddyfile -- the relay's live config, with the
     bcrypt hash of its /stats password -- in a public release, the second

@@ -1,0 +1,47 @@
+{
+  "source": "Liverpool Yacht Club Sailing Instructions 2025 v2 (published 4 April 2025), sections 2, 11, 13 and 15",
+  "notes": "The flagstaff position is approximate (taken from OpenStreetMap, not surveyed) and must be surveyed before automated finishes are trusted, as must the handrail triangle that sets the transit bearing. The race-area chart draws the line at about 246 degrees true, against 237 degrees from the flagstaff to Pluckington. SI 11 and 15.1.5 also allow a committee-boat line, which has no fixed position.",
+  "start_line": {
+    "description": "A transit line extending across the river between the apex of the orange triangle on the flagstaff at the Brunswick lock house and the apex of an orange triangle on the handrail beside the River Mersey. Alternatively from a committee boat flying the club burgee, or a transit announced on VHF 37 (SI 11).",
+    "seaward_end_mark": "PLK",
+    "shore_end": "Brunswick lock house flagstaff (orange triangle) - survey required",
+    "shore_end_position": "53\u00b0 23.2225'N 002\u00b0 59.0625'W"
+  },
+  "finish_line": {
+    "description": "A transit line extending across the river between the apex of the orange triangle on the flagstaff at the Brunswick lock house and the apex of an orange triangle on the handrail beside the River Mersey. Cross from the direction of the last mark (SI 15.1.2), outside the commercial channel marked by Pluckington (SI 15.1.3). Beware the sandbank from the lock entrance towards Pluckington (SI 15.1.4).",
+    "seaward_end_mark": "PLK",
+    "shore_end": "Brunswick lock house flagstaff (orange triangle) - survey required",
+    "shore_end_position": "53\u00b0 23.2225'N 002\u00b0 59.0625'W"
+  },
+  "vhf_channel": "37",
+  "vhf_listening_watch": "12 (Mersey VTS)",
+  "time_limit": "A boat not finished 30 minutes before the last lock set by the marina is DNF (SI 15.3).",
+  "lock_house_flagstaff": {
+    "description": "Brunswick lock house flagstaff: signal mast and shore end of the LYC line. Approximate, from OpenStreetMap - survey required.",
+    "lat": 53.3870418,
+    "lon": -2.9843753,
+    "lat_text": "53\u00b0 23.2225'N",
+    "lon_text": "002\u00b0 59.0625'W"
+  },
+  "finish_lines": [
+    {
+      "key": "lyc",
+      "name": "LYC line - Brunswick lock house transit",
+      "default": true,
+      "description": "The usual start and finish line: the transit from the Brunswick lock house flagstaff across the river, bounded by Pluckington (PLK).",
+      "seaward": {
+        "mark": "PLK",
+        "label": "Pluckington (PLK)"
+      },
+      "seaward_extension_m": 100,
+      "shore": {
+        "lat": 53.3870418,
+        "lon": -2.9843753,
+        "label": "Brunswick lock house flagstaff",
+        "short_label": "Lock house"
+      },
+      "bearing_true_approx": 237,
+      "source": "LYC SI 11 and 15.1"
+    }
+  ]
+}
