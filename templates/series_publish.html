@@ -178,7 +178,7 @@
       {% if club_logos %}
       <img class="publish-club-logo" src="{{ club_logos[0].data_uri }}" alt="{{ club_logos[0].name }} logo">
       {% elif club_logo_data_uri %}
-      <img class="publish-club-logo" src="{{ club_logo_data_uri }}" alt="Pwllheli Sailing Club logo">
+      <img class="publish-club-logo" src="{{ club_logo_data_uri }}" alt="{{ club_brand.name }} logo">
       {% endif %}
     </div>
     {% if sponsor_logos %}

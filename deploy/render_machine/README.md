@@ -26,8 +26,8 @@ ends only read and write the bucket, so the render machine can be a desktop at
 home, switched on when there is something to make, behind any router.
 
 > **The hut and the render machine must be pointed at the same bucket.** The
-> renderer's `R2_*` settings are the ones in the app under **Settings → Video →
-> Public video (Cloudflare R2)**. A renderer on a different bucket sits there
+> renderer's `R2_*` settings are the ones in the app under **Settings → Cloud
+> storage (Cloudflare R2)**. A renderer on a different bucket sits there
 > politely seeing no work, for ever.
 
 ---
@@ -100,7 +100,7 @@ there unused.
 cp deploy/render_machine/renderer.env.example deploy/render_machine/renderer.env
 ```
 
-Fill in the five `R2_*` values from the app's **Settings → Video** page and a
+Fill in the five `R2_*` values from the app's **Settings → Cloud storage** section and a
 `MAPBOX_TOKEN`. Every setting is commented in the file. It holds a secret key:
 `chmod 600` it, and don't commit it.
 
@@ -245,7 +245,7 @@ frame farm, `compose_film.py` and `overlay.py` the film and what is drawn on it.
 ## Troubleshooting
 
 **Nothing ever happens.** Almost always the bucket. Check `R2_BUCKET` against
-the app's Settings → Video, character for character — an app writing jobs into
+the app's Settings → Cloud storage, character for character — an app writing jobs into
 `pwllheli-video-test` and a renderer watching `pwllheli-video` is silent at both
 ends, which is the confusing part.
 

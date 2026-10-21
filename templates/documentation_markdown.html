@@ -3,7 +3,7 @@
    core/docsview.py — markdown from files that ship with the app, so it is
    deliberately not escaped here. Nothing user-supplied reaches this page. #}
 {% extends "base.html" %}
-{% block title %}{{ document.title }} · Documentation · Pwllheli Race Officer{% endblock %}
+{% block title %}{{ document.title }} · Documentation · {{ club_brand.app_name }}{% endblock %}
 {% block page_heading %}Documentation{% endblock %}
 {% block content %}
 <section class="hero doc-read-head">

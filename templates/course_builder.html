@@ -1,6 +1,6 @@
 {# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
 {% extends "base.html" %}
-{% block title %}Build manual course - Pwllheli Race Officer{% endblock %}
+{% block title %}Build manual course - {{ club_brand.app_name }}{% endblock %}
 {% block head_extra %}
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 {% endblock %}
@@ -74,7 +74,7 @@
           <button type="button" class="secondary" id="clearMarks">Clear</button>
           <button type="submit">Save manual course to race</button>
         </div>
-        <p class="small muted">The app uses ODM O as the start/finish reference for approximate leg geometry, matching the race page leg analysis.</p>
+        <p class="small muted">The app uses the start line's mark, {{ course_chart.start_finish_mark }}, as the start/finish reference for approximate leg geometry, matching the race page leg analysis.</p>
       </div>
     </div>
   </form>

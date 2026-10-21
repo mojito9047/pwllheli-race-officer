@@ -29,7 +29,6 @@ hold_ptz_after_manual_test = _app.hold_ptz_after_manual_test
 int_in_range = _app.int_in_range
 list_polar_files = _app.list_polar_files
 log_event = _app.log_event
-normalise_video_public_live_provider = _app.normalise_video_public_live_provider
 normalise_video_public_provider = _app.normalise_video_public_provider
 ptz_goto_preset = _app.ptz_goto_preset
 ptz_test_login = _app.ptz_test_login
@@ -166,16 +165,13 @@ def settings_video_r2_test():
         "public_check_ok": False,
         "public_check_message": "",
     }
-    if normalise_video_public_provider(cfg.get("video_public_provider")) != "r2" and normalise_video_public_live_provider(cfg.get("video_public_live_provider")) != "r2":
-        result["message"] = "Set Public video publishing or Public live image to Cloudflare R2 before testing upload."
-        save_r2_test_result(result)
-        flash(result["message"], "error")
-        return redirect(url_for("settings_page") + "#video")
+    # No longer refused when video publishing is off: published results and the
+    # 3D films use this bucket too, and a club without a camera still needs it.
     if not video_public_r2_credentials_ready(cfg):
         result["message"] = "Cloudflare R2 settings are incomplete. Account ID or S3 endpoint, bucket, access key ID, secret key and public base URL are required."
         save_r2_test_result(result)
         flash(result["message"], "error")
-        return redirect(url_for("settings_page") + "#video")
+        return redirect(url_for("settings_page") + "#r2")
     body_text = f"Pwllheli Race Officer {APP_VERSION} R2 test {datetime.now().isoformat(timespec='seconds')}\n"
     try:
         url = _app.upload_bytes_to_r2(
@@ -201,7 +197,7 @@ def settings_video_r2_test():
         result["message"] = f"Cloudflare R2 test upload failed: {exc}"
         flash(result["message"], "error")
     save_r2_test_result(result)
-    return redirect(url_for("settings_page") + "#video")
+    return redirect(url_for("settings_page") + "#r2")
 
 
 @app.route("/settings/video/r2_retry", methods=["POST"])
@@ -239,7 +235,7 @@ def settings_branding_club_logo_upload():
         if old_name and old_name != filename:
             delete_branding_file_if_unused(old_name, manifest)
         start_video_background_recorder()
-        audit("club logo replaced", stored)
+        audit("club logo replaced", filename)
         flash("Saved public branding club logo.", "success")
     except ValueError as exc:
         flash(str(exc), "error")
@@ -258,6 +254,40 @@ def settings_branding_club_logo_delete():
     start_video_background_recorder()
     audit("club logo reverted to bundled")
     flash("Removed uploaded club logo; the bundled PSC logo will be used.", "success")
+    return redirect(url_for("settings_page") + "#branding")
+
+
+@app.route("/settings/branding/public_header", methods=["POST"])
+@app.route("/admin/settings/branding/public_header", methods=["POST"])
+def settings_branding_public_header_upload():
+    """Upload or replace the banner across the top of the public pages."""
+    upload = request.files.get("public_header_upload")
+    try:
+        manifest = read_branding_manifest()
+        old_name = str(manifest.get("public_header") or "")
+        filename = save_uploaded_branding_image(upload, "public_header")
+        manifest["public_header"] = filename
+        write_branding_manifest(manifest)
+        if old_name and old_name != filename:
+            delete_branding_file_if_unused(old_name, manifest)
+        audit("public page header replaced", filename)
+        flash("Saved the public page header.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("settings_page") + "#branding")
+
+
+@app.route("/settings/branding/public_header/delete", methods=["POST"])
+@app.route("/admin/settings/branding/public_header/delete", methods=["POST"])
+def settings_branding_public_header_delete():
+    """Remove the uploaded public page header."""
+    manifest = read_branding_manifest()
+    old_name = str(manifest.get("public_header") or "")
+    manifest["public_header"] = ""
+    write_branding_manifest(manifest)
+    delete_branding_file_if_unused(old_name, manifest)
+    audit("public page header removed")
+    flash("Removed the uploaded public page header.", "success")
     return redirect(url_for("settings_page") + "#branding")
 
 

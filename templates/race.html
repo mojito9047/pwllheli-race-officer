@@ -1,6 +1,6 @@
 {# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
 {% extends "base.html" %}
-{% block title %}Race {{ race.id }} - Pwllheli Race Officer{% endblock %}
+{% block title %}Race {{ race.id }} - {{ club_brand.app_name }}{% endblock %}
 {% block head_extra %}
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 {% endblock %}
@@ -239,7 +239,7 @@
       {% endif %}
       {% if course_shown %}
       <details open>
-        <summary>Leg analysis using ODM O as start/finish reference</summary>
+        <summary>Leg analysis using {{ course_chart.start_finish_mark }} as start/finish reference</summary>
         <div class="analysis-summary small muted">
           Predicted time: <strong id="racePredictedTime">{{ course_analysis.predicted_display }}</strong> ·
           First leg: <strong id="raceFirstLeg">{{ course_analysis.first_leg_display }}</strong> ·

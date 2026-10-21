@@ -123,6 +123,38 @@ def weather_config() -> Dict[str, Any]:
     }
 
 
+# The club the app is running for. The defaults are the club it was written for,
+# so an installation that has never set these looks as it always has.
+DEFAULT_CLUB_NAME = "Pwllheli Sailing Club"
+DEFAULT_CLUB_SHORT_NAME = "Pwllheli"
+# The software's own name, which stays in every footer whoever runs it.
+SOFTWARE_NAME = "Pwllheli Race Officer"
+
+
+def clean_club_text(value: Any, default: str, limit: int) -> str:
+    """One line of plain text for a name shown on every page: no newlines, capped."""
+    text = " ".join(str(value or "").split())[:limit].strip()
+    return text or default
+
+
+def club_config() -> Dict[str, Any]:
+    """The club's name, and the app's name at the top of the admin pages.
+
+    ``short_name`` replaces "Pwllheli" in "Pwllheli Race Officer" at the top of
+    the race office's own pages and the browser tab; "Race Officer" stays, and so
+    do the footers, which name the software. ``name`` is the club in full, for the
+    public pages, the films and the published results.
+    """
+    overrides = get_app_setting_overrides()
+    short = clean_club_text(overrides.get("club_short_name"), DEFAULT_CLUB_SHORT_NAME, 40)
+    return {
+        "name": clean_club_text(overrides.get("club_name"), DEFAULT_CLUB_NAME, 80),
+        "short_name": short,
+        "app_name": f"{short} Race Officer",
+        "software_name": SOFTWARE_NAME,
+    }
+
+
 def course_chart_config() -> Dict[str, Any]:
     """Return configured tile URLs for course charts, and the start line they draw.
 

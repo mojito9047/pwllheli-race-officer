@@ -20,7 +20,7 @@
 <body class="bar-page">
 {% if not race %}
   <div class="bar-empty">
-    <img src="{{ url_for('static', filename='img/psc_public_header.png') }}" alt="Clwb Hwylio Pwllheli Sailing Club">
+    {% include "_public_club_brand.html" %}
     <h1>No race running</h1>
     <p>This display will pick up the next race on its own.</p>
   </div>
@@ -74,7 +74,7 @@
   </div>
 
   <header class="bar-top">
-    <img class="bar-crest" src="{{ url_for('static', filename='img/psc_public_header.png') }}" alt="">
+    <img class="bar-crest" src="{{ club_brand.public_header.image_url or club_brand.public_header.logo_url }}" alt="">
     <div class="bar-race">
       <h1>{{ race.name }}</h1>
       <p>

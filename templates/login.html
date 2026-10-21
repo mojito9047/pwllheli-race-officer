@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Login - Pwllheli Race Officer</title>
+  <title>Login - {{ club_brand.app_name }}</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
   <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
@@ -55,7 +55,7 @@
 <body class="login-page">
 <main class="login-main">
   <section class="card login-card">
-    <h1>Pwllheli Race Officer</h1>
+    <h1>{{ club_brand.app_name }}</h1>
     <p class="muted">Sign in to manage races, boats, settings and hardware.</p>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}

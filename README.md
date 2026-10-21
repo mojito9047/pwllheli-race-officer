@@ -248,6 +248,7 @@ Detailed documentation is in the `docs/` folder:
 - [`docs/OPERATIONAL_CHECKLIST.md`](docs/OPERATIONAL_CHECKLIST.md) — race-day checks before, during and after racing.
 - [`docs/RACE_OFFICER_WORKFLOW.md`](docs/RACE_OFFICER_WORKFLOW.md) — normal race-day workflow.
 - [`docs/SETTINGS_AND_ADMIN.md`](docs/SETTINGS_AND_ADMIN.md) — settings sections and administration.
+- [`docs/CLUB_CUSTOMISATION.md`](docs/CLUB_CUSTOMISATION.md) — setting the app up for another club: its marks and line, its name and logos, and what stays Pwllheli's.
 - [`docs/CLASSES_AND_STARTS.md`](docs/CLASSES_AND_STARTS.md) — IRC/YTC rating-band classes, start plans and series entry synchronisation.
 - [`docs/HARDWARE_HORN_AUDIO.md`](docs/HARDWARE_HORN_AUDIO.md) — serial horn output, manual horn input and VHF audio.
 - [`docs/SYSTEM_COSTS.md`](docs/SYSTEM_COSTS.md) — what the hut kit, the trackers and the running services cost, and how to cut the running costs.

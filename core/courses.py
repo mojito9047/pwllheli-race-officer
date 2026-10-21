@@ -506,11 +506,20 @@ def number_words(n: int) -> str:
 def spoken_mark(mark: str) -> str:
     """Convert a mark rounding token into a clear spoken VHF/audio phrase."""
     text = str(mark or "").strip().upper()
+    # How Pwllheli's lettered marks are said on the VHF. Only for the mark each was
+    # written for -- its name in marks.json contains it -- or another club's "C"
+    # or "E" would be announced as the Causeway or Eurwyn.
     special = {"O": "outer distance mark", "F": "fairway", "C": "causeway", "E": "Eurwyn", "T": "Tom buoy", "M": "Madog fairway", "Y": "Gwylan Islands", "A": "mark A"}
-    if text in special:
+    record = appstate.MARKS.get(text) or appstate.MARKS.get(str(mark or "").strip()) or {}
+    name = str(record.get("name") or "").strip()
+    if text in special and (special[text] == "mark A" or special[text].lower() in name.lower()):
         return special[text]
     if text.isdigit():
         return "mark " + number_words(int(text))
+    # Any other club's lettered mark by its own name -- "Pluckington", not
+    # "mark P L K" -- unless the name is only the code again.
+    if name and name.upper() != text and not record.get("component_of") and not record.get("waypoint"):
+        return name
     # A single corner of a compound mark. The board is happy with "Ya", but the
     # bare key read aloud is "mark why-ay", so name the feature and then the
     # corner: "Gwylan Islands corner Ya". Nobody on the water should have to work

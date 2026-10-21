@@ -1,0 +1,8 @@
+{# The club across the top of a public page: an uploaded banner, or the club's
+   own logo beside its name, or the bundled Pwllheli banner when nothing has
+   been set (app.club_branding_for_template decides which). #}
+{%- if club_brand.public_header.image_url -%}
+<img src="{{ club_brand.public_header.image_url }}" alt="{{ club_brand.public_header.alt or club_brand.name }}">
+{%- else -%}
+<img class="public-club-logo" src="{{ club_brand.public_header.logo_url }}" alt=""><span class="public-club-name">{{ club_brand.name }}</span>
+{%- endif -%}

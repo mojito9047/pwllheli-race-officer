@@ -97,7 +97,7 @@ Applications → add a self-hosted app for `hut-cam.pwllhelisailingclub.org` wit
 
 In the app (Settings):
 
-- **Public branding**: enable it and confirm the club + sponsor logos. (While this is off,
+- **Club name and branding**: enable public logo branding and confirm the club + sponsor logos. (While this is off,
   `/api/branding/live` returns `enabled:false` and the stream is unbranded.)
 - Leave **Public live stream URL** blank for now — set it in step 6 once the stream is live.
 
@@ -500,7 +500,7 @@ If the model is ever configured to allow longer than 30 s, raise this to match.
   is historical: it is a plain Debian script and runs the same on a VPS.
 - `docker/` — an alternative Docker Compose stack (if you'd rather run it under Docker).
 
-To change branding: edit it in the app (Settings → Public branding). The relay re-reads
+To change branding: edit it in the app (Settings → Club name and branding). The relay re-reads
 the manifest each time the stream starts, so restart the stream (close viewers, or
 `systemctl restart mediamtx`) to pick up new logos.
 
@@ -731,7 +731,7 @@ These are the non-obvious settings the working setup depends on — check here f
   rate — a single `-i` per image with `overlay …:eof_action=repeat` holds them cheaply.
 - **`branding manifest fetch failed (403)`** — Cloudflare's bot/WAF blocks the default
   `Python-urllib` user-agent; the script sends a normal `User-Agent` (curl works, plain
-  urllib doesn't). Also make sure Public branding is **enabled** in the app.
+  urllib doesn't). Also make sure public logo branding is **enabled** in the app (Settings → Club name and branding).
 - **Branding wrong place / too small** — the overlay mirrors the app's
   `build_branding_overlay_filter_for_size` (club top-left, sponsors top-right rotating,
   ~15 % of frame height); it probes the camera resolution so proportions match.

@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="refresh" content="300">
-  <title>Pwllheli Sailing Club - Competitor information</title>
+  <title>{{ club_brand.name }} - Competitor information</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
   <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
@@ -13,8 +13,8 @@
 </head>
 <body class="public-page{% if mobile_view %} public-mobile{% endif %}">
 <header>
-  <a class="public-club-brand" href="{{ url_for('competitor_current_race') }}" aria-label="Pwllheli Sailing Club competitor information">
-    <img src="{{ url_for('static', filename='img/psc_public_header.png') }}" alt="Clwb Hwylio Pwllheli Sailing Club">
+  <a class="public-club-brand" href="{{ url_for('competitor_current_race') }}" aria-label="{{ club_brand.name }} competitor information">
+    {% include "_public_club_brand.html" %}
   </a>
 </header>
 <main>

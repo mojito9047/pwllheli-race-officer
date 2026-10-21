@@ -1191,7 +1191,8 @@ class TestPublicBrandingSettings:
     def test_settings_page_contains_public_branding_controls(self, logged_in_client):
         resp = logged_in_client.get("/admin/settings")
         assert resp.status_code == 200
-        assert b"Public branding" in resp.data
+        # The section became Club name and branding when the club's name joined it.
+        assert b"Club name and branding" in resp.data
         assert b"public_branding_enabled" in resp.data
         assert b"Upload sponsor logo" in resp.data
 

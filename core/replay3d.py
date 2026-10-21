@@ -34,6 +34,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from core import appstate, startfinish
+from core.settings import club_config
 from core.courses import (apply_course_shortening, course_for_race,
                           custom_course_from_race, expand_course_points)
 from core.db import get_db, row_get
@@ -786,6 +787,9 @@ def build_scene(race_id: int, *, step_s: float = DEFAULT_STEP_S, lead_s: float =
         "results": race_results(race, {b["name"].strip().lower(): b["colour"] for b in boats_out}),
         "terrain": None,
         "videos": race_videos(race_id, t_win0, t_win1) if videos else [],
+        # The club the film is for, from Settings -> Club branding. The cards drew
+        # PWLLHELI SAILING CLUB whoever's race it was.
+        "club": {"name": club_config()["name"]},
     }
 
 

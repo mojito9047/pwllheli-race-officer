@@ -1261,9 +1261,11 @@ story.append(Paragraph(
 
 story.append(Paragraph("Cloudflare R2 (public video and live image)", styles["H2"]))
 story.append(Paragraph(
-    "A separate, optional feature — configured alongside video recording (Chapter 16), not part of the "
-    "Tunnel setup — that offloads competitor video/image traffic from the hut's own connection onto "
-    "Cloudflare R2 storage instead.", styles["Body"]))
+    "A separate, optional feature — not part of the Tunnel setup — that offloads competitor video/image "
+    "traffic from the hut's own connection onto Cloudflare R2 storage instead. The bucket and its keys "
+    "have their own Settings section, <b>Cloud storage (Cloudflare R2)</b>, because published results "
+    "and the 3D films use the same bucket; the video options are under Video Recording (Chapter 16).",
+    styles["Body"]))
 story += (field_table([
     ("Public video publishing", "Off (serve the local evidence clip) or Cloudflare R2 public copy. The "
      "full-quality clip always stays local in data/video_clips/; R2 only ever gets a smaller, branded H.264 "
@@ -1282,13 +1284,14 @@ story += (field_table([
      "camera section) tries it now, without publishing."),
     ("Public live image", "Serve from hut app, or upload the latest branded JPEG to R2 every few seconds "
      "(Live image upload seconds)."),
-    ("R2 account ID / S3 endpoint, bucket, access key ID, secret access key", "Standard S3-compatible "
-     "credentials for the R2 bucket."),
-    ("Public base URL", "The public/custom domain competitor browsers actually load from."),
-    ("Object prefix", "Folder-style prefix inside the bucket, e.g. race-videos."),
+    ("R2 account ID / S3 endpoint, bucket, access key ID, secret access key", "In Cloud storage. "
+     "Standard S3-compatible credentials for the R2 bucket."),
+    ("Public base URL", "In Cloud storage. The public/custom domain competitor browsers actually load from."),
+    ("Object prefix", "In Cloud storage. Folder-style prefix inside the bucket, e.g. race-videos."),
 ]))
 story.append(Paragraph(
-    "<b>Save and test R2 upload</b> writes a small test file and checks it's publicly reachable; if the "
+    "<b>Save and test R2 upload</b> (in Cloud storage, and no longer waiting for video publishing to be "
+    "switched on) writes a small test file and checks it's publicly reachable; if the "
     "upload succeeds but the public check fails, check the <b>Public base URL</b> rather than the access "
     "keys. <b>Save and retry failed public video uploads</b> re-attempts any clips that didn't make it to "
     "R2 the first time, and rebuilds from the evidence clip any public copy that is short or cannot be "
@@ -1367,7 +1370,7 @@ story.append(bullets([
     "flat no matter how many people watch.",
     "<b>Branding is automatic:</b> the relay burns the club logo (top-left) and rotating sponsor logos "
     "(top-right) into the video, reading them live from the app's public branding manifest "
-    "<b>/api/branding/live</b> — change the logos in Settings → Public branding and the stream follows, with "
+    "<b>/api/branding/live</b> — change the logos in Settings → Club name and branding and the stream follows, with "
     "nothing to edit on the relay.",
     "<b>It is also the club's front door:</b> the same relay proxies the club's public hostname to the hut "
     "race app and shows a holding page when the hut is offline. The trade-off is that if the relay itself is "
@@ -1407,7 +1410,17 @@ story.append(figure("s_polars_top.png", "Settings → Polars: upload form and th
                                         "(the club's full library runs to dozens of boat classes).",
                      max_h=9 * cm))
 
-story.append(Paragraph("Public branding", styles["H2"]))
+story.append(Paragraph("Club name and branding", styles["H2"]))
+story.append(Paragraph(
+    "The club's own name and logos, the first section after Users. <b>Club name</b> appears on the public "
+    "pages, the 3D films and published results; <b>Name before “Race Officer”</b> is the word at the top "
+    "of these pages and on each browser tab (the footers keep the software's name). The <b>club logo</b> "
+    "is shown in the side menu, on the public pages, public video and the live image, the start photo, "
+    "the films and published results — upload the colour version. A <b>public page header</b> banner "
+    "can be uploaded for the top of the public pages; without one the club logo is shown beside the club "
+    "name, and Pwllheli's banner only while the club name is Pwllheli Sailing Club. Pwllheli's name and "
+    "logos are the defaults; <b>docs/CLUB_CUSTOMISATION.md</b> lists everything a new club changes.",
+    styles["Body"]))
 story.append(Paragraph(
     "Club and sponsor logos shown on competitor-facing media: the public live-camera JPEG and the smaller "
     "public R2 video copy burn the logos in directly (club logo fixed top-left, one of up to <b>eight</b> "
@@ -1418,7 +1431,8 @@ story.append(Paragraph(
     "published page its logo becomes a link to it; the banner says so in small print wherever any "
     "sponsor has one. Only http and https addresses are accepted, because a published page is served "
     "from the club's own domain, and a bare domain is taken as https.", styles["Body"]))
-story.append(figure("s_branding.png", "Settings → Public branding: club logo and sponsor logos.",
+story.append(figure("s_branding.png", "Settings → Club name and branding: the club's name, logo, "
+                                     "public page header and sponsor logos.",
                      max_h=11 * cm))
 
 story.append(PageBreak())
@@ -2481,7 +2495,7 @@ story.append(Paragraph(
 
 story.append(Paragraph("Before it will work", styles["H2"]))
 story.append(bullets([
-    "<b>Public video (Cloudflare R2)</b> configured under <b>Settings &#8594; Video</b>. The films go in "
+    "<b>Cloudflare R2</b> configured under <b>Settings &#8594; Cloud storage</b>. The films go in "
     "the same bucket as the race videos, and both ends find each other through it.",
     "<b>Settings &#8594; Web server &#8594; Public address</b> set to the address competitors use. The "
     "render machine reads the club's logos from there; without it the film still renders, just unbranded.",

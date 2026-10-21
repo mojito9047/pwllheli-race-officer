@@ -1763,6 +1763,23 @@ tr.next-start td { font-weight: 700; }
   height: 42px;
   max-width: calc(100vw - 150px);
 }
+/* A club without a banner of its own: its logo, then its name, in place of the
+   Pwllheli banner (see templates/_public_club_brand.html). */
+.public-club-brand img.public-club-logo { max-width: none; flex: 0 0 auto; }
+.public-club-name {
+  margin-left: 14px;
+  min-width: 0;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #1c1a15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.public-mobile .public-club-name { font-size: 19px; margin-left: 10px; }
+@media (max-width: 640px) { .public-club-name { font-size: 17px; margin-left: 8px; } }
+.bar-empty .public-club-name { font-size: clamp(22px, 2.4vw, 40px); }
 @media (max-width: 640px) {
   .public-club-brand img {
     height: 38px;
@@ -2156,6 +2173,7 @@ tr.next-start td { font-weight: 700; }
   box-shadow: 0 2px 8px rgba(0,0,0,0.24);
 }
 .branding-preview-logo { max-width: 220px; max-height: 90px; object-fit: contain; display: block; background: #f8fafc; border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+.branding-preview-header { max-width: 100%; max-height: 74px; object-fit: contain; display: block; background: #f8fafc; border: 1px solid var(--line); padding: 6px; }
 .branding-sponsor-thumb { max-width: 96px; max-height: 42px; object-fit: contain; background: #f8fafc; border: 1px solid var(--line); border-radius: 6px; padding: 4px; }
 .branding-assets-table td { vertical-align: middle; }
 @media (max-width: 760px) {
@@ -2926,7 +2944,10 @@ body.replay-fullscreen-open { overflow: hidden; }
 .mark-edit .compact-form input { width: 100%; min-width: 0; }
 .mark-edit .compact-form button { justify-self: start; align-self: end; }
 .mark-edit .tiny.muted { max-width: 60rem; margin-top: 0.5rem; }
-.checkbox-inline { display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap; }
+/* Wraps inside its box. It used to be nowrap everywhere, and a long option with
+   its explanation -- the start photo's runs to two hundred characters -- pushed
+   the whole Settings page sideways, by 345 px on a desk and over 1100 on a phone. */
+.checkbox-inline { display: inline-flex; align-items: center; gap: 0.35rem; max-width: 100%; }
 .ping-status { display: block; font-size: 15px; color: var(--muted, #667); margin-top: 0.2rem; }
 .ping-status:empty { display: none; }
 .ping-start { display: block; width: 100%; margin: 0.6rem 0 0; padding: 0.8rem; font-size: 16px; }

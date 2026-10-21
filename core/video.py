@@ -370,11 +370,12 @@ def read_branding_manifest() -> Dict[str, Any]:
                 sponsors = data.get("sponsors") if isinstance(data.get("sponsors"), list) else []
                 return {
                     "club_logo": str(data.get("club_logo") or "").strip(),
+                    "public_header": str(data.get("public_header") or "").strip(),
                     "sponsors": [s for s in sponsors if isinstance(s, dict)],
                 }
     except Exception:
         pass
-    return {"club_logo": "", "sponsors": []}
+    return {"club_logo": "", "public_header": "", "sponsors": []}
 
 
 def write_branding_manifest(manifest: Dict[str, Any]) -> None:
@@ -383,6 +384,8 @@ def write_branding_manifest(manifest: Dict[str, Any]) -> None:
     sponsors = manifest.get("sponsors") if isinstance(manifest.get("sponsors"), list) else []
     safe_manifest = {
         "club_logo": safe_branding_filename(str(manifest.get("club_logo") or "")),
+        # The banner across the top of the public pages, when the club has one.
+        "public_header": safe_branding_filename(str(manifest.get("public_header") or "")),
         "sponsors": [],
     }
     for item in sponsors:
@@ -422,6 +425,7 @@ def branding_assets() -> Dict[str, Any]:
     cfg = video_config()
     manifest = read_branding_manifest()
     uploaded_club = branding_file_path(str(manifest.get("club_logo") or ""))
+    uploaded_header = branding_file_path(str(manifest.get("public_header") or ""))
     club_path = uploaded_club if uploaded_club else appstate.DEFAULT_CLUB_LOGO_PATH
     sponsors: List[Dict[str, Any]] = []
     for item in manifest.get("sponsors") or []:
@@ -441,6 +445,8 @@ def branding_assets() -> Dict[str, Any]:
         "club_logo_uploaded": bool(uploaded_club),
         "club_logo_file": uploaded_club.name if uploaded_club else appstate.DEFAULT_CLUB_LOGO_PATH.name,
         "club_logo_path": club_path if club_path.exists() else None,
+        "public_header_path": uploaded_header,
+        "public_header_file": uploaded_header.name if uploaded_header else "",
         "sponsors": sponsors,
     }
 
@@ -468,7 +474,8 @@ def delete_branding_file_if_unused(filename: str, manifest: Optional[Dict[str, A
     if not filename:
         return
     manifest = manifest or read_branding_manifest()
-    referenced = {safe_branding_filename(str(manifest.get("club_logo") or ""))}
+    referenced = {safe_branding_filename(str(manifest.get("club_logo") or "")),
+                  safe_branding_filename(str(manifest.get("public_header") or ""))}
     referenced.update(safe_branding_filename(str(s.get("filename") or "")) for s in manifest.get("sponsors") or [])
     if filename in referenced:
         return

@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Pwllheli Race Officer{% endblock %}</title>
+  <title>{% block title %}{{ club_brand.app_name }}{% endblock %}</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
   <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
@@ -65,8 +65,8 @@
 <div class="app-layout">
   <aside class="sidebar" aria-label="Main navigation">
     <div class="brand">
-      <div class="brand-mark logo-mark"><img src="{{ url_for('static', filename='img/pwllheli_sailing_club_logo.png') }}" alt="Pwllheli Sailing Club"></div>
-      <div class="brand-title">Pwllheli Race Officer<small>Club race management</small></div>
+      <div class="brand-mark logo-mark"><img src="{{ club_brand.logo_url }}" alt="{{ club_brand.name }}"></div>
+      <div class="brand-title">{{ club_brand.app_name }}<small>Club race management</small></div>
     </div>
     <nav class="side-nav">
       <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">{% include 'icons/dashboard.svg' %}Dashboard</a>
@@ -96,7 +96,7 @@
 
   <div class="app-main">
     <header class="topbar">
-      <h1>{% block page_heading %}Pwllheli Race Officer{% endblock %}</h1>
+      <h1>{% block page_heading %}{{ club_brand.app_name }}{% endblock %}</h1>
       <div class="topbar-actions">
         {% if current_user %}
           <a href="{{ url_for('account_page') }}" title="My account"{% if request.endpoint == 'account_page' %} class="active"{% endif %}>{{ current_user.username }}</a>

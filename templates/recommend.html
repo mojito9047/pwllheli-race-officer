@@ -1,6 +1,6 @@
 {# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
 {% extends "base.html" %}
-{% block title %}Recommend course - Pwllheli Race Officer{% endblock %}
+{% block title %}Recommend course - {{ club_brand.app_name }}{% endblock %}
 {% block head_extra %}
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 {% endblock %}
@@ -18,7 +18,7 @@
       <code>-SailChart</code> file from <code>data/sailcharts</code>. Where no sail chart matches
       the polar, the default chart is used instead.</p>
     <h4>How the courses are ranked</h4>
-    <p>The CHPSC wind band comes first, then the polar-predicted time against the target duration,
+    <p>The course's own wind band comes first, then the polar-predicted time against the target duration,
       then the quality of the first leg, then how many sail changes the course asks for.</p>
     <p>The estimated time is worked out from mark-to-mark bearings and distances, using VMG rather
       than straight-line speed on the legs that are very close upwind or deep downwind — where a

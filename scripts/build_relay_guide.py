@@ -873,8 +873,8 @@ story += field_table([
     ("Tears down every ~30 s, heavy buffering", "Publish to MediaMTX over <b>TCP</b> and give "
      "the input a buffer. Also do not loop the logo images at full frame rate."),
     ("“branding manifest fetch failed (403)”", "Cloudflare's bot protection blocks the default "
-     "Python user-agent; the script sends a normal one. Also check Public branding is enabled "
-     "in the app."),
+     "Python user-agent; the script sends a normal one. Also check public logo branding is "
+     "enabled in the app (Settings → Club name and branding)."),
     ("“runOnDemand … timed out” in a loop", "The branded source did not publish in time, so "
      "MediaMTX killed it mid-startup — the ffmpeg errors are the kill, not the cause. Confirm "
      "the camera itself is fine with a direct pull, then raise "

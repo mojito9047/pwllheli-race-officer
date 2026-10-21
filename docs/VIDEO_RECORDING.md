@@ -197,16 +197,16 @@ The full-quality evidence clip is always retained locally even if the public cop
 
 When public branding is enabled, the public web copy keeps the club logo at the top-left and shows one sponsor logo at a time in the top-right. The sponsor changes every 5 seconds through the uploaded sponsor list. The full-quality local evidence clip is not branded.
 
-Settings required for R2 publishing:
+Settings required for R2 publishing, all in **Settings → Cloud storage (Cloudflare R2)** except the clip quality:
 
 - **R2 account ID or S3 endpoint** — Cloudflare account ID, or the copied endpoint URL such as `https://ACCOUNT_ID.r2.cloudflarestorage.com`.
 - **R2 bucket** — bucket that will store the public video files.
 - **R2 access key ID / secret access key** — bucket-scoped Object Read & Write credentials. The secret field is blank on reload; leave it blank to keep the saved secret.
 - **Public base URL** — the public or custom-domain URL from which viewers will download objects, for example `https://videos.example.com`.
 - **Object prefix** — optional folder-style key prefix, for example `race-videos`.
-- **Public clip quality** — 720p small or 1080p normal.
+- **Public clip quality** (under Video Recording) — 720p small or 1080p normal.
 
-Use **Save and test R2 upload** after entering the settings. The test writes `<prefix>/test/race-officer-r2-test.txt`, records the last result on the Settings page, and checks that the generated public URL opens without credentials.
+Use **Save and test R2 upload**, in the same section, after entering the settings. The test writes `<prefix>/test/race-officer-r2-test.txt`, records the last result on the Settings page, and checks that the generated public URL opens without credentials.
 
 Public-video uploads run one at a time and retry before a clip is marked as failed. If a public page shows **Public video error** but a web copy exists under `data/video_clips/public/`, click **Save and retry failed public video uploads** in **Settings → Video Recording**. The retry reuses the local public copy where possible, or recreates it from the local evidence clip before uploading again.
 
@@ -281,6 +281,6 @@ The Video Recording settings are grouped into six subsections:
 
 1. **Camera input and recording mode** — source, RTSP/USB details, recording mode, timestamp mode and FFmpeg path.
 2. **Live preview and buffer** — preview stream, JPEG settings, keyframe mode and rolling-buffer durations.
-3. **Public video and live image publishing** — public clip quality, R2 settings and live-image upload mode.
+3. **Public video and live image publishing** — public clip quality and live-image upload mode. The bucket and its keys are in their own section, **Cloud storage (Cloudflare R2)**.
 4. **Camera zoom / PTZ presets** — Hikvision-style preset switching and diagnostics.
 5. **Recorder status** — current recorder health, latest segment, live-frame age and log tail.

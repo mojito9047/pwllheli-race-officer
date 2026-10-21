@@ -101,6 +101,12 @@ def _race_date(data: Dict[str, Any]) -> str:
     return when.strftime("%A %d %B %Y").replace(" 0", " ")
 
 
+def _club_line(data: Dict[str, Any]) -> str:
+    """The club's name for the cards, from the job. Empty for a job from a hut
+    older than the setting: better no club line than another club's."""
+    return str((data.get("club") or {}).get("name") or "").strip().upper()
+
+
 def title_card(data: Dict[str, Any], out_path: str, fonts_dir: str, branding: Sequence[str],
                size: Tuple[int, int] = (1920, 1080)) -> str:
     """The opening card: the club's mark, the race, the day, on the instrument ground."""
@@ -119,9 +125,11 @@ def title_card(data: Dict[str, Any], out_path: str, fonts_dir: str, branding: Se
     else:
         y += round(h * 0.10)
 
-    _tracked(draw, (w / 2 - _tracked(ImageDraw.Draw(Image.new("RGB", (1, 1))), (0, 0), "PWLLHELI SAILING CLUB",
-                                     _font(fonts_dir, "ArchivoNarrow.ttf", round(h * 0.026)), PANEL_LABEL, 5.0) / 2, y),
-             "PWLLHELI SAILING CLUB", _font(fonts_dir, "ArchivoNarrow.ttf", round(h * 0.026)), PANEL_LABEL, 5.0)
+    club = _club_line(data)
+    if club:
+        club_font = _font(fonts_dir, "ArchivoNarrow.ttf", round(h * 0.026))
+        width = _tracked(ImageDraw.Draw(Image.new("RGB", (1, 1))), (0, 0), club, club_font, PANEL_LABEL, 5.0)
+        _tracked(draw, (w / 2 - width / 2, y), club, club_font, PANEL_LABEL, 5.0)
     y += round(h * 0.075)
 
     name = str(race.get("name") or "Race")
@@ -364,7 +372,9 @@ def results_card(data: Dict[str, Any], out_path: str, fonts_dir: str, branding: 
 
     foot = _font(fonts_dir, "ArchivoNarrow.ttf", round(h * 0.019))
     credit = ((data.get("terrain") or {}).get("imagery_info") or {}).get("credit") or ""
-    _tracked(draw, (margin, h - round(h * 0.042)), "PWLLHELI SAILING CLUB", foot, (110, 110, 110), 4.0)
+    club = _club_line(data)
+    if club:
+        _tracked(draw, (margin, h - round(h * 0.042)), club, foot, (110, 110, 110), 4.0)
     if credit:
         _tracked(draw, (w - margin, h - round(h * 0.042)), credit.upper(), foot, (110, 110, 110), 3.0,
                  anchor_right=True)

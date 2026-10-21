@@ -1,6 +1,6 @@
 {# Copyright © 2026 CapeNet Ltd. All Rights Reserved. #}
 {% extends "base.html" %}
-{% block title %}Settings - Pwllheli Race Officer{% endblock %}
+{% block title %}Settings - {{ club_brand.app_name }}{% endblock %}
 {% block content %}
 <section class="card settings-savebar" id="settings">
   <div class="section-head">
@@ -29,6 +29,7 @@
     <strong>Mark layer</strong> reaches only the phone page for re-measuring a mark &mdash; it is for whoever takes the RIB out
     after a storm, and does not open the race, the finish times or the results.</p>
   {% if users %}
+  <div class="table-scroll">
   <table>
     <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Marks</th><th>On water</th><th>Status</th><th>Last login</th><th>Update</th></tr></thead>
     <tbody>
@@ -79,6 +80,7 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
   {% endif %}
   <h4>Add user</h4>
   <form method="post" action="{{ url_for('settings_user_add') }}" class="form-row">
@@ -97,6 +99,110 @@
     </label>
     <button type="submit">Add user</button>
   </form>
+</details>
+
+<details class="card settings-section" id="branding">
+  <summary><h3>Club name and branding</h3><span>The club's name and logos on these pages, the public pages, videos and films</span></summary>
+  <p class="muted">Everything here belongs to the club rather than to the software. A club setting the app up for itself changes these first; Pwllheli's are the defaults. The footers keep the software's own name, Pwllheli Race Officer, wherever it runs.</p>
+
+  <section class="settings-subsection">
+    <h4>The club's name</h4>
+    <div class="two-col">
+      <label>Club name
+        <input form="settingsSaveForm" type="text" name="club_name" value="{{ club_brand.name }}" maxlength="80" placeholder="Pwllheli Sailing Club">
+        <small>On the public pages, the 3D replay films and the published results.</small>
+      </label>
+      <label>Name before &ldquo;Race Officer&rdquo;
+        <input form="settingsSaveForm" type="text" name="club_short_name" value="{{ club_brand.short_name }}" maxlength="40" placeholder="Pwllheli">
+        <small>At the top of these pages and on each browser tab: &ldquo;{{ club_brand.app_name }}&rdquo;.</small>
+      </label>
+    </div>
+  </section>
+
+  <section class="settings-subsection">
+    <h4>Club logo</h4>
+    <p class="small muted">Shown in the side menu here, on the public pages when there is no banner, top-left on public videos and the live image, on the start photo and the films' title card, and on published results. Upload the <strong>colour</strong> version: it is used on light pages as well as over the camera picture.</p>
+    <p class="small muted">Current: {{ public_branding.club_logo_file }}{% if not public_branding.club_logo_uploaded %} (bundled default){% endif %}</p>
+    {% if club_brand.logo_url %}<img class="branding-preview-logo" src="{{ club_brand.logo_url }}?v={{ app_version }}" alt="Current club logo">{% endif %}
+    <form method="post" action="{{ url_for('settings_branding_club_logo_upload') }}" enctype="multipart/form-data" class="form-row small-top">
+      <label>Upload replacement club logo <input type="file" name="club_logo_upload" accept=".png,.jpg,.jpeg,image/png,image/jpeg" required></label>
+      <button type="submit" class="secondary">Upload club logo</button>
+    </form>
+    {% if public_branding.club_logo_uploaded %}
+    <form method="post" action="{{ url_for('settings_branding_club_logo_delete') }}" class="inline" onsubmit="return confirm('Remove the uploaded club logo and use the bundled default logo?')">
+      <button type="submit" class="small secondary">Use the bundled default logo</button>
+    </form>
+    {% endif %}
+  </section>
+
+  <section class="settings-subsection">
+    <h4>Public page header</h4>
+    <p class="small muted">The banner across the top of the public race pages and the bar TV. Without one, {% if club_brand.public_header.alt %}the bundled Pwllheli banner is shown, because the club name is Pwllheli Sailing Club{% else %}the club logo is shown beside the club name{% endif %}. A wide image, about 820 &times; 74 pixels on a white or transparent background, works best.</p>
+    {% if public_branding.public_header_url %}
+    <p class="small muted">Current: {{ public_branding.public_header_file }}</p>
+    <img class="branding-preview-header" src="{{ public_branding.public_header_url }}?v={{ app_version }}" alt="Current public page header">
+    {% endif %}
+    <form method="post" action="{{ url_for('settings_branding_public_header_upload') }}" enctype="multipart/form-data" class="form-row small-top">
+      <label>Upload a public page header <input type="file" name="public_header_upload" accept=".png,.jpg,.jpeg,image/png,image/jpeg" required></label>
+      <button type="submit" class="secondary">Upload header</button>
+    </form>
+    {% if public_branding.public_header_url %}
+    <form method="post" action="{{ url_for('settings_branding_public_header_delete') }}" class="inline" onsubmit="return confirm('Remove the uploaded public page header?')">
+      <button type="submit" class="small secondary">Remove the header</button>
+    </form>
+    {% endif %}
+  </section>
+
+  <section class="settings-subsection">
+    <h4>Logos on public video and the live image</h4>
+    <p class="muted small">The public live-camera JPEG and the smaller public start/finish videos burn the logos into the media, so saved images, screenshots and R2-hosted copies keep the same sponsor branding. To keep the camera view clear they show one sponsor at a time in the top-right, rotating every 5 seconds. The full-quality evidence clips stored locally are not altered.</p>
+    <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="public_branding_enabled" value="1" {% if video.public_branding_enabled %}checked{% endif %}> Enable public logo branding</label>
+    <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="public_branding_club_logo_enabled" value="1" {% if video.public_branding_club_logo_enabled %}checked{% endif %}> Show the club logo top-left on public video and the live image</label>
+  </section>
+
+  <section class="settings-subsection">
+    <h4>Add sponsor logo</h4>
+    <p class="small muted">Sponsor logos rotate one at a time on public videos and the public live-camera JPEG. The standalone published results page still shows all sponsor logos in its grey banner, and a sponsor with a website there becomes a link to it. Videos and the 3D films cannot be clicked, so the website only affects the results page.</p>
+    <form method="post" action="{{ url_for('settings_branding_sponsor_upload') }}" enctype="multipart/form-data" class="form-row">
+      <label>Sponsor / mark label <input name="sponsor_label" placeholder="e.g. Mark sponsor"></label>
+      <label>Website (optional) <input name="sponsor_url" placeholder="e.g. partingtonmarine.co.uk"></label>
+      <label>Logo file <input type="file" name="sponsor_logo_upload" accept=".png,.jpg,.jpeg,image/png,image/jpeg" required></label>
+      <button type="submit" class="secondary">Upload sponsor logo</button>
+    </form>
+  </section>
+
+  {% if public_branding.sponsors %}
+  <h4>Sponsor logos</h4>
+  <table class="compact branding-assets-table">
+    <thead><tr><th>Logo</th><th>Label</th><th>Website</th><th>File</th><th>Delete</th></tr></thead>
+    <tbody>
+    {% for sponsor in public_branding.sponsors %}
+      <tr>
+        <td><img class="branding-sponsor-thumb" src="{{ sponsor.url }}?v={{ app_version }}" alt="{{ sponsor.label }}"></td>
+        <td>{{ sponsor.label }}</td>
+        <td>
+          {# On the published results the logo becomes a link to this. Blank it to unlink. #}
+          <form method="post" action="{{ url_for('settings_branding_sponsor_website') }}" class="inline">
+            <input type="hidden" name="sponsor_id" value="{{ sponsor.id }}">
+            <input name="sponsor_url" value="{{ sponsor.website }}" placeholder="not linked" size="24">
+            <button type="submit" class="small secondary">Save</button>
+          </form>
+        </td>
+        <td>{{ sponsor.filename }}</td>
+        <td>
+          <form method="post" action="{{ url_for('settings_branding_sponsor_delete') }}" class="inline" onsubmit="return confirm('Delete sponsor logo {{ sponsor.label }}?')">
+            <input type="hidden" name="sponsor_id" value="{{ sponsor.id }}">
+            <button type="submit" class="small secondary">Delete</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="small muted">No sponsor logos uploaded yet.</p>
+  {% endif %}
+  <p class="small muted">PNG files with transparency work best. Public videos and the public live-camera JPEG use a top-left club logo and one top-right sponsor logo at a time, rotating through up to eight sponsor logos every 5 seconds. Logos are capped at about 15% of media height to avoid covering the finish line.</p>
 </details>
 
 <details class="card settings-section" id="hardware">
@@ -327,7 +433,7 @@
     takes effect immediately.</p>
   <label>Public address
     <input form="settingsSaveForm" type="url" name="server_public_base_url" inputmode="url"
-           placeholder="https://pro.pwllhelisailingclub.org"
+           placeholder="https://race.yourclub.org"
            value="{{ config.server_public_base_url }}">
   </label>
   {% if server_status.running %}
@@ -381,7 +487,7 @@
     <a href="{{ url_for('documentation_markdown', slug='tracking') }}">Yacht tracking</a>.</p>
   <div class="three-col">
     <label>Traccar base URL
-      <input form="settingsSaveForm" type="text" name="traccar_base_url" value="{{ config.traccar_base_url }}" placeholder="https://pro.pwllhelisailingclub.org/traccar">
+      <input form="settingsSaveForm" type="text" name="traccar_base_url" value="{{ config.traccar_base_url }}" placeholder="https://race.yourclub.org/traccar">
     </label>
     <label>Traccar API token
       <input form="settingsSaveForm" type="password" name="traccar_token" value="{{ config.traccar_token }}" placeholder="Bearer token" autocomplete="off">
@@ -474,6 +580,35 @@
   </div>
 </details>
 
+<details class="card settings-section" id="r2">
+  <summary><h3>Cloud storage (Cloudflare R2)</h3><span>The club's public bucket: videos, live image, start photos, 3D films, published results</span></summary>
+  <p class="muted">One Cloudflare R2 bucket holds everything the club publishes &mdash; the public copies of start and finish videos, the live camera image, the start photos, the 3D replay films and published series results &mdash; so competitors fetch them from Cloudflare rather than over the hut's 4G link. The 3D replay render machine reads its jobs from the same bucket. <a href="#offsite-backup">Off-site backup</a> uses this account and these keys with a second, private bucket of its own.</p>
+  <div class="three-col">
+      <label>R2 account ID or S3 endpoint <input form="settingsSaveForm" type="text" name="video_public_r2_account_id" value="{{ video.video_public_r2_account_id }}" placeholder="Cloudflare account ID or https://ACCOUNT_ID.r2.cloudflarestorage.com"></label>
+      <label>R2 bucket <input form="settingsSaveForm" type="text" name="video_public_r2_bucket" value="{{ video.video_public_r2_bucket }}" placeholder="race-videos"></label>
+      <label>R2 access key ID <input form="settingsSaveForm" type="text" name="video_public_r2_access_key_id" value="{{ video.video_public_r2_access_key_id }}" autocomplete="off"></label>
+      <label>R2 secret access key <input form="settingsSaveForm" type="password" name="video_public_r2_secret_access_key" value="" placeholder="{% if video.video_public_r2_secret_access_key_set %}Saved — leave blank to keep{% else %}R2 secret access key{% endif %}" autocomplete="off"></label>
+      <label>Public base URL <input form="settingsSaveForm" type="url" name="video_public_r2_public_base_url" value="{{ video.video_public_r2_public_base_url }}" placeholder="https://videos.example.com"></label>
+      <label>Object prefix <input form="settingsSaveForm" type="text" name="video_public_r2_prefix" value="{{ video.video_public_r2_prefix }}" placeholder="race-videos"></label>
+  </div>
+    <label class="checkbox-inline small"><input form="settingsSaveForm" type="checkbox" name="video_public_r2_secret_access_key_clear" value="1"> Clear saved R2 secret access key</label>
+  <div class="form-row small-top">
+      <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_video_r2_test') }}" formmethod="post" class="secondary">Save and test R2 upload</button>
+  </div>
+    <p class="muted small">The test writes <code>{{ video.video_public_r2_prefix or 'race-videos' }}/test/race-officer-r2-test.txt</code>. If upload works but the public check fails, check the Public base URL/custom domain rather than the access keys.</p>
+  <div class="settings-status-stack">
+      {% if r2_test_result %}
+      <div class="status-box {{ 'ok' if r2_test_result.ok else 'warn' }}">
+        <strong>Last R2 test:</strong> {{ r2_test_result.timestamp or '' }} — {{ r2_test_result.message }}
+        <br>Bucket/key: <code>{{ r2_test_result.bucket }}/{{ r2_test_result.key }}</code>
+        {% if r2_test_result.endpoint %}<br>S3 endpoint: <code>{{ r2_test_result.endpoint }}</code>{% endif %}
+        {% if r2_test_result.public_url %}<br>Public URL: <a href="{{ r2_test_result.public_url }}" target="_blank" rel="noopener">{{ r2_test_result.public_url }}</a>{% endif %}
+        {% if r2_test_result.public_check_message %}<br>Public check: {{ r2_test_result.public_check_message }}{% endif %}
+      </div>
+      {% endif %}
+  </div>
+</details>
+
 <details class="card settings-section" id="video">
   <summary><h3>Video Recording</h3><span>Finish camera, clips, public copies and PTZ</span></summary>
   <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="video_enabled" value="1" {% if video.video_enabled %}checked{% endif %}> Enable video recording</label>
@@ -545,7 +680,7 @@
 
   <section class="settings-subsection">
     <h4>Public video and live image publishing</h4>
-    <p class="muted small">The full-quality evidence clip stays on the hut PC. When Cloudflare R2 is enabled, the app also makes a smaller H.264 public copy and uploads it to R2 so competitors watch it from Cloudflare rather than the hut 4G connection.</p>
+    <p class="muted small">The full-quality evidence clip stays on the hut PC. When Cloudflare R2 is enabled, the app also makes a smaller H.264 public copy and uploads it to R2 so competitors watch it from Cloudflare rather than the hut 4G connection. The bucket and its keys are under <a href="#r2">Cloud storage (Cloudflare R2)</a>.</p>
     <div class="three-col">
       <label>Public video publishing
         <select form="settingsSaveForm" name="video_public_provider">
@@ -566,18 +701,10 @@
         </select>
       </label>
       <label>Live image upload seconds <input form="settingsSaveForm" type="number" name="video_public_live_interval_seconds" min="2" max="60" value="{{ video.video_public_live_interval_seconds }}"><small>Only used when the live image is uploaded to R2.</small></label>
-      <label>R2 account ID or S3 endpoint <input form="settingsSaveForm" type="text" name="video_public_r2_account_id" value="{{ video.video_public_r2_account_id }}" placeholder="Cloudflare account ID or https://ACCOUNT_ID.r2.cloudflarestorage.com"></label>
-      <label>R2 bucket <input form="settingsSaveForm" type="text" name="video_public_r2_bucket" value="{{ video.video_public_r2_bucket }}" placeholder="race-videos"></label>
-      <label>R2 access key ID <input form="settingsSaveForm" type="text" name="video_public_r2_access_key_id" value="{{ video.video_public_r2_access_key_id }}" autocomplete="off"></label>
-      <label>R2 secret access key <input form="settingsSaveForm" type="password" name="video_public_r2_secret_access_key" value="" placeholder="{% if video.video_public_r2_secret_access_key_set %}Saved — leave blank to keep{% else %}R2 secret access key{% endif %}" autocomplete="off"></label>
-      <label>Public base URL <input form="settingsSaveForm" type="url" name="video_public_r2_public_base_url" value="{{ video.video_public_r2_public_base_url }}" placeholder="https://videos.example.com"></label>
-      <label>Object prefix <input form="settingsSaveForm" type="text" name="video_public_r2_prefix" value="{{ video.video_public_r2_prefix }}" placeholder="race-videos"></label>
     </div>
     <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="video_startline_overlay_enabled" value="1" {% if video.video_startline_overlay_enabled %}checked{% endif %}> Draw the start line on public start/finish videos (experimental) <span class="muted small">— public copy only, never the evidence clip; the start photo follows this too</span></label>
     <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="video_start_photo_enabled" value="1" {% if video.video_start_photo_enabled %}checked{% endif %}> Take a start photo at each start signal and show it on the public race page at once <span class="muted small">— the camera's own still, with the start line and club logo; uses the camera address and login under Camera zoom / PTZ presets, even with preset switching off</span></label>
-    <label class="checkbox-inline small"><input form="settingsSaveForm" type="checkbox" name="video_public_r2_secret_access_key_clear" value="1"> Clear saved R2 secret access key</label>
     <div class="form-row small-top">
-      <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_video_r2_test') }}" formmethod="post" class="secondary">Save and test R2 upload</button>
       <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_video_r2_retry') }}" formmethod="post" class="secondary">Save and retry failed public video uploads</button>
       {# There was a button to retry and none to stop. A backlog of stuck uploads
          also holds up the nightly off-site backup, which stands aside while race
@@ -587,19 +714,9 @@
 
 The evidence clips and any public copies are kept — only publishing is given up on, and Retry can queue them again later.')">Give up on stuck public video uploads</button>
     </div>
-    <p class="muted small">The test writes <code>{{ video.video_public_r2_prefix or 'race-videos' }}/test/race-officer-r2-test.txt</code>. If upload works but the public check fails, check the Public base URL/custom domain rather than the access keys.</p>
     <p class="muted small"><strong>Retry</strong> checks every public video before uploading it, and rebuilds from the evidence clip any that came out short or cannot be played, or that differs from the hut's copy on Cloudflare, under a new address so a cached short copy cannot go on being served. A 3D replay already made from a short copy is not redone; queue that race's render again afterwards.</p>
     <p class="muted small">When <strong>Public live image</strong> is set to R2, the hut uploads one branded JPEG to <code>{{ video.video_public_r2_prefix or 'race-videos' }}/live/latest_public.jpg</code> every few seconds. Competitor browsers then refresh that Cloudflare URL rather than repeatedly requesting camera images through the hut 4G link.</p>
     <div class="settings-status-stack">
-      {% if r2_test_result %}
-      <div class="status-box {{ 'ok' if r2_test_result.ok else 'warn' }}">
-        <strong>Last R2 test:</strong> {{ r2_test_result.timestamp or '' }} — {{ r2_test_result.message }}
-        <br>Bucket/key: <code>{{ r2_test_result.bucket }}/{{ r2_test_result.key }}</code>
-        {% if r2_test_result.endpoint %}<br>S3 endpoint: <code>{{ r2_test_result.endpoint }}</code>{% endif %}
-        {% if r2_test_result.public_url %}<br>Public URL: <a href="{{ r2_test_result.public_url }}" target="_blank" rel="noopener">{{ r2_test_result.public_url }}</a>{% endif %}
-        {% if r2_test_result.public_check_message %}<br>Public check: {{ r2_test_result.public_check_message }}{% endif %}
-      </div>
-      {% endif %}
       {% if public_live_r2_status %}
       <div class="status-box {{ 'ok' if public_live_r2_status.ok else 'warn' }}">
         <strong>Public live image R2:</strong> {{ public_live_r2_status.message }}
@@ -669,7 +786,7 @@ The evidence clips and any public copies are kept — only publishing is given u
     <h4>Public live stream</h4>
     <p class="muted small">Optional external live-stream relay (see <code>deploy/live_stream</code>). When a URL is set, a <strong>Watch live</strong> link appears on the public competitor pages. Leave blank to hide it.</p>
     <label>Public live stream URL
-      <input form="settingsSaveForm" type="url" name="public_live_stream_url" value="{{ public_live_stream_url }}" placeholder="https://live.pwllhelisailingclub.org">
+      <input form="settingsSaveForm" type="url" name="public_live_stream_url" value="{{ public_live_stream_url }}" placeholder="https://race.yourclub.org/live">
     </label>
   </section>
 </details>
@@ -708,11 +825,11 @@ The evidence clips and any public copies are kept — only publishing is given u
 
   <section class="settings-subsection">
     <h4>Where it goes</h4>
-    <p class="muted small">The account ID and keys are the ones in <a href="{{ url_for('settings_page') }}#video">Video &amp; camera</a> &mdash; there is only one set to look after.
+    <p class="muted small">The account ID and keys are the ones in <a href="{{ url_for('settings_page') }}#r2">Cloud storage (Cloudflare R2)</a> &mdash; there is only one set to look after.
       The <strong>bucket must be a different one</strong>: the video bucket is served publicly, and a backup contains every user account and password hash in the club.
       Create a second R2 bucket with no public access and name it here.</p>
     <div class="three-col">
-      <label>Backup bucket (private) <input form="settingsSaveForm" type="text" name="offsite_backup_bucket" value="{{ offsite.offsite_backup_bucket }}" placeholder="psc-race-officer-backups" autocomplete="off" autocapitalize="none" spellcheck="false"></label>
+      <label>Backup bucket (private) <input form="settingsSaveForm" type="text" name="offsite_backup_bucket" value="{{ offsite.offsite_backup_bucket }}" placeholder="club-race-officer-backups" autocomplete="off" autocapitalize="none" spellcheck="false"></label>
       <label>Key prefix <input form="settingsSaveForm" type="text" name="offsite_backup_prefix" value="{{ offsite.offsite_backup_prefix }}" placeholder="race-officer-backups" autocomplete="off"></label>
       <label>Copies to keep <input form="settingsSaveForm" type="number" name="offsite_backup_keep" min="1" max="365" value="{{ offsite.offsite_backup_keep }}"></label>
     </div>
@@ -773,72 +890,6 @@ The evidence clips and any public copies are kept — only publishing is given u
 </details>
 
 
-<details class="card settings-section" id="branding">
-  <summary><h3>Public branding</h3><span>Club and sponsor logos on public camera/video</span></summary>
-  <p class="muted">These logos are used for competitor-facing media. The public live-camera JPEG and smaller public start/finish videos burn the logos into the media, so saved images, screenshots and R2-hosted copies keep the same sponsor branding. To keep the camera view clear, public videos and live JPEGs show one sponsor at a time in the top-right and rotate every 5 seconds. The full-quality evidence clips stored locally are not altered.</p>
-  <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="public_branding_enabled" value="1" {% if video.public_branding_enabled %}checked{% endif %}> Enable public logo branding</label>
-  <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="public_branding_club_logo_enabled" value="1" {% if video.public_branding_club_logo_enabled %}checked{% endif %}> Show Pwllheli Sailing Club logo at the top</label>
-
-  <div class="two-col small-top">
-    <div>
-      <h4>Club logo</h4>
-      <p class="small muted">Current: {{ public_branding.club_logo_file }}{% if not public_branding.club_logo_uploaded %} (bundled default){% endif %}</p>
-      {% if public_branding.club_logo_url %}<img class="branding-preview-logo" src="{{ public_branding.club_logo_url }}?v={{ app_version }}" alt="Current club logo">{% endif %}
-      <form method="post" action="{{ url_for('settings_branding_club_logo_upload') }}" enctype="multipart/form-data" class="form-row small-top">
-        <label>Upload replacement club logo <input type="file" name="club_logo_upload" accept=".png,.jpg,.jpeg,image/png,image/jpeg" required></label>
-        <button type="submit" class="secondary">Upload club logo</button>
-      </form>
-      {% if public_branding.club_logo_uploaded %}
-      <form method="post" action="{{ url_for('settings_branding_club_logo_delete') }}" class="inline" onsubmit="return confirm('Remove uploaded club logo and use the bundled PSC logo?')">
-        <button type="submit" class="small secondary">Use bundled PSC logo</button>
-      </form>
-      {% endif %}
-    </div>
-    <div>
-      <h4>Add sponsor logo</h4>
-      <p class="small muted">Sponsor logos rotate one at a time on public videos and the public live-camera JPEG. The standalone published results page still shows all sponsor logos in its grey banner, and a sponsor with a website there becomes a link to it. Videos and the 3D films cannot be clicked, so the website only affects the results page.</p>
-      <form method="post" action="{{ url_for('settings_branding_sponsor_upload') }}" enctype="multipart/form-data" class="form-row">
-        <label>Sponsor / mark label <input name="sponsor_label" placeholder="e.g. Abersoch Mark sponsor"></label>
-        <label>Website (optional) <input name="sponsor_url" placeholder="e.g. partingtonmarine.co.uk"></label>
-        <label>Logo file <input type="file" name="sponsor_logo_upload" accept=".png,.jpg,.jpeg,image/png,image/jpeg" required></label>
-        <button type="submit" class="secondary">Upload sponsor logo</button>
-      </form>
-    </div>
-  </div>
-
-  {% if public_branding.sponsors %}
-  <h4>Sponsor logos</h4>
-  <table class="compact branding-assets-table">
-    <thead><tr><th>Logo</th><th>Label</th><th>Website</th><th>File</th><th>Delete</th></tr></thead>
-    <tbody>
-    {% for sponsor in public_branding.sponsors %}
-      <tr>
-        <td><img class="branding-sponsor-thumb" src="{{ sponsor.url }}?v={{ app_version }}" alt="{{ sponsor.label }}"></td>
-        <td>{{ sponsor.label }}</td>
-        <td>
-          {# On the published results the logo becomes a link to this. Blank it to unlink. #}
-          <form method="post" action="{{ url_for('settings_branding_sponsor_website') }}" class="inline">
-            <input type="hidden" name="sponsor_id" value="{{ sponsor.id }}">
-            <input name="sponsor_url" value="{{ sponsor.website }}" placeholder="not linked" size="24">
-            <button type="submit" class="small secondary">Save</button>
-          </form>
-        </td>
-        <td>{{ sponsor.filename }}</td>
-        <td>
-          <form method="post" action="{{ url_for('settings_branding_sponsor_delete') }}" class="inline" onsubmit="return confirm('Delete sponsor logo {{ sponsor.label }}?')">
-            <input type="hidden" name="sponsor_id" value="{{ sponsor.id }}">
-            <button type="submit" class="small secondary">Delete</button>
-          </form>
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p class="small muted">No sponsor logos uploaded yet.</p>
-  {% endif %}
-  <p class="small muted">PNG files with transparency work best. Public videos and the public live-camera JPEG use a top-left club logo and one top-right sponsor logo at a time, rotating through up to eight sponsor logos every 5 seconds. Logos are capped at about 15% of media height to avoid covering the finish line.</p>
-</details>
 
 <details class="card settings-section" id="rating-sources">
   <summary><h3>Rating lookup sources</h3><span>IRC and YTC lists</span></summary>
@@ -897,7 +948,7 @@ The evidence clips and any public copies are kept — only publishing is given u
 
 <details class="card settings-section" id="course-chart">
   <summary><h3>Course chart background</h3><span>Base map and nautical overlay</span></summary>
-  <p class="muted">Course charts plot the CHPSC marks and selected course. If you deploy OpenNauticalChart tiles locally, paste that tile URL here.</p>
+  <p class="muted">Course charts plot the club's marks and selected course. If you deploy OpenNauticalChart tiles locally, paste that tile URL here.</p>
   <label>Base chart tile URL <input form="settingsSaveForm" type="text" name="course_chart_tile_url" value="{{ course_chart.course_chart_tile_url }}" placeholder="{{ defaults.course_chart_tile_url }}"></label>
   <label>Nautical overlay tile URL <input form="settingsSaveForm" type="text" name="course_chart_overlay_url" value="{{ course_chart.course_chart_overlay_url }}" placeholder="{{ defaults.course_chart_overlay_url }}"></label>
 </details>

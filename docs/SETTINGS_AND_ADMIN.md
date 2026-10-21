@@ -80,6 +80,15 @@ Choose the wind source with the two option cards at the top of the section. Only
 
 Wind displayed in race/course/public pages is labelled as **wind at the hut**.
 
+## Cloud storage (Cloudflare R2)
+
+One public Cloudflare R2 bucket holds everything the club publishes: the public copies of start and finish videos, the live camera image, the start photos, the 3D replay films and published series results. Competitors fetch them from Cloudflare rather than over the hut's 4G link, and the 3D replay render machine reads its jobs from the same bucket. These fields used to sit inside **Video Recording**; they have their own section because a club with no camera still needs them for its results and films.
+
+- R2 account ID or S3 endpoint, bucket, access key ID, secret access key (a saved secret is kept when the field is left blank), public base URL and object prefix.
+- **Publishing a series' results** uses them too (v0.281): *Publish to website* on the series page uploads into `results/series-<id>/` in the same bucket, and the button is hidden until this section is filled in. See [`WEBSITE_PUBLISHING.md`](WEBSITE_PUBLISHING.md).
+- **Save and test R2 upload** writes a small test file and opens its public address. If the upload works but the public check fails, check the public base URL rather than the keys. It no longer asks for video publishing to be switched on first.
+- **Off-site backup** uses this account and these keys with a second, private bucket of its own.
+
 ## Video Recording
 
 The **Video Recording** section is split into subsections so the high-use controls are easier to find.
@@ -115,9 +124,9 @@ Configure:
 - **Draw the start line on public start/finish videos** (experimental, off by default): overlays the detected start line (pole base → ODM buoy) on the public copy only — red before the start and green after on start videos, green on finish videos. The start photo follows it too. See VIDEO_RECORDING.md.
 - **Take a start photo at each start signal** (on by default): the camera's own still at every start, with the start line and club logo, on the public race page's **Start photo** tab a few seconds after the gun. It uses the camera address and login under **Camera zoom / PTZ presets**, even with preset switching off; **Save and take a test start photo** there tries it now without publishing anything. See VIDEO_RECORDING.md, *Start photo*.
 - Public live image source: served by the hut app or uploaded to R2 as one refreshed JPEG.
-- R2 account/endpoint, bucket, access key, saved secret, public base URL and object prefix. **These also drive publishing a series' results** (v0.281): *Publish to website* on the series page uploads into `results/series-<id>/` in the same bucket, and the button is hidden until this section is filled in. See [`WEBSITE_PUBLISHING.md`](WEBSITE_PUBLISHING.md).
+- The bucket itself, and its keys, are in their own section: **Cloud storage (Cloudflare R2)**, below.
 
-When Cloudflare R2 public-video publishing is enabled, the app keeps the full-quality evidence clip in `data/video_clips/`, creates a smaller H.264 web copy in `data/video_clips/public/`, and uploads that copy to R2. Use **Save and test R2 upload** after entering credentials. Use **Save and retry failed public video uploads** if a clip shows **Public video error** but the local public copy or evidence clip exists. The same button rebuilds, from the evidence clip, any published copy that is shorter than it — under a new address, because the bucket serves race videos as cached for a year. A public copy is also checked for length before it is published, and one that comes out short is never published (see TROUBLESHOOTING.md, *Public video is a few seconds long*).
+When Cloudflare R2 public-video publishing is enabled, the app keeps the full-quality evidence clip in `data/video_clips/`, creates a smaller H.264 web copy in `data/video_clips/public/`, and uploads that copy to R2. Use **Save and retry failed public video uploads** if a clip shows **Public video error** but the local public copy or evidence clip exists. The same button rebuilds, from the evidence clip, any published copy that is shorter than it — under a new address, because the bucket serves race videos as cached for a year. A public copy is also checked for length before it is published, and one that comes out short is never published (see TROUBLESHOOTING.md, *Public video is a few seconds long*).
 
 ### Camera zoom / PTZ presets
 
@@ -281,9 +290,17 @@ It exists because when the server started refusing connections there were four p
 
 Shows recent horn and hardware input events. Use this to check unexpected manual horn input triggers.
 
-## Public branding
+## Club name and branding
 
-The Settings page includes a **Public branding** section. Use it to enable/disable competitor-facing logo branding, upload an optional replacement Pwllheli Sailing Club logo, and add/delete sponsor logos for mark-sponsor exposure. The images are stored under `data/branding/`. The public live-camera page serves a branded JPEG with the logos burned into the image, and the smaller public R2 video copy burns the same logos into the video. Public camera/video branding keeps the club logo at the top-left and shows one sponsor logo at a time in the top-right, rotating every 5 seconds. Logos are capped at roughly 15% of the image/video height so they do not obscure the finish line. Local evidence clips are left unbranded. Standalone published results are static HTML, so they still show the full club/sponsor strip in the grey page banner. Each sponsor can also carry a **Website**, and on the published results its logo becomes a link to it, opening in a new tab; the banner says so in small print where any sponsor has one. Only `http` and `https` addresses are accepted -- a published page is served from the club's own domain, so anything else there would be script rather than a bad link -- and a bare domain such as `partingtonmarine.co.uk` is taken as `https`. Clearing the field unlinks the logo again.
+The first section after **Users**, and the first thing a club setting the app up for itself changes ([`CLUB_CUSTOMISATION.md`](CLUB_CUSTOMISATION.md) is the whole list). Pwllheli's name and logos are the defaults.
+
+- **Club name**: on the public pages, the 3D replay films and published results.
+- **Name before "Race Officer"**: the word at the top of the race office's pages and on each browser tab ("Liverpool" gives *Liverpool Race Officer*). The footers keep the software's own name, Pwllheli Race Officer.
+- **Club logo**: the side menu of these pages, the public pages, public videos and the live image, the start photo, the films' title card and published results. Upload the colour version; it is used on light pages as well as over the camera picture.
+- **Public page header**: a banner for the top of the public pages and the bar TV. Without one the club logo is shown beside the club name; Pwllheli's banner is shown only while the club name is still Pwllheli Sailing Club.
+- **Logos on public video and the live image**, and the **sponsor logos**, as below.
+
+The images are stored under `data/branding/`. The public live-camera page serves a branded JPEG with the logos burned into the image, and the smaller public R2 video copy burns the same logos into the video. Public camera/video branding keeps the club logo at the top-left and shows one sponsor logo at a time in the top-right, rotating every 5 seconds. Logos are capped at roughly 15% of the image/video height so they do not obscure the finish line. Local evidence clips are left unbranded. Standalone published results are static HTML, so they still show the full club/sponsor strip in the grey page banner. Each sponsor can also carry a **Website**, and on the published results its logo becomes a link to it, opening in a new tab; the banner says so in small print where any sponsor has one. Only `http` and `https` addresses are accepted -- a published page is served from the club's own domain, so anything else there would be script rather than a bad link -- and a bare domain such as `partingtonmarine.co.uk` is taken as `https`. Clearing the field unlinks the logo again.
 
 
 ## Activity log

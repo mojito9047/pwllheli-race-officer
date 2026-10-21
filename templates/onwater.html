@@ -18,7 +18,7 @@
   {# The phone's own status bar in the strip's colour, so the strip reads as the
      top of the screen rather than a band across it. #}
   <meta name="theme-color" content="#10120f">
-  <title>Virtual Race Officer · Pwllheli</title>
+  <title>Virtual Race Officer · {{ club_brand.short_name }}</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
   {% include 'partials/theme_links.html' %}

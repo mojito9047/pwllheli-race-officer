@@ -461,7 +461,11 @@ from core.offsite import (
     start_offsite_backup_worker,
 )
 from core.settings import (
+    DEFAULT_CLUB_NAME,
+    DEFAULT_CLUB_SHORT_NAME,
     bool_to_text,
+    clean_club_text,
+    club_config,
     course_chart_config,
     float_in_range,
     get_app_setting_overrides,
@@ -1598,8 +1602,16 @@ def thumbnail_data_uri(path: Path, max_size: tuple = PUBLISHED_LOGO_MAX) -> str:
 
 
 def published_logo_data_uri() -> str:
-    """Embed the default club logo so the published results HTML remains standalone."""
-    return thumbnail_data_uri(DEFAULT_CLUB_LOGO_PATH)
+    """Embed the club logo so the published results HTML remains standalone.
+
+    The club's uploaded logo when there is one. This always used the bundled
+    Pwllheli logo, so another club's published results carried Pwllheli's burgee.
+    """
+    try:
+        uploaded = branding_assets().get("club_logo_path")
+    except Exception:
+        uploaded = None
+    return thumbnail_data_uri(uploaded or DEFAULT_CLUB_LOGO_PATH)
 
 
 def published_branding_logos() -> List[Dict[str, str]]:
@@ -1622,7 +1634,7 @@ def published_branding_logos() -> List[Dict[str, str]]:
     if assets.get("enabled"):
         if assets.get("club_logo_enabled"):
             club_path = assets.get("club_logo_path")
-            add_logo("club", "Pwllheli Sailing Club", club_path if isinstance(club_path, Path) else None)
+            add_logo("club", club_config()["name"], club_path if isinstance(club_path, Path) else None)
         for sponsor in assets.get("sponsors") or []:
             raw_path = sponsor.get("path")
             # "label" is what branding_assets() calls it. Asking for "name"
@@ -1636,7 +1648,7 @@ def published_branding_logos() -> List[Dict[str, str]]:
     # Preserve the previous behaviour of showing the PSC logo even when no
     # upload/manifest branding has been configured yet.
     if not any(logo["kind"] == "club" for logo in logos):
-        add_logo("club", "Pwllheli Sailing Club", DEFAULT_CLUB_LOGO_PATH)
+        add_logo("club", club_config()["name"], DEFAULT_CLUB_LOGO_PATH)
     return logos
 
 
@@ -1933,6 +1945,12 @@ def save_app_settings(settings: Dict[str, Any]) -> str:
         "offsite_backup_keep": str(int_in_range(settings.get("offsite_backup_keep"), offsite.DEFAULT_OFFSITE_KEEP, 1, 365)),
         "offsite_backup_sections": ",".join(offsite.normalise_offsite_sections(settings.get("offsite_backup_sections"))),
         "offsite_backup_passphrase": offsite_passphrase,
+        # A form without these fields keeps what is saved rather than resetting
+        # the club to the defaults.
+        "club_name": clean_club_text(existing.get("club_name", "") if settings.get("club_name") is None
+                                     else settings.get("club_name"), DEFAULT_CLUB_NAME, 80),
+        "club_short_name": clean_club_text(existing.get("club_short_name", "") if settings.get("club_short_name") is None
+                                           else settings.get("club_short_name"), DEFAULT_CLUB_SHORT_NAME, 40),
     }
     with get_db() as db:
         for key, value in values.items():
@@ -2028,7 +2046,46 @@ def branding_assets_for_template() -> Dict[str, Any]:
             **sponsor,
             "url": url_for("public_branding_file", filename=sponsor["filename"]),
         })
-    return {**assets, "club_logo_url": club_url, "sponsors": sponsors}
+    header_path = assets.get("public_header_path")
+    return {**assets, "club_logo_url": club_url, "sponsors": sponsors,
+            "public_header_url": _branding_url(header_path) if header_path else ""}
+
+
+def _branding_url(path: Any) -> str:
+    """The URL a branding image is served at: bundled under static/, uploaded under /public/branding."""
+    path = Path(path)
+    if path.parent == (BASE_DIR / "static" / "img"):
+        return url_for("static", filename=f"img/{path.name}")
+    return url_for("public_branding_file", filename=path.name)
+
+
+def club_branding_for_template() -> Dict[str, Any]:
+    """The club's name and marks for every page.
+
+    ``logo_url`` is the club logo from Settings -> Club branding, the bundled one
+    until a club uploads its own, and is what the race office's side menu shows.
+    ``public_header`` is the banner across the top of the public pages: an
+    uploaded banner if there is one; the bundled Pwllheli banner while the club is
+    Pwllheli Sailing Club, since that is what the banner says; otherwise the club
+    logo beside the club's name. Whether a logo has been uploaded says nothing
+    about which club this is -- Pwllheli's hut has the bundled logo uploaded.
+    """
+    try:
+        assets = branding_assets()
+    except Exception:
+        # Every page renders through this; a bad manifest must not take them all down.
+        assets = {}
+    club = club_config()
+    logo_path = assets.get("club_logo_path") or DEFAULT_CLUB_LOGO_PATH
+    logo_url = _branding_url(logo_path)
+    if assets.get("public_header_path"):
+        header = {"image_url": _branding_url(assets["public_header_path"])}
+    elif club["name"] == DEFAULT_CLUB_NAME:
+        header = {"image_url": url_for("static", filename="img/psc_public_header.png"),
+                  "alt": "Clwb Hwylio Pwllheli Sailing Club"}
+    else:
+        header = {"logo_url": logo_url}
+    return {**club, "logo_url": logo_url, "public_header": header}
 
 
 def sanitize_public_url(value: Any) -> str:
@@ -2304,6 +2361,7 @@ ADMIN_ONLY_ENDPOINTS = frozenset({
     "settings_video_r2_test", "settings_video_r2_retry", "settings_video_uploads_abandon",
     "settings_offsite_backup_now",
     "settings_branding_club_logo_upload", "settings_branding_club_logo_delete",
+    "settings_branding_public_header_upload", "settings_branding_public_header_delete",
     "settings_branding_sponsor_upload", "settings_branding_sponsor_delete",
     "settings_weather_test",
     "settings_polar_upload", "settings_sail_chart_upload",
@@ -2607,6 +2665,8 @@ def inject_helpers():
         # written into each footer, because two copies of one URL is one that
         # goes stale in whichever template nobody edited.
         "source_url": SOURCE_URL,
+        # The club's name, logo and public header, from Settings -> Club branding.
+        "club_brand": club_branding_for_template(),
     }
 
 
@@ -3574,6 +3634,9 @@ def read_settings_form() -> Tuple[Dict[str, Any], Dict[str, Any]]:
         "irc_listing_url": request.form.get("irc_listing_url", IRC_LISTING_URL),
         "ytc_listing_url": request.form.get("ytc_listing_url", YTC_LISTING_URL),
         "public_live_stream_url": request.form.get("public_live_stream_url", ""),
+        # None when the form has no such field, so the saved name is kept.
+        "club_name": request.form.get("club_name"),
+        "club_short_name": request.form.get("club_short_name"),
         "offsite_backup_enabled": request.form.get("offsite_backup_enabled", "0"),
         "offsite_backup_bucket": request.form.get("offsite_backup_bucket", ""),
         "offsite_backup_prefix": request.form.get("offsite_backup_prefix", ""),

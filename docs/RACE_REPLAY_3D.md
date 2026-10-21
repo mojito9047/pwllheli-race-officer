@@ -124,7 +124,7 @@ those can be watched properly.
 
 Three things, all one-time:
 
-1. **Public video (Cloudflare R2)** configured under **Settings → Video** — the films go in
+1. **Cloudflare R2** configured under **Settings → Cloud storage (Cloudflare R2)** — the films go in
    the same bucket as the race videos, and both ends find each other through it.
 2. **Settings → Web server → Public address** set to the address competitors use. The render
    machine reads the club's logos from there; without it the film still renders, just
