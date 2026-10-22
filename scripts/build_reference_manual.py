@@ -1441,9 +1441,11 @@ story.append(PageBreak())
 story += part_heading("Part VI — Administration and reference", "Chapter 19", "Backup and restore")
 story.append(Paragraph(
     "The Backup / restore page (bottom of the side menu) creates or restores a ZIP covering selectable "
-    "parts of the <b>data/</b> folder.", styles["Body"]))
-story.append(figure("backup_restore.png", "Backup / restore: the selectable sections, and what each "
-                                          "contains."))
+    "parts of the <b>data/</b> folder. A restore comes from one of two places, chosen under <b>Restore "
+    "from</b>: one of the nightly <b>off-site backups</b>, which the hut fetches from Cloudflare R2 itself "
+    "(below), or <b>a backup ZIP from this computer</b>.", styles["Body"]))
+story.append(figure("backup_restore.png", "Backup / restore: one restore form, from an off-site backup or a "
+                                          "ZIP, the selectable sections, and what each contains."))
 story.append(Paragraph(
     "The app keeps race data in <b>three</b> SQLite databases, and all three have their own section: "
     "<b>Database</b> (races, entries, boats, settings, users), <b>GPS tracks</b> "
@@ -1479,8 +1481,8 @@ story.append(Paragraph(
     "dead disk in the hut does not take the club's records with it. Settings → <b>Off-site backup</b>.",
     styles["Body"]))
 story.append(Paragraph(
-    "It is the <i>same ZIP</i>, with the same <b>data/...</b> member names, so an off-site copy restores on the "
-    "Backup / restore page like any other backup. There is no second format to keep working.", styles["Body"]))
+    "It is the <i>same ZIP</i>, with the same <b>data/...</b> member names, so an off-site copy goes through the "
+    "same restore as any other backup. There is no second format to keep working.", styles["Body"]))
 story.append(figure("s_offsite.png", "Settings → Off-site backup: the bucket, the passphrase, the schedule "
                                      "and the sections that go off-site.", max_h=13 * cm))
 story.append(Paragraph("Setting it up", styles["H3"]))
@@ -1494,7 +1496,7 @@ story += (field_table([
     ("Sections", "What goes in. Everything except the saved videos, by default."),
 ]))
 story.append(Paragraph(
-    "The account ID and access keys are the ones already entered for public video publishing (Chapter 16) — "
+    "The account ID and access keys are the ones already in Settings → <b>Cloud storage (Cloudflare R2)</b> — "
     "there is only one set of credentials to look after. The <b>bucket</b>, however, must be a different one, "
     "and the app <b>refuses to run</b> if it is not.", styles["Body"]))
 story += note_box(
@@ -1517,12 +1519,23 @@ story.append(Paragraph(
     "installed and no script to run. A format only this app understood would have made the off-site copy depend "
     "on the very thing it exists to survive.", styles["Body"]))
 story.append(Paragraph(
-    "To restore one: download the <b>.zip</b> from R2, then use the Backup / restore page as normal and enter "
-    "the passphrase in the <b>Backup passphrase</b> field. A wrong passphrase is refused <i>before</i> anything "
-    "is deleted — the restore clears the target folders before extracting, so that check is what stops a typo "
-    "costing you the branding folder. If the archive is larger than the upload limit "
-    "(<b>RO_MAX_UPLOAD_MB</b>, 64 MB by default), raise it for that restore, or extract the ZIP with 7-Zip and "
-    "copy the <b>data/</b> folder in by hand with the app stopped.", styles["Body"]))
+    "To restore one, choose <b>An off-site backup in Cloudflare R2</b> under <b>Restore from</b> on the Backup / "
+    "restore page and pick it from the list — what is in the bucket now, newest first. Leave the passphrase "
+    "blank to use the one saved in Settings, or type it: for a copy made under an older passphrase, or on a new "
+    "PC where none is saved yet. Listing the bucket needs only the R2 keys and the bucket name, so a replacement "
+    "PC can see the club's backups before anything else is set up.", styles["Body"]))
+story.append(Paragraph(
+    "The hut downloads the archive itself, in the background, and the page shows it coming down, then being "
+    "checked, then restored: through the relay a page has 90 seconds, and a backup coming down a busy 4G link "
+    "can take longer. Before anything is cleared, the download is checked against the size in the bucket's "
+    "listing and the SHA-256 in the manifest stored beside it, so a download cut off half way restores nothing. "
+    "A wrong passphrase is refused <i>before</i> anything is deleted — the restore clears the target folders "
+    "before extracting, so that check is what stops a typo costing you the branding folder.", styles["Body"]))
+story.append(Paragraph(
+    "<b>A ZIP from this computer</b> is for an archive downloaded from R2 by hand. It is limited by the upload "
+    "limit (<b>RO_MAX_UPLOAD_MB</b>, 64 MB by default); a restore from the bucket is not. Without the app at "
+    "all, 7-Zip extracts the <b>data/</b> folder given the passphrase; copy it in with the app stopped.",
+    styles["Body"]))
 story += note_box(
     "Nothing can open an off-site backup without the passphrase — not the app, not Cloudflare, not the "
     "developer. Changing it does not re-encrypt archives already uploaded, so keep the old passphrase until "

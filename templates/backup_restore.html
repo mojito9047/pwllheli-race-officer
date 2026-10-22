@@ -8,7 +8,7 @@
   <p class="notice"><strong>Before restoring:</strong> make sure no one is editing races or settings. Restoring replaces the selected current data sections.</p>
   <p class="muted small">A backup downloaded from here is a copy in the same building. For a copy that survives the hut, turn on
     <a href="{{ url_for('settings_page') }}#offsite-backup">off-site backup</a> &mdash; it pushes an encrypted version of this same ZIP to
-    Cloudflare R2 each night, and one of those can be restored here by entering its passphrase.</p>
+    Cloudflare R2 each night, and any of those can be restored straight from the bucket here.</p>
 </section>
 
 <div class="card-grid backup-restore-grid">
@@ -32,15 +32,49 @@
     </form>
   </section>
 
-  <section class="card">
-    <h3>Restore from backup ZIP</h3>
+  <section class="card" id="restore">
+    <h3>Restore a backup</h3>
     {% if is_admin %}
-    <p class="muted">Choose a backup ZIP, then tick only the sections you want to restore from it. Sections not present in the ZIP are skipped.</p>
-    <form method="post" action="{{ url_for('backup_restore') }}" enctype="multipart/form-data" class="stacked-form">
-      <label>Backup ZIP file
-        <input type="file" name="backup_file" accept=".zip,application/zip,application/x-zip-compressed" required>
-      </label>
-      <label>Backup passphrase <small class="muted">— only for an encrypted off-site backup; leave blank for a ZIP downloaded from this page</small>
+    <p class="muted">Choose a backup, then tick only the sections you want to restore from it. Sections not in the backup are skipped.</p>
+
+    <div id="restoreProgress" class="restore-progress" hidden data-status-url="{{ url_for('backup_restore_status') }}">
+      <progress id="restoreBar" max="100"></progress>
+      <p id="restoreMessage"></p>
+    </div>
+
+    {% set offsite_listed = offsite_restore and offsite_restore.archives %}
+    <form method="post" action="{{ url_for('backup_restore') }}" enctype="multipart/form-data" class="stacked-form" id="restoreForm">
+      <fieldset class="restore-source">
+        <legend>Restore from</legend>
+        <label class="checkbox-inline">
+          <input type="radio" name="source" value="offsite" {% if offsite_listed %}checked{% else %}disabled{% endif %}>
+          An off-site backup in Cloudflare R2
+        </label>
+        {% if offsite_listed %}
+        <select name="offsite_key" id="restoreOffsiteKey" aria-label="Off-site backup">
+          {% for archive in offsite_restore.archives %}
+          <option value="{{ archive.key }}">{{ archive.label }} &middot; {{ archive.size_mb }} MB{% if loop.first %} (newest){% endif %}</option>
+          {% endfor %}
+        </select>
+        <small class="muted">The hut fetches it from <code>{{ offsite_restore.bucket }}</code> itself and checks it against the
+          checksum stored beside it before restoring anything. Nothing to download to a laptop and upload again.</small>
+        {% elif offsite_restore and offsite_restore.error %}
+        <small class="notice danger-soft">Could not list the backup bucket: {{ offsite_restore.error }} Reload the page to try again.</small>
+        {% elif offsite_restore and not offsite_restore.ready %}
+        <small class="muted">{{ offsite_restore.why }} <a href="{{ url_for('settings_page') }}#offsite-backup">Open Settings</a></small>
+        {% else %}
+        <small class="muted">There are no backups in the bucket yet.</small>
+        {% endif %}
+        <label class="checkbox-inline">
+          <input type="radio" name="source" value="file" {% if not offsite_listed %}checked{% endif %}>
+          A backup ZIP from this computer
+        </label>
+        <input type="file" name="backup_file" id="restoreFile" accept=".zip,application/zip,application/x-zip-compressed" aria-label="Backup ZIP file">
+      </fieldset>
+      <label>Backup passphrase
+        <small class="muted" id="restorePassphraseHint"
+               data-offsite="{% if offsite_restore and offsite_restore.passphrase_saved %}— leave blank to use the one saved in Settings → Off-site backup{% else %}— the off-site passphrase; none is saved in Settings on this PC{% endif %}"
+               data-file="— only for an encrypted off-site copy; leave blank for a ZIP downloaded from this page"></small>
         <input type="password" name="backup_passphrase" value="" autocomplete="off" autocapitalize="none" spellcheck="false">
       </label>
       {% for section in sections %}
@@ -54,12 +88,84 @@
         </label>
       {% endfor %}
       <div class="notice danger-soft">
-        <strong>Restore warning:</strong> selected sections are replaced by the content from the ZIP. Video restore can be slow and large.
+        <strong>Restore warning:</strong> selected sections are replaced by the content of the backup. Video restore can be slow and large.
       </div>
       <div class="actions">
-        <button type="submit" class="danger">Restore selected sections</button>
+        <button type="submit" class="danger" id="restoreButton">Restore selected sections</button>
       </div>
     </form>
+    <script>
+    (function () {
+      "use strict";
+      var form = document.getElementById("restoreForm");
+      var box = document.getElementById("restoreProgress");
+      var bar = document.getElementById("restoreBar");
+      var text = document.getElementById("restoreMessage");
+      var button = document.getElementById("restoreButton");
+      var hint = document.getElementById("restorePassphraseHint");
+      var fileInput = document.getElementById("restoreFile");
+      var keySelect = document.getElementById("restoreOffsiteKey");
+
+      function source() {
+        var chosen = form.querySelector('input[name="source"]:checked');
+        return chosen ? chosen.value : "file";
+      }
+      function choose(value) {
+        var radio = form.querySelector('input[name="source"][value="' + value + '"]');
+        if (radio && !radio.disabled) { radio.checked = true; }
+        sourceChanged();
+      }
+      function sourceChanged() {
+        var offsite = source() === "offsite";
+        hint.textContent = offsite ? hint.dataset.offsite : hint.dataset.file;
+        fileInput.required = !offsite;
+      }
+      form.querySelectorAll('input[name="source"]').forEach(function (radio) {
+        radio.addEventListener("change", sourceChanged);
+      });
+      // Picking either one means that one.
+      fileInput.addEventListener("change", function () { if (fileInput.files.length) { choose("file"); } });
+      if (keySelect) { keySelect.addEventListener("change", function () { choose("offsite"); }); }
+      sourceChanged();
+
+      form.addEventListener("submit", function (event) {
+        var what = source() === "offsite" && keySelect
+          ? "the off-site backup of " + keySelect.options[keySelect.selectedIndex].text
+          : (fileInput.files.length ? fileInput.files[0].name : "the chosen ZIP");
+        if (!window.confirm("Replace the selected sections with " + what + "?")) { event.preventDefault(); }
+      });
+
+      // An off-site restore runs on the hut after this page has gone: the form
+      // returns at once and this follows the download and the restore.
+      function show(state) {
+        if (!state || !state.phase) { box.hidden = true; return; }
+        box.hidden = false;
+        box.classList.toggle("failed", !state.running && state.ok === false);
+        var counting = state.phase === "downloading" && state.bytes_total;
+        bar.value = counting ? Math.round(100 * state.bytes_done / state.bytes_total)
+          : (state.phase === "starting" ? 0 : 100);
+        bar.classList.toggle("working", !!state.running && !counting && state.phase !== "starting");
+        var finished = state.finished_at ? new Date(state.finished_at) : null;
+        var when = finished && !isNaN(finished) ? " " + finished.toLocaleString("en-GB",
+          {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"}) : "";
+        text.textContent = state.running ? state.message
+          : (state.ok ? "Off-site restore finished" : "Off-site restore failed") + when + ". " + state.message;
+        button.disabled = !!state.running;
+      }
+      function poll() {
+        fetch(box.dataset.statusUrl, {headers: {"Accept": "application/json"}, cache: "no-store", credentials: "same-origin"})
+          .then(function (response) { return response.ok ? response.json() : null; })
+          .then(function (state) {
+            show(state);
+            if (state && state.running) { setTimeout(poll, 1000); }
+          })
+          .catch(function () { setTimeout(poll, 3000); });   // a blip on the link is not the end of the restore
+      }
+      var initial = {{ (offsite_restore_state or {})|tojson }};
+      show(initial);
+      if (initial && initial.running) { poll(); }
+    })();
+    </script>
     {% else %}
     <p class="muted">Restoring a backup overwrites current data, so it is limited to administrators.</p>
     <p class="notice"><span class="pill readonly-pill">Administrator access required</span> Ask an administrator to restore a backup. You can still download a backup ZIP on the left.</p>

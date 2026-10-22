@@ -14,25 +14,66 @@ from routes import app_module
 _app = app_module()
 app = _app.app
 audit = _app.audit
-BACKUP_SECTION_BY_ID = _app.BACKUP_SECTION_BY_ID
-BACKUP_SECTION_DEFINITIONS = _app.BACKUP_SECTION_DEFINITIONS
 backup_sections_for_template = _app.backup_sections_for_template
 create_data_backup_zip = _app.create_data_backup_zip
+current_actor = _app.current_actor
+current_user_is_admin = _app.current_user_is_admin
 datetime = _app.datetime
+describe_restore_result = _app.describe_restore_result
 flash = _app.flash
+jsonify = _app.jsonify
+list_offsite_backups = _app.list_offsite_backups
+offsite = _app.offsite
+offsite_config = _app.offsite_config
+offsite_restore_status = _app.offsite_restore_status
 redirect = _app.redirect
 render_template = _app.render_template
 request = _app.request
 restore_data_backup_zip = _app.restore_data_backup_zip
 send_file = _app.send_file
+start_offsite_restore = _app.start_offsite_restore
 url_for = _app.url_for
+
+# The page waits on this listing, and through the relay a page that has not
+# started answering in five seconds is replaced by the holding page.
+OFFSITE_LIST_TIMEOUT_S = 4.0
+
+
+def offsite_restore_choices():
+    """The off-site backups an administrator can restore here, or why there are none."""
+    cfg = offsite_config()
+    ready, why = offsite.offsite_bucket_readable(cfg)
+    view = {"ready": ready, "why": why, "bucket": cfg["offsite_backup_bucket"],
+            "passphrase_saved": bool(cfg["offsite_backup_passphrase_set"]), "archives": [], "error": ""}
+    if not ready:
+        return view
+    try:
+        archives = list_offsite_backups(cfg, timeout=OFFSITE_LIST_TIMEOUT_S)
+    except Exception as exc:
+        view["error"] = str(exc)
+        return view
+    for obj in archives:
+        made = offsite.offsite_archive_time(obj["key"])
+        view["archives"].append({
+            "key": obj["key"],
+            "label": made.strftime("%a %d %b %Y, %H:%M") if made else obj["key"].rsplit("/", 1)[-1],
+            "size_mb": f"{int(obj.get('size_bytes') or 0) / 1_048_576:.1f}",
+        })
+    return view
 
 
 @app.route("/backup")
 @app.route("/admin/backup")
 def backup_restore_page():
     """Render the data-directory backup/restore page."""
-    return render_template("backup_restore.html", sections=backup_sections_for_template())
+    is_admin = current_user_is_admin()
+    return render_template(
+        "backup_restore.html", sections=backup_sections_for_template(),
+        # Admins only: restoring is theirs, and the listing names what is in the
+        # club's private bucket.
+        offsite_restore=offsite_restore_choices() if is_admin else None,
+        offsite_restore_state=offsite_restore_status() if is_admin else {},
+    )
 
 
 @app.route("/backup/download", methods=["POST"])
@@ -71,7 +112,23 @@ def backup_download():
 @app.route("/backup/restore", methods=["POST"])
 @app.route("/admin/backup/restore", methods=["POST"])
 def backup_restore():
-    """Restore selected data sections from an uploaded backup ZIP."""
+    """Restore selected data sections, from an off-site backup or an uploaded ZIP.
+
+    One form, two sources. An off-site backup is downloaded by the hut itself in
+    the background, and the page follows it (see backup_restore_status); the
+    activity log entry is written when it finishes. An uploaded ZIP is already
+    here, so it is restored in the request, as it always was.
+    """
+    if request.form.get("source") == "offsite":
+        started, why = start_offsite_restore(
+            request.form.get("offsite_key", ""),
+            request.form.getlist("sections"),
+            request.form.get("backup_passphrase", ""),
+            current_actor(),
+        )
+        if not started:
+            flash(why, "error")
+        return redirect(url_for("backup_restore_page") + "#restore")
     try:
         result = restore_data_backup_zip(
             request.files.get("backup_file"),
@@ -85,18 +142,16 @@ def backup_restore():
     except Exception as exc:
         flash(f"Could not restore backup: {exc}", "error")
         return redirect(url_for("backup_restore_page"))
-    restored_parts = []
-    for section in BACKUP_SECTION_DEFINITIONS:
-        section_id = str(section["id"])
-        count = int(result.get("restored_counts", {}).get(section_id, 0) or 0)
-        if count:
-            restored_parts.append(f"{section['label']} ({count} file{'s' if count != 1 else ''})")
+    restored, message, details = describe_restore_result(result)
     # The most consequential button in the app: it replaces the data the club runs
     # on. Recorded whether or not anything was actually restored.
-    audit("backup restored", "; ".join(restored_parts) if restored_parts else "nothing restored")
-    message = "Restored: " + "; ".join(restored_parts) if restored_parts else "No files were restored."
-    skipped = [BACKUP_SECTION_BY_ID.get(section_id, {"label": section_id})["label"] for section_id in result.get("skipped_sections", [])]
-    if skipped:
-        message += " Skipped because not present in ZIP: " + ", ".join(skipped) + "."
-    flash(message, "success" if restored_parts else "error")
+    audit("backup restored", details)
+    flash(message, "success" if restored else "error")
     return redirect(url_for("backup_restore_page"))
+
+
+@app.route("/backup/restore/status")
+@app.route("/admin/backup/restore/status")
+def backup_restore_status():
+    """Where an off-site restore has got to, for the page to poll."""
+    return jsonify(offsite_restore_status())

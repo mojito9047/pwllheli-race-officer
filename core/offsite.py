@@ -10,8 +10,9 @@ Shape of it, and why:
 * **It pushes.** The hut sits behind a cloudflared tunnel and opens nothing
   inbound, so nothing off-site can come and collect a backup.
 * **It reuses the existing backup ZIP.** Same builder, same ``data/...`` member
-  names, so the Backup/restore page restores an off-site copy with no new code —
-  and the format is not a second thing to keep working.
+  names, so an off-site copy goes through the same restore as any other backup —
+  and the format is not a second thing to keep working. The Backup/restore page
+  can fetch one from the bucket itself (download_offsite_backup).
 * **It is encrypted** with AES-256 (see core/backup.py). The archive leaves the
   club's control, and it contains the members table, the users table and every
   password hash. The passphrase belongs in the club password manager next to the
@@ -41,7 +42,7 @@ import threading
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from core import appstate, backup, r2
 from core.activitylog import log_activity
@@ -134,7 +135,7 @@ def offsite_credentials_ready(cfg: Dict[str, Any]) -> Tuple[bool, str]:
     """Return whether a backup could be uploaded, and what is missing if not."""
     if not cfg.get("r2_account_id") or not cfg.get("r2_access_key_id") or not cfg.get("r2_secret_access_key"):
         return False, ("Cloudflare R2 account ID, access key ID and secret key are needed. "
-                       "Off-site backup reuses the credentials from the Video & camera settings.")
+                       "Off-site backup reuses the credentials in Settings → Cloud storage (Cloudflare R2).")
     if not cfg.get("offsite_backup_bucket"):
         return False, "Choose a separate R2 bucket for backups — do not use the public video bucket."
     if cfg.get("offsite_backup_bucket") == cfg.get("video_bucket"):
@@ -316,7 +317,7 @@ def hut_is_busy(now: Optional[datetime] = None) -> Tuple[bool, str]:
 
     if queued_clips and int(queued_clips["n"] or 0) > 0:
         return True, (f"{int(queued_clips['n'])} race video upload(s) still in progress. "
-                      "Settings → Video & camera can give up on them if they are never going to finish.")
+                      "Settings → Video Recording can give up on them if they are never going to finish.")
     return False, ""
 
 
@@ -406,22 +407,92 @@ def verify_offsite_object(cfg: Dict[str, Any], key: str, expected_bytes: int) ->
     return head
 
 
-def list_offsite_backups(cfg: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+def offsite_bucket_readable(cfg: Dict[str, Any]) -> Tuple[bool, str]:
+    """Return whether the backup bucket can be listed and read, and why not.
+
+    Less than offsite_credentials_ready asks, because reading needs less than
+    writing. Restoring is what a new PC does after the old one is gone, and on
+    that PC the passphrase may never have been saved: it is typed on the restore
+    form, or not known yet, and neither should stop the club seeing what is in
+    its own bucket.
+    """
+    if not cfg.get("r2_account_id") or not cfg.get("r2_access_key_id") or not cfg.get("r2_secret_access_key"):
+        return False, ("Enter the Cloudflare R2 account ID, access key ID and secret key in "
+                       "Settings → Cloud storage (Cloudflare R2).")
+    if not cfg.get("offsite_backup_bucket"):
+        return False, "Enter the backup bucket's name in Settings → Off-site backup."
+    return True, ""
+
+
+def list_offsite_backups(cfg: Optional[Dict[str, Any]] = None,
+                         timeout: Optional[float] = None) -> List[Dict[str, Any]]:
     """Return stored backup archives, newest first.
 
     This is what makes the feature checkable: the Settings page can show what is
-    actually in the bucket rather than what the app believes it put there.
+    actually in the bucket rather than what the app believes it put there, and
+    the Backup/restore page offers these to restore.
     """
     cfg = cfg or offsite_config()
-    ready, _why = offsite_credentials_ready(cfg)
+    ready, _why = offsite_bucket_readable(cfg)
     if not ready:
         return []
     objects = r2.list_objects(
         cfg["r2_account_id"], cfg["offsite_backup_bucket"], safe_r2_key_prefix(cfg["offsite_backup_prefix"]),
-        cfg["r2_access_key_id"], cfg["r2_secret_access_key"],
+        cfg["r2_access_key_id"], cfg["r2_secret_access_key"], timeout=timeout,
     )
     archives = [obj for obj in objects if str(obj.get("key", "")).endswith(".zip")]
     return sorted(archives, key=lambda obj: str(obj.get("key", "")), reverse=True)
+
+
+def offsite_archive_time(key: str) -> Optional[datetime]:
+    """When an archive was made, from the stamp in its key (the hut's own clock)."""
+    stamp = str(key).rsplit("/", 1)[-1][len("race-officer-backup-"):-len(".zip")]
+    try:
+        return datetime.strptime(stamp, "%Y%m%d-%H%M%S")
+    except ValueError:
+        return None
+
+
+def download_offsite_backup(cfg: Dict[str, Any], key: str, dest: Path,
+                            progress: Optional[Callable[[str, int, int], None]] = None) -> Dict[str, Any]:
+    """Fetch one archive from the backup bucket into ``dest``, and prove it is the one stored.
+
+    ``progress`` hears ("downloading", bytes so far, total) as it comes down and
+    ("checking", total, total) while the checksum is worked out.
+
+    Only a key the bucket lists right now is fetched. The form sends the key back,
+    and a key typed into a crafted request must not reach anything else in the
+    account -- the video bucket's objects, or another prefix in this one.
+
+    Then the bytes are checked against the bucket's own record before the restore
+    is allowed to clear anything: the size against the listing, and the SHA-256
+    against the manifest uploaded beside the archive. A download cut short by the
+    4G link, or a corrupted object, stops here with the club's data untouched.
+    """
+    ready, why = offsite_bucket_readable(cfg)
+    if not ready:
+        raise ValueError(why)
+    listed = {str(obj.get("key")): obj for obj in list_offsite_backups(cfg)}
+    if key not in listed:
+        raise ValueError("That backup is not in the backup bucket any more. Reload the page and choose again.")
+    expected = int(listed[key].get("size_bytes") or 0)
+    report = progress or (lambda _phase, _done, _total: None)
+    report("downloading", 0, expected)
+    size = r2.get_file(cfg["r2_account_id"], cfg["offsite_backup_bucket"], key,
+                       cfg["r2_access_key_id"], cfg["r2_secret_access_key"], dest,
+                       progress=lambda done: report("downloading", done, expected))
+    if expected and size != expected:
+        raise ValueError(f"Only {size} of {expected} bytes of the backup arrived, so nothing was restored. "
+                         "Try again.")
+    report("checking", size, size)
+    manifest = r2.get_json(cfg["r2_account_id"], cfg["offsite_backup_bucket"], manifest_key_for(key),
+                           cfg["r2_access_key_id"], cfg["r2_secret_access_key"]) or {}
+    sha256 = file_sha256(dest)
+    if manifest.get("sha256") and manifest["sha256"] != sha256:
+        raise ValueError("The downloaded backup does not match the checksum stored beside it, "
+                         "so nothing was restored.")
+    return {"key": key, "size_bytes": size, "sha256": sha256,
+            "checksum_verified": bool(manifest.get("sha256")), "manifest": manifest}
 
 
 def prune_offsite_backups(cfg: Dict[str, Any], keep: int) -> Dict[str, Any]:

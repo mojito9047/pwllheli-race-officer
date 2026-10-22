@@ -30,7 +30,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from urllib.parse import quote, urlparse
 
 from werkzeug.utils import secure_filename
@@ -221,8 +221,14 @@ def signed_request(
     extra_headers: Optional[Dict[str, str]] = None,
     timeout: Optional[float] = None,
     allow_statuses: Tuple[int, ...] = (),
+    stream_to: Optional[Path] = None,
+    progress: Optional[Callable[[int], None]] = None,
 ) -> Tuple[int, Dict[str, str], bytes]:
     """Send one signed request to R2 and return (status, headers, body).
+
+    With ``stream_to`` a successful response body is written to that file in
+    chunks instead of being returned, for a download too big to want in memory,
+    and ``progress`` is told the bytes written so far after each chunk.
 
     ``extra_headers`` are both sent and signed, which is what R2 requires for
     Content-Type and Cache-Control on a PUT. Header names are lower-cased and
@@ -299,7 +305,17 @@ def signed_request(
     allowance = timeout if timeout is not None else r2_upload_timeout_s(len(body))
     try:
         with urllib.request.urlopen(request, timeout=allowance) as response:
-            return int(response.status), {k.lower(): v for k, v in response.headers.items()}, response.read()
+            headers = {k.lower(): v for k, v in response.headers.items()}
+            if stream_to is not None:
+                written = 0
+                with Path(stream_to).open("wb") as handle:
+                    for chunk in iter(lambda: response.read(256 * 1024), b""):
+                        handle.write(chunk)
+                        written += len(chunk)
+                        if progress is not None:
+                            progress(written)
+                return int(response.status), headers, b""
+            return int(response.status), headers, response.read()
     except urllib.error.HTTPError as exc:
         if exc.code in allow_statuses:
             return int(exc.code), {k.lower(): v for k, v in (exc.headers or {}).items()}, exc.read()
@@ -467,6 +483,25 @@ def get_object(account_id: str, bucket: str, key: str, access_key: str, secret_k
     return body
 
 
+def get_file(account_id: str, bucket: str, key: str, access_key: str, secret_key: str,
+             dest: Path, timeout: Optional[float] = None,
+             progress: Optional[Callable[[int], None]] = None) -> int:
+    """Download one object to ``dest`` without holding it in memory; returns its size.
+
+    For an off-site backup being restored from the Backup/restore page: tens of
+    megabytes, coming down the hut's 4G link. The timeout is per read, not for
+    the whole transfer, so a slow link that keeps delivering is not cut off.
+    """
+    status, _headers, _body = signed_request(
+        "GET", account_id, bucket, key, access_key, secret_key,
+        timeout=timeout if timeout is not None else R2_METADATA_TIMEOUT_S,
+        stream_to=Path(dest), progress=progress,
+    )
+    if status != 200:
+        raise RuntimeError(f"Cloudflare R2 get returned HTTP {status}.")
+    return Path(dest).stat().st_size
+
+
 def get_json(account_id: str, bucket: str, key: str, access_key: str, secret_key: str,
              timeout: Optional[float] = None) -> Optional[Dict[str, Any]]:
     """One JSON object from the bucket, or None if it is absent or unreadable.
@@ -533,11 +568,14 @@ def list_objects(
     access_key: str,
     secret_key: str,
     max_pages: int = 20,
+    timeout: Optional[float] = None,
 ) -> List[Dict[str, Any]]:
     """List every object under ``prefix``, following continuation tokens.
 
     Bounded by ``max_pages`` so a bucket shared with something that writes a
     great many objects cannot turn a retention sweep into an unbounded loop.
+    ``timeout`` is for a listing a page waits on, which must answer sooner than
+    the relay gives up on the page.
     """
     found: List[Dict[str, Any]] = []
     token: Optional[str] = None
@@ -549,7 +587,7 @@ def list_objects(
             query["continuation-token"] = token
         _status, _headers, body = signed_request(
             "GET", account_id, bucket, "", access_key, secret_key,
-            query=query, timeout=R2_METADATA_TIMEOUT_S,
+            query=query, timeout=timeout if timeout is not None else R2_METADATA_TIMEOUT_S,
         )
         objects, token = parse_list_objects(body)
         found.extend(objects)

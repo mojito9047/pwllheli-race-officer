@@ -45,7 +45,7 @@ import zipfile
 from urllib.parse import parse_qs, quote, urlparse
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from flask import Flask, Response, flash, jsonify, make_response, redirect, render_template, request, send_file, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -1259,9 +1259,139 @@ def restore_data_backup_zip(upload: Any, selected_sections: Iterable[Any], passp
         raise ValueError("Select at least one restore section.")
     if not upload or not getattr(upload, "filename", ""):
         raise ValueError("Choose a backup ZIP file to restore.")
+    return restore_backup_archive(upload.save, section_ids, passphrase)
+
+
+def restore_offsite_backup(key: str, selected_sections: Iterable[Any], passphrase: str = "",
+                           progress: Optional[Callable[[str, int, int], None]] = None) -> Dict[str, Any]:
+    """Restore selected sections from one of the off-site backups, fetched from R2 here.
+
+    It used to take a trip through the Cloudflare dashboard: download the archive
+    to a laptop, then upload it back to the hut through the relay, over the hut's
+    4G, and past the 64 MB upload limit. The hut can read the bucket itself.
+
+    A blank passphrase means the one this hut saves its off-site copies with, so
+    rolling back to last night's copy needs no typing. A copy made under an older
+    passphrase is refused by the same check as a typo, before anything is deleted.
+
+    ``progress`` hears the download's phases from download_offsite_backup, then
+    ("restoring", size, size) once the archive is proven and the restore begins.
+    """
+    cfg = offsite_config()
+    fetched: Dict[str, Any] = {}
+
+    def fetch(path: Path) -> None:
+        fetched.update(offsite.download_offsite_backup(cfg, str(key or ""), path, progress=progress))
+        if progress is not None:
+            progress("restoring", fetched["size_bytes"], fetched["size_bytes"])
+
+    result = restore_backup_archive(fetch, selected_sections, passphrase or cfg["offsite_backup_passphrase"])
+    return {**result, "offsite": fetched}
+
+
+def describe_restore_result(result: Dict[str, Any]) -> Tuple[bool, str, str]:
+    """(anything restored, the message for the page, the detail for the activity log)."""
+    restored_parts = []
+    for section in BACKUP_SECTION_DEFINITIONS:
+        section_id = str(section["id"])
+        count = int(result.get("restored_counts", {}).get(section_id, 0) or 0)
+        if count:
+            restored_parts.append(f"{section['label']} ({count} file{'s' if count != 1 else ''})")
+    message = "Restored: " + "; ".join(restored_parts) if restored_parts else "No files were restored."
+    skipped = [BACKUP_SECTION_BY_ID.get(section_id, {"label": section_id})["label"]
+               for section_id in result.get("skipped_sections", [])]
+    if skipped:
+        message += " Skipped because not present in ZIP: " + ", ".join(skipped) + "."
+    return bool(restored_parts), message, "; ".join(restored_parts) if restored_parts else "nothing restored"
+
+
+# One off-site restore at a time, run off the request. Through the relay a page
+# has 90 seconds before Cloudflare and Caddy give up, and 30 MB down a contended
+# 4G link can take longer; a gateway error while the hut carries on and restores
+# anyway would leave nobody knowing whether it worked. So the form starts this
+# and returns, and the Backup/restore page polls the state below. It lives in
+# memory: a restart ends any restore in flight, and with it the record of one.
+OFFSITE_RESTORE_LOCK = threading.Lock()
+OFFSITE_RESTORE: Dict[str, Any] = {}
+
+
+def offsite_restore_status() -> Dict[str, Any]:
+    """A copy of the off-site restore's state, for the page to show."""
+    with OFFSITE_RESTORE_LOCK:
+        return dict(OFFSITE_RESTORE)
+
+
+def _update_offsite_restore(**fields: Any) -> None:
+    with OFFSITE_RESTORE_LOCK:
+        OFFSITE_RESTORE.update(fields)
+
+
+def start_offsite_restore(key: str, selected_sections: Iterable[Any], passphrase: str, actor: str) -> Tuple[bool, str]:
+    """Start restoring an off-site backup in the background. Returns (started, why not).
+
+    ``actor`` is resolved by the caller, inside the request: the activity log has
+    to credit whoever pressed the button, and the thread has no session to ask.
+    """
+    section_ids = normalise_backup_section_ids(selected_sections)
+    if not section_ids:
+        return False, "Select at least one restore section."
+    key = str(key or "").strip()
+    if not key:
+        return False, "Choose an off-site backup to restore."
+    with OFFSITE_RESTORE_LOCK:
+        if OFFSITE_RESTORE.get("running"):
+            return False, "An off-site restore is already running."
+        OFFSITE_RESTORE.clear()
+        OFFSITE_RESTORE.update(
+            running=True, ok=None, key=key, phase="starting", bytes_done=0, bytes_total=0,
+            started_at=datetime.now().isoformat(timespec="seconds"), finished_at="",
+            message="Starting the download…",
+        )
+    threading.Thread(target=_run_offsite_restore, args=(key, section_ids, passphrase, actor),
+                     name="offsite-restore", daemon=True).start()
+    return True, ""
+
+
+def _run_offsite_restore(key: str, section_ids: List[str], passphrase: str, actor: str) -> None:
+    def progress(phase: str, done: int, total: int) -> None:
+        mb = lambda n: f"{n / 1_048_576:.1f}"
+        message = {"downloading": f"Downloading {mb(done)} of {mb(total)} MB from Cloudflare R2…",
+                   "checking": "Checking the download against its checksum…",
+                   "restoring": "Restoring the selected sections…"}.get(phase, "")
+        _update_offsite_restore(phase=phase, bytes_done=int(done), bytes_total=int(total), message=message)
+
+    try:
+        result = restore_offsite_backup(key, section_ids, passphrase, progress=progress)
+        restored, message, details = describe_restore_result(result)
+        log_activity("backup restored", f"off-site {key}: {details}", user=actor)
+        _update_offsite_restore(running=False, ok=restored, phase="done", message=message,
+                                checksum_verified=bool((result.get("offsite") or {}).get("checksum_verified")),
+                                finished_at=datetime.now().isoformat(timespec="seconds"))
+    except ValueError as exc:
+        _update_offsite_restore(running=False, ok=False, phase="failed", message=str(exc),
+                                finished_at=datetime.now().isoformat(timespec="seconds"))
+    except Exception as exc:
+        _update_offsite_restore(running=False, ok=False, phase="failed", message=f"Could not restore backup: {exc}",
+                                finished_at=datetime.now().isoformat(timespec="seconds"))
+
+
+def restore_backup_archive(fetch: Callable[[Path], Any], selected_sections: Iterable[Any],
+                           passphrase: str = "") -> Dict[str, Any]:
+    """The restore itself, from a backup ``fetch`` writes to the path it is given.
+
+    Fetched inside the ``try``, so a download that fails half way is removed with
+    the rest of the working folder: a partial copy of the club's data must not be
+    left lying in runtime/.
+    """
+    section_ids = normalise_backup_section_ids(selected_sections)
+    if not section_ids:
+        raise ValueError("Select at least one restore section.")
+    if offsite.OFFSITE_STATE.get("running"):
+        # The nightly job is reading these same files into an archive. Replacing
+        # them under it would upload a backup that is half one state and half another.
+        raise ValueError("An off-site backup is being made right now. Restore once it has finished.")
     restore_root = Path(tempfile.mkdtemp(prefix="race_officer_restore_", dir=appstate.RUNTIME_DIR))
-    upload_path = restore_root / "uploaded_backup.zip"
-    upload.save(upload_path)
+    upload_path = restore_root / "backup_to_restore.zip"
     restored_counts: Dict[str, int] = {section_id: 0 for section_id in section_ids}
     skipped_sections: List[str] = []
     restored_database = False
@@ -1269,13 +1399,14 @@ def restore_data_backup_zip(upload: Any, selected_sections: Iterable[Any], passp
     sidecars_removed: List[str] = []
     database_sections = database_backup_section_ids()
     try:
+        fetch(upload_path)
         if not zipfile.is_zipfile(upload_path):
-            raise ValueError("The uploaded file is not a valid ZIP backup.")
+            raise ValueError("That file is not a valid ZIP backup.")
         with open_backup_zip(upload_path, passphrase) as zf:
             available_sections = [section_id for section_id in section_ids if backup_zip_has_section(zf, section_id)]
             skipped_sections = [section_id for section_id in section_ids if section_id not in available_sections]
             if not available_sections:
-                raise ValueError("The uploaded ZIP does not contain any of the selected restore sections.")
+                raise ValueError("The backup does not contain any of the selected restore sections.")
             # Prove the passphrase BEFORE anything is deleted. The clearing step
             # below removes the current branding, polars and clips, and a wrong
             # passphrase only shows up when the first member is decrypted — which
@@ -2367,6 +2498,8 @@ ADMIN_ONLY_ENDPOINTS = frozenset({
     "settings_polar_upload", "settings_sail_chart_upload",
     "settings_polar_delete", "settings_sail_chart_delete",
     "backup_restore",
+    # Read-only, but it names the backups in the club's private bucket.
+    "backup_restore_status",
     # Read-only, but it names who did what: administrators only.
     "settings_activity_log",
     # Adding and deleting marks is admin-only: both change the set of marks that

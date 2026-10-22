@@ -103,12 +103,12 @@ Automated tests cover the close behaviour, the presence of all three databases i
 
 A backup downloaded from the Backup/restore page is a copy in the same building as the original. From v0.238 the app can also push an **encrypted copy off-site**, nightly, to Cloudflare R2. Settings &rarr; **Off-site backup**.
 
-It is the *same ZIP*, with the same `data/...` member names, so an off-site copy restores on the Backup/restore page like any other backup — there is no second format to keep working.
+It is the *same ZIP*, with the same `data/...` member names, so an off-site copy restores through the same restore as any other backup — there is no second format to keep working. The Backup/restore page can fetch it from the bucket itself (below).
 
 ### What to set up
 
 1. In the Cloudflare dashboard, create a **second R2 bucket** for backups, with **no public access**. Do not reuse the bucket that serves public race videos.
-2. In Settings &rarr; Off-site backup, enter that bucket name. The account ID and access keys are the ones already in Settings &rarr; Video Recording; there is only one set to look after.
+2. In Settings &rarr; Off-site backup, enter that bucket name. The account ID and access keys are the ones already in Settings &rarr; Cloud storage (Cloudflare R2); there is only one set to look after.
 3. Choose a **passphrase** and record it in the club password manager, next to the admin login.
 4. Press **Save and back up off-site now**, and read the result. An unattended 3 am job that has never succeeded is not a backup.
 
@@ -120,9 +120,15 @@ The archive is **AES-256 encrypted before it leaves the hut**, in the WinZip AES
 
 Nothing can open an off-site backup without the passphrase — not the app, not Cloudflare, not the developer. Changing the passphrase does not re-encrypt archives already uploaded, so keep the old one until they have aged out of retention.
 
-To restore one: download the `.zip` from R2, then use the Backup/restore page as normal and enter the passphrase in the **Backup passphrase** field. A wrong passphrase is refused *before* anything is deleted — the restore clears the target folders before extracting, so that check is what stops a typo costing you the branding folder.
+### Restoring one
 
-If the archive is larger than the upload limit (`RO_MAX_UPLOAD_MB`, 64 MB by default) the restore upload is rejected; raise it for that restore, or extract the ZIP with 7-Zip and copy the `data/` folder in by hand with the app stopped.
+On the Backup/restore page, under **Restore from**, choose **An off-site backup in Cloudflare R2** and pick one from the list: it is what is in the bucket now, newest first, and it is the default whenever the bucket has any. Leave **Backup passphrase** blank to use the one saved in Settings &rarr; Off-site backup, or type it: for a copy made under an older passphrase, or on a new PC where none has been saved. To list the bucket the app needs only the R2 keys (Settings &rarr; Cloud storage) and the bucket name (Settings &rarr; Off-site backup), so a replacement PC can see the club's backups before anything else is set up.
+
+The hut downloads the archive itself, in the background, and the page shows it coming down, then being checked, then restored. That is deliberate: through the relay a page has 90 seconds before Cloudflare gives up, and a backup coming down a busy 4G link can take longer. Leaving the page does not stop it, and coming back shows where it has got to or how it ended.
+
+Before anything is cleared, the download is checked against the size in the bucket's listing and the SHA-256 in the manifest stored beside it, so a download cut off half way, or a damaged object, restores nothing. Only a backup the bucket lists can be fetched. A wrong passphrase is refused *before* anything is deleted — the restore clears the target folders before extracting, so that check is what stops a typo costing you the branding folder. The activity log records the restore, the archive and who started it when it finishes. A restore will not start while the nightly off-site backup is being made, because that job is reading the same files.
+
+**A ZIP from this computer** — the other choice under *Restore from* — is for a backup downloaded from this page, or an off-site archive downloaded from R2 by hand. It is restored as it is uploaded, and is limited by the upload limit (`RO_MAX_UPLOAD_MB`, 64 MB by default); an off-site restore from the bucket is not. Without the app at all, 7-Zip will extract the `data/` folder given the passphrase; copy it in with the app stopped.
 
 ### When it runs
 

@@ -81,6 +81,8 @@ class FakeBucket:
         self.puts = []
         self.deleted = []
         self.short_write = False        # simulate an upload that reports success without arriving
+        self.short_read = False         # simulate a download the link cut off half way
+        self.downloads = []
 
     def install(self, monkeypatch):
         monkeypatch.setattr(offsite.r2, "put_object", self._put)
@@ -88,7 +90,23 @@ class FakeBucket:
         monkeypatch.setattr(offsite.r2, "head_object", self._head)
         monkeypatch.setattr(offsite.r2, "delete_object", self._delete)
         monkeypatch.setattr(offsite.r2, "list_objects", self._list)
+        monkeypatch.setattr(offsite.r2, "get_file", self._get_file)
+        monkeypatch.setattr(offsite.r2, "get_json", self._get_json)
         return self
+
+    def _get_file(self, account, bucket, key, access, secret, dest, timeout=None, progress=None):
+        self.downloads.append(key)
+        body = self.objects[key]
+        if self.short_read:
+            body = body[: len(body) // 2]
+        Path(dest).write_bytes(body)
+        if progress is not None:
+            progress(len(body))
+        return len(body)
+
+    def _get_json(self, account, bucket, key, access, secret, timeout=None):
+        body = self.objects.get(key)
+        return json.loads(body.decode("utf-8")) if body is not None else None
 
     def _put(self, account, bucket, key, body, access, secret, content_type="", cache_control=""):
         self.puts.append({"key": key, "bucket": bucket, "content_type": content_type,
@@ -109,7 +127,7 @@ class FakeBucket:
         self.deleted.append(key)
         self.objects.pop(key, None)
 
-    def _list(self, account, bucket, prefix, access, secret, max_pages=20):
+    def _list(self, account, bucket, prefix, access, secret, max_pages=20, timeout=None):
         return [{"key": key, "size_bytes": len(body), "last_modified": ""}
                 for key, body in sorted(self.objects.items()) if key.startswith(prefix)]
 
@@ -1086,3 +1104,210 @@ class TestARunningBackupIsNotReportedAsDeferred:
         assert "already running" in result["message"]
         assert not result.get("deferred")
         assert "39.3 MB" in status["message"], "the running progress line was overwritten"
+
+
+# ---------------------------------------------------------------------------
+# Restoring straight from the bucket
+# ---------------------------------------------------------------------------
+
+def _branding_backed_up(monkeypatch):
+    """A real nightly run of the branding folder into the fake bucket."""
+    bucket = FakeBucket().install(monkeypatch)
+    (appstate.BRANDING_DIR / "club.png").write_bytes(b"logo-bytes")
+    status = offsite.run_offsite_backup_once(configure_offsite(sections=["branding"]), force=True)
+    assert status["ok"], status
+    (appstate.BRANDING_DIR / "club.png").write_bytes(b"changed since")
+    return bucket, status["object_key"]
+
+
+def _wait_for_the_restore(timeout=30):
+    for thread in threading.enumerate():
+        if thread.name == "offsite-restore":
+            thread.join(timeout)
+
+
+class TestRestoringStraightFromTheBucket:
+    """Restoring used to mean the Cloudflare dashboard: download the archive to a
+    laptop, then upload it back to the hut through the relay and the 4G link, and
+    under the 64 MB upload limit. The hut reads the bucket itself now.
+
+    It is still the most consequential thing the app does, so the download has
+    to be proven before anything is cleared: the bucket's own listing names the
+    only keys it will fetch, and the size and the manifest's SHA-256 decide
+    whether what arrived is what was stored.
+    """
+
+    def test_a_backup_comes_back_with_the_passphrase_saved_in_settings(self, data_dir, monkeypatch):
+        _bucket, key = _branding_backed_up(monkeypatch)
+
+        result = ro.restore_offsite_backup(key, ["branding"])
+
+        assert result["restored_counts"]["branding"] == 1
+        assert (appstate.BRANDING_DIR / "club.png").read_bytes() == b"logo-bytes"
+        assert result["offsite"]["checksum_verified"]
+
+    def test_a_typed_passphrase_is_the_one_used(self, data_dir, monkeypatch):
+        """A copy made before the passphrase was changed needs the old one typed."""
+        _bucket, key = _branding_backed_up(monkeypatch)
+        with pytest.raises(ValueError, match="passphrase"):
+            ro.restore_offsite_backup(key, ["branding"], "not-the-passphrase")
+        assert (appstate.BRANDING_DIR / "club.png").read_bytes() == b"changed since"
+
+    @pytest.mark.parametrize("key", [
+        "race-officer-backups/../../secrets.zip",
+        "replay3d/films/race_96.mp4",
+        "elsewhere/race-officer-backup-20260101-000000.zip",
+    ])
+    def test_only_a_key_the_bucket_lists_is_ever_fetched(self, data_dir, monkeypatch, key):
+        """The form sends the key back, and a crafted one must reach nothing else."""
+        bucket, _key = _branding_backed_up(monkeypatch)
+        with pytest.raises(ValueError, match="not in the backup bucket"):
+            ro.restore_offsite_backup(key, ["branding"])
+        assert bucket.downloads == []
+
+    def test_a_download_cut_short_restores_nothing(self, data_dir, monkeypatch):
+        bucket, key = _branding_backed_up(monkeypatch)
+        bucket.short_read = True
+        with pytest.raises(ValueError, match="bytes of the backup arrived"):
+            ro.restore_offsite_backup(key, ["branding"])
+        assert (appstate.BRANDING_DIR / "club.png").read_bytes() == b"changed since"
+
+    def test_a_backup_that_fails_its_checksum_restores_nothing(self, data_dir, monkeypatch):
+        bucket, key = _branding_backed_up(monkeypatch)
+        manifest_key = offsite.manifest_key_for(key)
+        manifest = json.loads(bucket.objects[manifest_key].decode("utf-8"))
+        bucket.objects[manifest_key] = json.dumps({**manifest, "sha256": "0" * 64}).encode("utf-8")
+        with pytest.raises(ValueError, match="checksum"):
+            ro.restore_offsite_backup(key, ["branding"])
+        assert (appstate.BRANDING_DIR / "club.png").read_bytes() == b"changed since"
+
+    def test_no_copy_of_the_download_is_left_behind(self, data_dir, monkeypatch):
+        """It is a whole copy of the club's data. Gone after a restore, and after a failed one."""
+        bucket, key = _branding_backed_up(monkeypatch)
+        ro.restore_offsite_backup(key, ["branding"])
+        bucket.short_read = True
+        with pytest.raises(ValueError):
+            ro.restore_offsite_backup(key, ["branding"])
+        assert not list(appstate.RUNTIME_DIR.glob("race_officer_restore_*"))
+
+    def test_the_bucket_can_be_read_on_a_pc_with_no_passphrase_saved(self, data_dir, monkeypatch):
+        """A new PC after the old one is gone: the keys and the bucket are entered,
+        the passphrase is typed on the form. Writing still needs it saved."""
+        _bucket, key = _branding_backed_up(monkeypatch)
+        cfg = {**offsite.offsite_config(), "offsite_backup_passphrase": "", "offsite_backup_passphrase_set": False}
+        assert [obj["key"] for obj in offsite.list_offsite_backups(cfg)] == [key]
+        assert not offsite.offsite_credentials_ready(cfg)[0]
+
+    def test_it_waits_while_the_nightly_backup_is_reading_the_same_files(self, data_dir, monkeypatch):
+        bucket, key = _branding_backed_up(monkeypatch)
+        monkeypatch.setitem(offsite.OFFSITE_STATE, "running", True)
+        with pytest.raises(ValueError, match="being made right now"):
+            ro.restore_offsite_backup(key, ["branding"])
+        assert bucket.downloads == []
+
+    def test_an_archive_is_dated_by_its_key(self):
+        made = offsite.offsite_archive_time("race-officer-backups/race-officer-backup-20261021-031502.zip")
+        assert made == datetime(2026, 10, 21, 3, 15, 2)
+        assert offsite.offsite_archive_time("race-officer-backups/something-else.zip") is None
+
+
+class TestTheRestoreRunsInTheBackground:
+    """Through the relay a page has 90 seconds, and 30 MB down a contended 4G link
+    can take longer: a gateway error while the hut restores anyway would leave
+    nobody sure whether it had worked. So the form starts it and the page polls."""
+
+    @pytest.fixture(autouse=True)
+    def fresh_state(self, monkeypatch):
+        monkeypatch.setattr(ro, "OFFSITE_RESTORE", {})
+
+    def test_it_reports_each_phase_and_then_the_result(self, data_dir, monkeypatch):
+        _bucket, key = _branding_backed_up(monkeypatch)
+        phases = []
+        real_update = ro._update_offsite_restore
+        monkeypatch.setattr(ro, "_update_offsite_restore",
+                            lambda **fields: (phases.append(fields.get("phase")), real_update(**fields)))
+
+        started, why = ro.start_offsite_restore(key, ["branding"], "", "admin")
+        _wait_for_the_restore()
+        status = ro.offsite_restore_status()
+
+        assert started, why
+        assert [p for p in ("downloading", "checking", "restoring", "done") if p in phases] == \
+            ["downloading", "checking", "restoring", "done"]
+        assert status["ok"] and not status["running"]
+        assert "Branding" in status["message"]
+        assert status["bytes_total"] > 0
+        assert (appstate.BRANDING_DIR / "club.png").read_bytes() == b"logo-bytes"
+
+    def test_a_failure_is_reported_not_swallowed(self, data_dir, monkeypatch):
+        _bucket, key = _branding_backed_up(monkeypatch)
+        ro.start_offsite_restore(key, ["branding"], "not-the-passphrase", "admin")
+        _wait_for_the_restore()
+        status = ro.offsite_restore_status()
+        assert status["phase"] == "failed" and status["ok"] is False
+        assert "passphrase" in status["message"]
+
+    def test_only_one_at_a_time(self, data_dir, monkeypatch):
+        monkeypatch.setitem(ro.OFFSITE_RESTORE, "running", True)
+        started, why = ro.start_offsite_restore("any.zip", ["branding"], "", "admin")
+        assert not started and "already running" in why
+
+    def test_nothing_starts_without_a_section_or_a_backup(self, data_dir):
+        assert not ro.start_offsite_restore("any.zip", [], "", "admin")[0]
+        assert not ro.start_offsite_restore("", ["branding"], "", "admin")[0]
+
+
+class TestTheBackupPageOffersTheBucket:
+    """One restore form with two sources, not two forms side by side."""
+
+    def test_there_is_one_restore_form_offering_both_sources(self, data_dir, logged_in_client, monkeypatch):
+        _branding_backed_up(monkeypatch)
+        html = logged_in_client.get("/admin/backup").get_data(as_text=True)
+        assert html.count('id="restoreForm"') == 1
+        assert html.count('name="backup_passphrase"') == 1
+        assert 'value="offsite" checked' in html, "with backups in the bucket, they are the default"
+        assert 'name="backup_file"' in html
+
+    def test_without_a_bucket_the_zip_is_the_only_choice(self, data_dir, logged_in_client):
+        html = logged_in_client.get("/admin/backup").get_data(as_text=True)
+        assert 'value="offsite" disabled' in html
+        assert 'value="file" checked' in html
+        assert "Cloud storage (Cloudflare R2)" in html, "it should say what is missing"
+
+    def test_an_administrator_sees_the_backups_newest_first(self, data_dir, logged_in_client, monkeypatch):
+        bucket, key = _branding_backed_up(monkeypatch)
+        older = key.replace("race-officer-backup-2", "race-officer-backup-1")
+        bucket.objects[older] = bucket.objects[key]
+
+        html = logged_in_client.get("/admin/backup").get_data(as_text=True)
+
+        assert 'name="offsite_key"' in html
+        assert html.index(key) < html.index(older), "the newest backup is not first"
+        assert "(newest)" in html
+
+    def test_the_form_starts_the_restore_and_the_status_follows_it(self, data_dir, logged_in_client, monkeypatch):
+        monkeypatch.setattr(ro, "OFFSITE_RESTORE", {})
+        _bucket, key = _branding_backed_up(monkeypatch)
+        with logged_in_client.session_transaction() as sess:
+            sess["_csrf_token"] = "test-csrf-token"
+
+        resp = logged_in_client.post("/admin/backup/restore", data={
+            "_csrf_token": "test-csrf-token", "source": "offsite", "offsite_key": key, "sections": "branding"})
+        _wait_for_the_restore()
+        status = logged_in_client.get("/admin/backup/restore/status",
+                                      headers={"Accept": "application/json"}).get_json()
+
+        assert resp.status_code == 302 and resp.headers["Location"].endswith("#restore")
+        assert status["ok"], status
+        assert (appstate.BRANDING_DIR / "club.png").read_bytes() == b"logo-bytes"
+
+    def test_a_zip_from_this_computer_still_goes_through_the_same_form(self, data_dir, logged_in_client):
+        with logged_in_client.session_transaction() as sess:
+            sess["_csrf_token"] = "test-csrf-token"
+        resp = logged_in_client.post("/admin/backup/restore", data={
+            "_csrf_token": "test-csrf-token", "source": "file", "sections": "branding"},
+            follow_redirects=True)
+        assert "Choose a backup ZIP file to restore." in resp.get_data(as_text=True)
+
+    def test_starting_and_watching_it_are_both_admin_only(self):
+        assert {"backup_restore", "backup_restore_status"} <= ro.ADMIN_ONLY_ENDPOINTS

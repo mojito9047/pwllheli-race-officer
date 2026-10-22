@@ -2184,6 +2184,32 @@ tr.next-start td { font-weight: 700; }
 
 /* v0.124 backup/restore page */
 .backup-restore-grid { align-items: start; }
+/* Where a restore comes from: an off-site backup in the bucket, or a ZIP here. */
+.restore-source { border: 1px solid var(--line-strong); padding: 10px 12px; margin: 0; display: grid; gap: 8px; }
+.restore-source legend { padding: 0 4px; font-weight: 600; }
+.restore-source select, .restore-source input[type="file"] { margin-left: 1.6em; width: calc(100% - 1.6em); }
+.restore-source small { margin-left: 1.6em; }
+/* An off-site restore downloading and restoring in the background. */
+.restore-progress {
+  border: 1px solid var(--line-strong);
+  background: var(--bg-soft);
+  padding: 10px 12px;
+  margin: 0 0 14px;
+}
+.restore-progress progress {
+  display: block; width: 100%; height: 12px;
+  -webkit-appearance: none; appearance: none; border: 0; background: var(--line);
+}
+.restore-progress progress::-webkit-progress-bar { background: var(--line); }
+.restore-progress progress::-webkit-progress-value { background: var(--blue); }
+.restore-progress progress::-moz-progress-bar { background: var(--blue); }
+/* Checking and restoring have no byte count to show: a full bar that pulses. */
+.restore-progress progress.working { animation: restore-working 1.2s ease-in-out infinite alternate; }
+@keyframes restore-working { from { opacity: 1; } to { opacity: 0.45; } }
+.restore-progress p { margin: 8px 0 0; }
+.restore-progress.failed { border-color: #f2b8b5; background: #fff1f0; color: #842029; }
+.restore-progress.failed progress::-webkit-progress-value { background: var(--port); }
+.restore-progress.failed progress::-moz-progress-bar { background: var(--port); }
 .stacked-form { display: grid; gap: 12px; }
 .checkbox-card {
   display: grid;
