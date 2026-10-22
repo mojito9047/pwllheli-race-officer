@@ -286,7 +286,9 @@ def versions_status() -> Dict[str, Any]:
         state = {key: (dict(value) if isinstance(value, dict) else value) for key, value in VERSIONS_STATE.items()}
     github = state.get("github") or {}
     latest = str(github.get("version") or "")
-    rows = [{"key": "app", "name": "Race Officer (this PC)", "running": f"v{appstate.APP_VERSION}",
+    # "hut PC", not "this PC": the dashboard is as often read from a laptop or a
+    # phone through the relay, and the app is on the hut PC either way.
+    rows = [{"key": "app", "name": "Race Officer (hut PC)", "running": f"v{appstate.APP_VERSION}",
              "state": compare(appstate.APP_VERSION, latest), "detail": ""},
             _relay_row(state, latest)]
     renderer = _renderer_row(state, latest)

@@ -268,3 +268,9 @@ class TestTheDashboardCard:
         assert "Software versions" in html
         assert f"v{appstate.APP_VERSION}" in html
         assert "Checking GitHub" in html or "Checking…" in html
+
+
+def test_the_app_line_names_the_hut_pc_not_whoever_is_looking(state):
+    """The dashboard is read from laptops and phones through the relay as often as
+    on the hut PC itself, so "this PC" was untrue more often than not."""
+    assert versions.versions_status()["rows"][0]["name"] == "Race Officer (hut PC)"
