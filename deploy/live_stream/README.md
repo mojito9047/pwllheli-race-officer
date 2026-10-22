@@ -205,7 +205,8 @@ As root on the relay:
    ```
 
 Services (all autostart on boot): `mediamtx`, `caddy`, `cloudflared-tunnel`,
-`cloudflared-camera`. Logs: `journalctl -u <name> -f`.
+`cloudflared-camera`, and the hourly `relay-version.timer` (see *Telling the hut what
+the relay runs* below). Logs: `journalctl -u <name> -f`.
 
 ---
 
@@ -248,6 +249,11 @@ of copying the file — the change is usually one `handle` block.
   starts, so close all viewers or `systemctl restart mediamtx`.
 - `site/index.html` and `site/hut_offline.html` → `/opt/relay/site/`. Caddy serves
   them as they are, so the next page load has them.
+- `relay_version.py` → `/opt/relay/`, and `lxc/systemd/relay-version.service` and
+  `.timer` → `/etc/systemd/system/` (then `systemctl daemon-reload`).
+
+After copying any of them, run `systemctl start relay-version.service` so the hut's
+dashboard sees the change now rather than within the hour.
 
 Check it worked from outside, not just from the relay:
 
@@ -470,6 +476,8 @@ synthetic boats.
   changing that line run `systemctl reload caddy`.
 - `site/hut_offline.html` — the holding page shown when the hut app is down.
 - `relay_wind.py` — the optional wind readout on the stream (see *Wind readout* below).
+- `relay_version.py` + `lxc/systemd/relay-version.service`/`.timer` — lists a checksum of
+  each relay file for the hut's dashboard (see *Telling the hut what the relay runs*).
 - `relay_stats.sh` — builds the optional GoAccess report served at `/stats` (see *Access
   logging* below).
 - `traccar-forward.xml` — the entries to merge into Traccar's config so it pushes each fix
@@ -644,6 +652,48 @@ The formatting and the blanking rules are unit-tested in the app repo
 — including that `reload=1` picks up a change mid-encode.
 
 ---
+
+## Telling the hut what the relay runs
+
+The hut's dashboard has a **Software versions** card: the app, the relay and the render
+machine, each beside the latest release on GitHub. The relay is updated a file at a time,
+by hand, so it has no single version number that stays true. Instead `relay_version.py`
+writes `/opt/relay/version.json`, a SHA-256 of each relay file as installed here, and the
+hut compares those with its own copies from its release. The card then says either
+*all relay files match this release*, or which files differ and that the relay wants
+updating (or the hut, if the relay is the newer).
+
+It runs hourly from `relay-version.timer`, and once at the end of `setup.sh`. Caddy serves
+the result at `https://pro.pwllhelisailingclub.org/relay/version.json`. Line endings are
+made LF before hashing, so a copy that came out of a Windows checkout still matches.
+
+**Not in it, on purpose:** the Caddyfile and `startline_config.json`, which carry local
+edits by design; `relay.env`, which holds secrets; and the versions of Caddy, MediaMTX,
+cloudflared and ffmpeg. The file is public, and a list of exact versions is a gift to
+anyone looking for a known hole. Traccar's version is shown too, but the hut reads that
+through Traccar's own API with its token, not from this file.
+
+**On a relay set up before this existed**, three things, as root:
+
+```bash
+install -m 0755 /root/live_stream/relay_version.py /opt/relay/relay_version.py
+install -m 0644 /root/live_stream/lxc/systemd/relay-version.service /root/live_stream/lxc/systemd/relay-version.timer /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now relay-version.timer && systemctl start relay-version.service
+```
+
+Then add the `handle /relay/version.json` block to `/etc/caddy/Caddyfile` **by hand**,
+inside the `:80` site block and before the catch-all `handle` that proxies to the hut.
+Copy it from this folder's `Caddyfile`, where it sits just above the `/live` watch page;
+the live file carries edits of its own, so do not copy the whole file over it (see 5a).
+Add `/relay/version.json` to the `@polling` path list as well, so the hut's hourly look
+stays out of the visitor log. Then `caddy validate --config /etc/caddy/Caddyfile` and
+`systemctl reload caddy`. Check it from outside:
+
+```bash
+curl -s https://pro.pwllhelisailingclub.org/relay/version.json | head
+```
+
+Until the block is in, the card says the relay does not list its files yet.
 
 ## Access logging (who is visiting)
 

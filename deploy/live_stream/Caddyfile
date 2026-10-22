@@ -92,10 +92,21 @@ http://traccar.pwllhelisailingclub.org {
 	# few hours. Visits are what /stats is for. The Virtual Race Officer's
 	# commands stay in: a person typed each one.
 	@polling {
-		path /api/weather/* /public/current/state /api/race/* /api/custom_leg_analysis /api/track/* /api/trackers/* /admin/api/* /traccar/api/*
+		path /api/weather/* /public/current/state /api/race/* /api/custom_leg_analysis /api/track/* /api/trackers/* /admin/api/* /traccar/api/* /relay/version.json
 		not path /admin/api/assistant/*
 	}
 	log_skip @polling
+
+	# --- Which relay files this relay is running: /relay/version.json ---
+	# Written hourly by relay_version.py (relay-version.timer). The hut's
+	# dashboard compares it with its own release to say whether the relay is
+	# up to date. Checksums only: nothing in it is secret or version-revealing.
+	handle /relay/version.json {
+		root * /opt/relay
+		rewrite * /version.json
+		header Cache-Control "no-store"
+		file_server
+	}
 
 	# --- Live-stream watch page: /live ---
 	redir /live /live/

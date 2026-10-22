@@ -247,6 +247,38 @@
     {% endif %}
     <a class="button small secondary" href="{{ url_for('settings_page') }}#offsite-backup">Off-site backup settings</a>
   </article>
+
+  {# What each machine runs, against the latest release on GitHub, so an upgrade
+     waiting to be done is in plain sight. Read from what the versions worker
+     last found (core/versions.py): nothing here goes to the network. #}
+  {% set latest = versions_status.latest %}
+  <article class="card" id="versionsCard">
+    <h3>Software versions{% if versions_status.upgrade_available %} <span class="pill warn-pill">upgrade</span>{% endif %}</h3>
+    <table class="compact versions-table">
+      <tbody>
+      {% for row in versions_status.rows %}
+        <tr class="versions-row versions-{{ row.state }}">
+          <th scope="row">{{ row.name }}</th>
+          <td>{{ row.running or '—' }}</td>
+          <td>
+            {% if row.state == 'current' %}Up to date
+            {% elif row.state == 'upgrade' %}<a href="{{ latest.url }}">{{ latest.tag }} available</a>
+            {% elif row.state == 'ahead' %}Newer than the latest release
+            {% elif row.state == 'differs' %}Out of step
+            {% elif row.state == 'checking' %}Checking…
+            {% else %}Unknown{% endif %}
+          </td>
+        </tr>
+        {% if row.detail %}<tr class="versions-detail"><td colspan="3" class="small muted">{{ row.detail }}</td></tr>{% endif %}
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="small muted">
+      {% if latest %}Latest on GitHub: <a href="{{ latest.url }}">{{ latest.tag }}</a>{% if versions_status.latest_published %}, released {{ versions_status.latest_published }}{% endif %}.{% endif %}
+      {% if versions_status.note %}{{ versions_status.note }}{% endif %}
+      {% if versions_status.checked %}Checked {{ versions_status.checked }}.{% endif %}
+    </p>
+  </article>
 </section>
 
 {# The postponement wording, and the rule for whether AP is still up. #}

@@ -357,6 +357,16 @@ summary { cursor: pointer; color: var(--blue); font-weight: 800; }
 .controls-grid { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr); gap: 1.5rem; }
 .large-countdown .time { font-size: 3rem; }
 table.compact th, table.compact td { padding: 0.35rem 0.5rem; }
+/* Dashboard: what each machine runs. A detail line belongs to the row above it. */
+.versions-table { width: 100%; }
+/* Row labels, not column headings: none of the table heading's dark band. */
+.versions-table th {
+  text-align: left; font-weight: 600; background: none; color: var(--text);
+  font-size: inherit; text-transform: none; letter-spacing: normal; border-bottom-color: var(--line);
+}
+.versions-table .versions-detail td { padding-top: 0; border-top: 0; }
+.versions-table .versions-upgrade td:last-child,
+.versions-table .versions-differs td:last-child { color: var(--gold-dark); font-weight: 600; }
 pre { background: #f5f7fb; border: 1px solid #d9e0ee; padding: 1rem; border-radius: 8px; overflow-x: auto; }
 button.danger, .button.danger { background: #b3261e; color: white; }
 @media (max-width: 800px) { .controls-grid { grid-template-columns: 1fr; } }

@@ -461,6 +461,7 @@ from core.offsite import (
     start_offsite_backup_now,
     start_offsite_backup_worker,
 )
+from core.versions import start_versions_worker
 from core.settings import (
     DEFAULT_CLUB_NAME,
     DEFAULT_CLUB_SHORT_NAME,
@@ -2321,6 +2322,7 @@ def ensure_background_tasks_running() -> None:
     start_power_monitor_worker()
     start_track_monitor_worker()
     start_offsite_backup_worker()
+    start_versions_worker()
 
 
 def public_access_allowed_for_race(race: Optional[sqlite3.Row]) -> bool:
@@ -3966,6 +3968,7 @@ if __name__ == "__main__":
     start_power_monitor_worker()
     start_track_monitor_worker()
     start_offsite_backup_worker()
+    start_versions_worker()
 
     from waitress import serve
 

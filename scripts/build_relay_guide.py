@@ -522,13 +522,15 @@ story += code_block([
     "systemctl restart caddy",
 ])
 story.append(Paragraph(
-    "All the services start on boot. There are five to know about:", styles["Body"]))
+    "All the services start on boot. There are six to know about:", styles["Body"]))
 story += field_table([
     ("caddy", "The front door and reverse proxy. Reload after any Caddyfile change."),
     ("mediamtx", "The HLS server; starts the branded camera pull on demand."),
     ("cloudflared-tunnel", "Brings <b>pro.</b> in from Cloudflare to Caddy on port 80."),
     ("cloudflared-camera", "Opens the hut camera as <b>localhost:18554</b> on the relay."),
     ("traccar", "The GPS tracking server (Chapter 6). Only if you use tracking."),
+    ("relay-version.timer", "Hourly: lists a checksum of each relay file at <b>/relay/version.json</b>, "
+     "for the hut dashboard's Software versions card (Chapter 8)."),
 ])
 story += code_block(["journalctl -u mediamtx -f          # follow any service's log",
                      "systemctl status caddy"])
@@ -836,8 +838,28 @@ story += header_table(
      ["relay_wind.py", "/opt/relay/", "systemctl restart mediamtx"],
      ["Caddyfile", "/etc/caddy/Caddyfile", "caddy validate, then systemctl reload caddy"],
      ["mediamtx.yml", "/opt/relay/", "systemctl restart mediamtx"],
-     ["relay_stats.sh", "/opt/relay/", "nothing (runs from cron)"]],
+     ["relay_stats.sh", "/opt/relay/", "nothing (runs from cron)"],
+     ["relay_version.py", "/opt/relay/", "systemctl start relay-version.service"]],
     col_widths=[6.2 * cm, 4.6 * cm, CONTENT_W - 10.8 * cm])
+story.append(Paragraph(
+    "After copying any of them, run <b>systemctl start relay-version.service</b>, so the hut's "
+    "dashboard sees the change now rather than within the hour.", styles["Body"]))
+story.append(Paragraph("Telling the hut what the relay runs", styles["H2"]))
+story.append(Paragraph(
+    "The hut dashboard's <b>Software versions</b> card shows the app, the relay and the render machine, "
+    "each beside the latest release on GitHub. The relay is updated a file at a time, so it has no single "
+    "version number that stays true: <b>relay_version.py</b> writes a SHA-256 of each relay file to "
+    "<b>/opt/relay/version.json</b>, Caddy serves it at <b>/relay/version.json</b>, and the hut compares "
+    "the checksums with its own copies from its release. The card says either that every relay file "
+    "matches, or which differ. It leaves out the Caddyfile and startline_config.json, which carry local "
+    "edits by design, relay.env, which holds secrets, and the versions of Caddy, MediaMTX and cloudflared: "
+    "the file is public.", styles["Body"]))
+story += note_box(
+    "On a relay set up before this, install relay_version.py and the relay-version service and timer, "
+    "enable the timer, and add the <b>handle /relay/version.json</b> block to the live Caddyfile by hand, "
+    "before the catch-all that proxies to the hut — never copy the repository's Caddyfile over it. "
+    "deploy/live_stream/README.md has the commands. Until the block is in, the card says the relay does "
+    "not list its files yet.")
 story += note_box(
     "The watch page is the one that bites. The app's camera panels wait for it to report that "
     "it is playing before swapping from snapshots to video; an old copy reports nothing, so the "
@@ -962,6 +984,8 @@ story += field_table([
     ("traccar-forward.xml", "The Traccar entries to merge for push forwarding, with the "
      "reasoning and the optional auto-enrolment setting."),
     ("relay_stats.sh", "Generates the GoAccess report for <b>/stats</b>."),
+    ("relay_version.py", "Lists a checksum of each relay file for the hut's Software versions card; run "
+     "hourly by <b>relay-version.timer</b>."),
     ("docker/", "An alternative Docker Compose stack, if you would rather not install on the "
      "host directly."),
 ])

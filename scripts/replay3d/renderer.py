@@ -61,6 +61,19 @@ from core.replay3d_protocol import (  # noqa: E402  (the bucket contract, shared
     status_key,
 )
 
+def _release() -> str:
+    """The release this render machine was installed from: the VERSION beside it."""
+    try:
+        with open(os.path.join(_ROOT, "VERSION"), encoding="utf-8") as handle:
+            return handle.read().strip()
+    except OSError:
+        return ""
+
+
+# Sent with every heartbeat, so the hut's dashboard can say which release this
+# machine runs and whether a newer one is out.
+RELEASE = _release()
+
 BUILD = os.path.join(_HERE, "build_scene.py")
 PREPARE = os.path.join(_HERE, "prepare_video_frames.py")
 PARALLEL = os.path.join(_HERE, "render_parallel.py")
@@ -411,7 +424,7 @@ def run_job(store: Store, job: Dict[str, Any], who: str, blender: str) -> str:
 def heartbeat(store: Store, who: str, busy_with: Optional[int] = None) -> None:
     try:
         store.put_json(HEARTBEAT_KEY, {"version": 1, "renderer": who, "updated_at": time.time(),
-                                       "busy_with": busy_with})
+                                       "busy_with": busy_with, "release": RELEASE})
     except Exception as exc:
         print(f"heartbeat failed: {exc}", flush=True)
 

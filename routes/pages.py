@@ -9,6 +9,7 @@ app.py`` (module ``__main__``) or imported.
 """
 from core import docsview
 from core import replay3d
+from core import versions
 from core import track
 from routes import app_module
 
@@ -87,6 +88,8 @@ def index():
         offsite_status=offsite_dashboard_status(),
         # Cached for a few seconds inside status_snapshot: it reads the bucket.
         replay3d_status=replay3d.status_snapshot(),
+        # What the versions worker last found: nothing is fetched here.
+        versions_status=versions.versions_status(),
         # Only when tracking is on and only for trackers assigned to a boat:
         # a spare in the drawer being flat is not a race-day problem.
         low_batteries=low_battery_trackers() if track_config()['enabled'] else [],

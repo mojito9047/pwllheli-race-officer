@@ -1,0 +1,6 @@
+[Unit]
+Description=List the relay's files for the hut's dashboard (/relay/version.json)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/relay/relay_version.py

@@ -20,7 +20,7 @@ os.environ.setdefault("RO_INITIAL_ADMIN_PASSWORD", "testadminpass")
 
 import app as ro  # noqa: E402 — must follow sys.path and env setup
 from core import (  # noqa: E402 — extracted modules to monkeypatch
-    appstate, audio, db, loginguard, offsite, power, settings, startsequence, track, weather_store,
+    appstate, audio, db, loginguard, offsite, power, settings, startsequence, track, versions, weather_store,
 )
 
 
@@ -212,11 +212,17 @@ def no_r2_uploader_thread(monkeypatch):
         (audio, "central_audio_worker_loop"),
         (startsequence, "start_sequence_scheduler_loop"),
         (offsite, "offsite_backup_loop"),
+        # Asks GitHub and the relay what is running. A test has no business
+        # reaching either.
+        (versions, "versions_loop"),
     ):
         if hasattr(module, loop_name):
             monkeypatch.setattr(module, loop_name, lambda *a, **k: None)
     # ...and clear its start latch, which is a module global that would otherwise
     # persist across the whole session.
+    with versions.VERSIONS_LOCK:
+        versions.VERSIONS_STATE.update(started=False, github={}, github_at=0.0, relay={}, traccar={},
+                                       renderer={}, local_at=0.0, local_checked_at=0.0)
     with offsite.OFFSITE_LOCK:
         offsite.OFFSITE_STATE["started"] = False
         offsite.OFFSITE_STATE["running"] = False

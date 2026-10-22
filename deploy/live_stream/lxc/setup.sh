@@ -80,6 +80,8 @@ install -m 0644 "$SRC_DIR/mediamtx.yml"            "$RELAY_DIR/mediamtx.yml"
 install -m 0755 "$SRC_DIR/relay_branded_source.py" "$RELAY_DIR/relay_branded_source.py"
 # Wind readout (optional; off unless WIND_OVERLAY=1 in relay.env)
 install -m 0644 "$SRC_DIR/relay_wind.py"           "$RELAY_DIR/relay_wind.py"
+# Lists the relay's files for the hut's dashboard (/relay/version.json)
+install -m 0755 "$SRC_DIR/relay_version.py"        "$RELAY_DIR/relay_version.py"
 # ODM start-line overlay (optional; tune/disable via startline_config.json)
 install -m 0644 "$SRC_DIR/relay_startline.py"      "$RELAY_DIR/relay_startline.py"
 install -m 0644 "$SRC_DIR/odm_detector.py"         "$RELAY_DIR/odm_detector.py"
@@ -101,6 +103,8 @@ echo "== systemd units =="
 install -m 0644 "$SRC_DIR/lxc/systemd/mediamtx.service"            /etc/systemd/system/mediamtx.service
 install -m 0644 "$SRC_DIR/lxc/systemd/cloudflared-tunnel.service"  /etc/systemd/system/cloudflared-tunnel.service
 install -m 0644 "$SRC_DIR/lxc/systemd/cloudflared-camera.service"  /etc/systemd/system/cloudflared-camera.service
+install -m 0644 "$SRC_DIR/lxc/systemd/relay-version.service"       /etc/systemd/system/relay-version.service
+install -m 0644 "$SRC_DIR/lxc/systemd/relay-version.timer"         /etc/systemd/system/relay-version.timer
 # Caddy comes from the distro package, so its unit is not ours to edit; a
 # drop-in gives it the relay environment (the hut-origin Access token) and
 # survives a caddy upgrade.
@@ -108,6 +112,9 @@ mkdir -p /etc/systemd/system/caddy.service.d
 install -m 0644 "$SRC_DIR/lxc/systemd/caddy-relay-env.conf" /etc/systemd/system/caddy.service.d/relay-env.conf
 systemctl daemon-reload
 systemctl enable mediamtx cloudflared-tunnel cloudflared-camera >/dev/null
+# Hourly, and once now, so the dashboard sees this install straight away.
+systemctl enable --now relay-version.timer >/dev/null
+systemctl start relay-version.service || true
 # Restart rather than reload: a reload re-reads the Caddyfile but not the unit's
 # environment, and the Access token arrives through the environment.
 systemctl restart caddy

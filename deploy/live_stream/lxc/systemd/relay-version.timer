@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh /relay/version.json hourly, so a file copied in by hand shows up on the hut's dashboard
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1h
+
+[Install]
+WantedBy=timers.target

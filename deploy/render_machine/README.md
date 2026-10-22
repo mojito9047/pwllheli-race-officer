@@ -227,6 +227,11 @@ session, there for its audio and serial hardware.
 .\deploy\render_machine\uninstall_render_task.cmd
 ```
 
+Each heartbeat also carries the release this machine was installed from (the
+`VERSION` file beside it), so the hut's dashboard can show it in its **Software
+versions** card beside the latest release on GitHub. A machine on a release from
+before that shows as "runs a release from before render machines reported theirs".
+
 `status` reports the task **and** what the club's bucket says, which is the
 honest half: the task can be running perfectly while the renderer is pointed at
 the wrong bucket and seeing no work. It ages the heartbeat, so a machine that

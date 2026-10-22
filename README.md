@@ -94,6 +94,7 @@ Setup, hardware, video, tracking, the public pages and the rest are listed under
 - **Re-measures a mark that has drifted** — marks can be edited, or set from a phone taken out in a RIB. It matters because everything measured from a mark is measured from the position on file: distance to go, the leg bearings, the chart, and in the end whether a boat is seen to round it. Each race keeps the mark positions it was sailed with, so a correction today does not redraw races already run.
 - Reads the start-hut **weather station** for live wind and a wind history plot.
 - The dashboard carries a **map of the marks and any tracker reporting in the last hour**, so "is anything on the water" is one glance rather than a page change.
+- A **Software versions** card on the dashboard shows what the hut, the relay and the render machine run, beside the latest release on GitHub, so an upgrade waiting to be done is in plain sight. The relay is judged by checksums of its files, since it is updated a file at a time.
 - Monitors **hut power** (Victron VE.Direct) as a separate time-series store.
 - A **Virtual Race Officer** page for running a race from a boat: type an instruction, the app reads back what it would do, and nothing happens until you say **Yes**. Behind login and a per-user permission. See [`docs/VIRTUAL_RACE_OFFICER.md`](docs/VIRTUAL_RACE_OFFICER.md).
 
