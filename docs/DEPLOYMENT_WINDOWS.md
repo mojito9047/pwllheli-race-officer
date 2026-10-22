@@ -9,7 +9,7 @@ Running the app by hand from Command Prompt is near the end. It is for testing a
 ## What you need
 
 - A Windows 10 or Windows 11 PC, with the Windows user the race office signs in as.
-- The release ZIP, for example `pwllheli_race_officer_v1_019.zip`, from the project's GitHub releases page.
+- The release ZIP, for example `pwllheli_race_officer_v1_020.zip`, from the project's GitHub releases page.
 - Internet access for the first installation: the installer downloads the Python packages the app needs.
 - FFmpeg only for video recording and the live finish-camera preview (step 8).
 - A USB serial horn interface only if the app is to sound the horn.
@@ -37,7 +37,7 @@ It should answer with a version, for example `Python 3.13.x`. If `py` is not rec
 You should then have a folder like:
 
 ```text
-C:\RaceOfficer\pwllheli_race_officer_v1_019
+C:\RaceOfficer\pwllheli_race_officer_v1_020
 ```
 
 The number is the version. Each version unzips into a folder of its own, and an upgrade puts the next one beside it.
@@ -49,7 +49,7 @@ Do not run the app from inside the ZIP, from Downloads, from an email attachment
 In Command Prompt, as the Windows user the race office signs in as:
 
 ```cmd
-cd /d C:\RaceOfficer\pwllheli_race_officer_v1_019\deploy\windows
+cd /d C:\RaceOfficer\pwllheli_race_officer_v1_020\deploy\windows
 install_startup_task.cmd
 ```
 
@@ -67,7 +67,7 @@ It ends with:
 ```text
 Installed. Admin page: http://localhost:5050/admin
 Public page: http://localhost:5050
-Log file: C:\RaceOfficer\pwllheli_race_officer_v1_019\runtime\logs\race_officer.log
+Log file: C:\RaceOfficer\pwllheli_race_officer_v1_020\runtime\logs\race_officer.log
 ```
 
 The task belongs to the user who ran the installer and starts at that user's login, so run it as the race-office user, not as somebody else.
@@ -183,7 +183,7 @@ Use it after a change that needs a restart, or if the app has stopped answering.
 The task runs hidden. If a Command Prompt window stays open after login, the task was installed by an old script; reinstall it from the installed version's folder:
 
 ```cmd
-cd /d C:\RaceOfficer\pwllheli_race_officer_v1_019\deploy\windows
+cd /d C:\RaceOfficer\pwllheli_race_officer_v1_020\deploy\windows
 uninstall_startup_task.cmd
 install_startup_task.cmd
 ```
@@ -204,6 +204,8 @@ The easiest way is the app's own **Backup / restore** page at the bottom of the 
 The `runtime` folder holds logs, caches, live preview frames and the rolling video buffer. It is useful for troubleshooting, but it is not race data and does not need backing up.
 
 ## Upgrading to a new version
+
+The dashboard's **Software versions** card says when a newer release is out, with a link to it, and whether the relay and the render machine are on the same one.
 
 1. Back up (above).
 2. Stop the old version by removing its task: run `uninstall_startup_task.cmd` from the **old** version's `deploy\windows`.
@@ -231,7 +233,7 @@ The easy way is `deploy\windows\start_race_officer.cmd`. It is exactly what the 
 Fully by hand, in **Command Prompt** (not PowerShell, whose execution policy refuses the activation script):
 
 ```cmd
-cd /d C:\RaceOfficer\pwllheli_race_officer_v1_019
+cd /d C:\RaceOfficer\pwllheli_race_officer_v1_020
 py -m venv .venv
 .venv\Scripts\activate.bat
 python -m pip install -r requirements.txt

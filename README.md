@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.019
+# Pwllheli Race Officer v1.020
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -27,6 +27,15 @@ Setup, hardware, video, tracking, the public pages and the rest are listed under
 
 
 ## Recent releases
+
+### v1.020 update
+
+- **Restore an off-site backup straight from the bucket**, with a progress bar: one restore form, choose an
+  off-site backup or a ZIP from this computer.
+- **Software versions on the dashboard**: the app, the relay and the render machine beside the latest
+  release on GitHub. The relay needs a script and a Caddyfile block added by hand (see the relay guide).
+- **The activity log lives in `data/logs`**, keeps sixty days and is backed up; upgrading from v1.019, copy
+  the old `runtime\logs` across once. One Windows install guide; 3D films without a Mapbox token.
 
 ### v1.019 update
 
@@ -58,15 +67,6 @@ Setup, hardware, video, tracking, the public pages and the rest are listed under
   found in camera stills taken before the start as well, and the line drawn where they agree.
 - **Start photos for races sailed before v1.014**, made afterwards from the 4K evidence clips by
   `scripts/make_start_photos.py` on the hut (`--preview` first).
-
-### v1.015 update
-
-- **The hut keeps answering at a finish.** A tracker report no longer reads the whole track index (500
-  times cheaper), gives up after 5 seconds instead of holding a request thread for 30, and the order on
-  the water and the race track are worked out once for every viewer rather than once each.
-- **Race pages reload up to three seconds apart** at a start or a finish, not all in the same second.
-- **Windows Defender exclusions that cover every version folder**, in DEPLOYMENT_WINDOWS.md; the hut's
-  still named version 0.257's. The PC check script now finds the daily slow-request log.
 
 ## Main features
 

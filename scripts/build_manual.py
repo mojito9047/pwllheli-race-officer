@@ -262,7 +262,9 @@ story.append(Paragraph("1.2 &nbsp; The dashboard", styles["H2"]))
 story.append(Paragraph(
     "After signing in you land on the <b>Dashboard</b>. It is a single at-a-glance view of race-office status: "
     "the currently active race and its countdown clock, the live wind reading, the marks and any trackers "
-    "reporting, and whether the horn and video systems are configured. Everything on it is something that "
+    "reporting, whether the horn and video systems are configured, and whether the club's software is on the "
+    "latest release (the <b>Software versions</b> card links to a newer one when it is out). Everything on it "
+    "is something that "
     "changes during a day; the club's standing start-line, finish-line and radio notes belong to the Sailing "
     "Instructions and are no longer repeated here.",
     styles["Body"]))

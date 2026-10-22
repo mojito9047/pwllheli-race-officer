@@ -519,11 +519,26 @@ story.append(Paragraph("The Dashboard", styles["H2"]))
 story.append(Paragraph(
     "The landing page after login. A single at-a-glance view of what needs watching: the currently active "
     "race and its countdown, live wind, the marks and any reporting trackers, horn, video and hut-power "
-    "status, the age of the last off-site backup, and — when the club makes them — how a 3D replay render "
-    "is getting on. Everything on it is something that changes; the club's standing start-line, finish-line "
+    "status, the age of the last off-site backup, how a 3D replay render is getting on when the club makes "
+    "them, and which version each of the club's machines runs. Everything on it is something that changes; the club's standing start-line, finish-line "
     "and radio notes are Sailing Instructions and were taken off it in v1.002.",
     styles["Body"]))
 story.append(figure("02_dashboard.png", "The Dashboard."))
+story.append(Paragraph("Software versions", styles["H3"]))
+story.append(Paragraph(
+    "The <b>Software versions</b> card shows what the hut PC, the relay and the 3D render machine are running, "
+    "each beside the latest release on GitHub. Each line says <b>Up to date</b>, or <b>v1.0xx available</b> as "
+    "a link to that release's notes and download, or <b>Out of step</b>. The relay is updated a file at a time, "
+    "so it is judged by its files: the card says that all of them match this release, or names the ones that "
+    "differ. It shows Traccar's version too, when tracking is set up. The card is filled in by a background "
+    "check, GitHub every six hours and the rest every half hour, and says when it last looked; opening the "
+    "dashboard never waits for it.", styles["Body"]))
+story.append(figure("dash_versions.png", "Software versions: every machine on the latest release.", max_h=5.5 * cm))
+story += note_box(
+    "The relay can only take part once it lists its files: <b>relay_version.py</b> and its timer installed, and "
+    "the <b>/relay/version.json</b> block added to its Caddyfile. Until then its line says so (see the relay "
+    "guide). A render machine shows its release once it runs v1.020 or later. RO_UPDATE_CHECK=0 turns the "
+    "GitHub check off.")
 
 story.append(PageBreak())
 

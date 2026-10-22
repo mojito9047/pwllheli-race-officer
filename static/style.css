@@ -365,6 +365,10 @@ table.compact th, table.compact td { padding: 0.35rem 0.5rem; }
   font-size: inherit; text-transform: none; letter-spacing: normal; border-bottom-color: var(--line);
 }
 .versions-table .versions-detail td { padding-top: 0; border-top: 0; }
+/* A row label takes the same rules as the cells beside it: the theme's hairline
+   between rows, and the ink line it closes every table with. */
+.versions-table tbody th { border-bottom: 1px solid var(--rule, var(--line)); }
+.versions-table tbody tr:last-child th { border-bottom: 1.5px solid var(--ink, currentColor); }
 .versions-table .versions-upgrade td:last-child,
 .versions-table .versions-differs td:last-child { color: var(--gold-dark); font-weight: 600; }
 pre { background: #f5f7fb; border: 1px solid #d9e0ee; padding: 1rem; border-radius: 8px; overflow-x: auto; }

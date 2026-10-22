@@ -1,5 +1,48 @@
 # Change log
 
+## v1.020
+
+**An off-site backup restores straight from the bucket.** Restoring one meant the
+Cloudflare dashboard: download the archive to a laptop, then upload it back to the
+hut through the relay and the 4G link, under the 64 MB upload limit. The Backup /
+restore page now has one restore form with a **Restore from** choice: an off-site
+backup in Cloudflare R2, picked from what the bucket holds now, newest first, or a
+backup ZIP from this computer, as before. The hut downloads the archive itself, in
+the background, with a progress bar on the page, and checks it against the size in
+the bucket and the SHA-256 stored beside it before anything is cleared. Leave the
+passphrase blank to use the one saved in Settings.
+
+- **Software versions on the dashboard.** The app, the relay and the render machine,
+  each beside the latest release on GitHub: "Up to date", "v1.020 available", or what
+  is out of step. The relay is judged by checksums of its files, since it is updated a
+  file at a time, through a new `relay_version.py`, run hourly by `relay-version.timer`
+  and served at `/relay/version.json`. **The relay needs these installed and a block
+  added to its live Caddyfile by hand**: see *Telling the hut what the relay runs* in
+  the relay guide. The render machine reports its release from this version on.
+- **The activity log lives with the data**, in `data/logs` rather than `runtime/logs`,
+  so it comes across with the data folder at an upgrade. Sixty days are kept, and it is
+  backed up with the Database section, so it goes off-site too; a restore adds only the
+  days that are missing. **Upgrading from v1.019, copy the old version's `runtime\logs`
+  into the new version's `runtime\logs` once**: the first start moves the activity log
+  into `data\logs`.
+- **One guide for installing the hut PC.** `GETTING_STARTED_WINDOWS.md` and
+  `DEPLOYMENT_WINDOWS.md` both described installing the hut, and you had to read both
+  to find the best way. `DEPLOYMENT_WINDOWS.md` is now the one guide: install Python,
+  unzip, run the installer, then running it day to day and upgrading.
+- **A 3D film is made without a Mapbox token.** A missing token, or one Mapbox refused,
+  stopped the renderer mid-job with the race left claimed; now the land is drawn in its
+  height colours where there is no satellite picture, and cached tiles need no token.
+- **The club website camera stops after fifteen minutes** on screen, as it always said
+  it did; a playing stream never stopped. Upload `deploy/embed/club_website_camera.html`
+  to the club website again to have it there.
+- **Fixed on the way:** the relay guide showed on GitHub as one long code block from
+  section 7 on; `setup.sh` never installed `relay_wind.py`; the relay scripts' default
+  addresses named a hostname nothing uses; every README was checked against the code
+  and about 45 statements corrected; the tracker screenshot capture now refuses to save
+  a picture with an IMEI on it, as its README said it did; `export_race.py --list`
+  failed. Liverpool Yacht Club's configuration is in the repository, as a worked
+  example, and not in the release.
+
 ## v1.019
 
 **The club's name and logos are settings.** Pwllheli's were written into the

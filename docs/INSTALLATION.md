@@ -25,7 +25,7 @@ The rest of this page is the general reference: running the app by hand on any o
 From the unzipped project folder:
 
 ```bash
-cd pwllheli_race_officer_v1_019
+cd pwllheli_race_officer_v1_020
 python -m venv .venv
 ```
 
