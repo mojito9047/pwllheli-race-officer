@@ -59,7 +59,12 @@ EXCLUDE_REL_DIRS = {os.path.join("docs", "hardware"),
                     # the wrong machine goes from 14 MB to 44 MB over the hut's 4G
                     # link. Nothing installed reads it: the renderer keeps its tiles
                     # under runtime/replay3d/ and fetches what it is missing.
-                    os.path.join("data", "dem")}
+                    os.path.join("data", "dem"),
+                    # data/logs is the activity log: who did what, by name. It moved
+                    # out of runtime/ so it travels with the data folder at an
+                    # upgrade, which put it inside a folder that ships. Whoever builds
+                    # the release has their own in there, and it is nobody else's.
+                    os.path.join("data", "logs")}
 EXCLUDE_FILES = {
     str(Path("data") / "race_officer.db"),
 }

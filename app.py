@@ -421,6 +421,7 @@ from core.startsequence import (
     start_start_sequence_scheduler,
 )
 from core.backup import (
+    ACTIVITY_LOG_MEMBER_PREFIX,
     BACKUP_MANIFEST_NAME,
     BACKUP_SECTION_BY_ID,
     BACKUP_SECTION_DEFINITIONS,
@@ -1297,7 +1298,13 @@ def describe_restore_result(result: Dict[str, Any]) -> Tuple[bool, str, str]:
         count = int(result.get("restored_counts", {}).get(section_id, 0) or 0)
         if count:
             restored_parts.append(f"{section['label']} ({count} file{'s' if count != 1 else ''})")
+    log_days = int(result.get("activity_log_days_restored") or 0)
+    if log_days:
+        restored_parts.append(f"activity log ({log_days} missing day{'s' if log_days != 1 else ''})")
     message = "Restored: " + "; ".join(restored_parts) if restored_parts else "No files were restored."
+    kept = int(result.get("activity_log_days_kept") or 0)
+    if kept:
+        message += f" {kept} day{'s' if kept != 1 else ''} of activity log already here {'were' if kept != 1 else 'was'} kept as {'they were' if kept != 1 else 'it was'}."
     skipped = [BACKUP_SECTION_BY_ID.get(section_id, {"label": section_id})["label"]
                for section_id in result.get("skipped_sections", [])]
     if skipped:
@@ -1397,6 +1404,7 @@ def restore_backup_archive(fetch: Callable[[Path], Any], selected_sections: Iter
     restored_database = False
     restored_course_files = False
     sidecars_removed: List[str] = []
+    log_days_restored = log_days_kept = 0
     database_sections = database_backup_section_ids()
     try:
         fetch(upload_path)
@@ -1426,6 +1434,24 @@ def restore_backup_archive(fetch: Callable[[Path], Any], selected_sections: Iter
                     continue
                 matched_section = next((section_id for section_id in available_sections if backup_member_is_for_section(safe_name, section_id)), None)
                 if not matched_section:
+                    continue
+                if safe_name.startswith(ACTIVITY_LOG_MEMBER_PREFIX):
+                    # The activity log is a history, so a restore adds the days that
+                    # are missing and never rewrites one that is here: the days since
+                    # the backup was made, today's included, are the newest record of
+                    # who did what there is -- and that is what a restore is checked
+                    # against afterwards.
+                    log_name = safe_name[len(ACTIVITY_LOG_MEMBER_PREFIX):]
+                    if "/" in log_name or not activitylog.is_log_file_name(log_name):
+                        continue
+                    log_target = activitylog.log_dir() / log_name
+                    if log_target.exists():
+                        log_days_kept += 1
+                        continue
+                    log_target.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(info, "r") as src, log_target.open("wb") as dst:
+                        shutil.copyfileobj(src, dst)
+                    log_days_restored += 1
                     continue
                 destination = restore_member_destination(safe_name)
                 if destination is None:
@@ -1467,6 +1493,8 @@ def restore_backup_archive(fetch: Callable[[Path], Any], selected_sections: Iter
             "restored_database": restored_database,
             "restored_course_files": restored_course_files,
             "sidecars_removed": sidecars_removed,
+            "activity_log_days_restored": log_days_restored,
+            "activity_log_days_kept": log_days_kept,
         }
     finally:
         try:

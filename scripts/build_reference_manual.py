@@ -1448,7 +1448,8 @@ story.append(figure("backup_restore.png", "Backup / restore: one restore form, f
                                           "ZIP, the selectable sections, and what each contains."))
 story.append(Paragraph(
     "The app keeps race data in <b>three</b> SQLite databases, and all three have their own section: "
-    "<b>Database</b> (races, entries, boats, settings, users), <b>GPS tracks</b> "
+    "<b>Database</b> (races, entries, boats, settings, users, and the activity log in <b>data/logs/</b>, of "
+    "which a restore adds only the missing days), <b>GPS tracks</b> "
     "(<b>data/track_positions.db</b> — every recorded tracker fix, and so the evidence behind GPS finishes) "
     "and <b>Hut power history</b>. Those, plus <b>Marks/Courses/start-finish</b>, "
     "<b>Polars &amp; Sail charts</b> and <b>Branding Images</b>, are selected by default; <b>Videos</b> is not, "
@@ -1622,9 +1623,11 @@ story.append(Paragraph(
     "and password changes; races created, updated and deleted; boats added to and removed from races; finishes "
     "and pursuit positions recorded; an entry edited by hand, with the old and new finish time and status; "
     "course changes, shortenings and mark edits; rating imports; series edits; backups downloaded and restored; "
-    "and user-account changes. It is written to <b>runtime/logs/activity.log</b> on the race-office PC, one file "
-    "per day (yesterday rolls over to <b>activity.log.YYYY-MM-DD</b>). It lives under <b>runtime/</b>, so it is "
-    "not part of backups or release packages.", styles["Body"]))
+    "and user-account changes. It is written to <b>data/logs/</b> on the race-office PC, one file per day "
+    "(<b>activity-YYYY-MM-DD.log</b>), and the last sixty days are kept. It lives in the data folder so that "
+    "it comes across with it at an upgrade. It is backed up with the <b>Database</b> section, so it goes off-site "
+    "each night too; a restore adds only the days that are missing and never rewrites one that is already "
+    "there. It is never in a release package.", styles["Body"]))
 story.append(Paragraph(
     "A <b>settings save lists the keys that changed, and what they changed from</b> — <b>horn_active: 1 -&gt; 0</b> "
     "is the kind of line that explains a horn fault a fortnight later. Only the differences are listed, and a save "

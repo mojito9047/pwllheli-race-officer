@@ -178,7 +178,7 @@
   <table>
     <thead><tr><th>Option</th><th>Files restored/backed up</th></tr></thead>
     <tbody>
-      <tr><td>Database</td><td><code>data/race_officer.db</code> — races, entries, boats, settings, users, event logs, weather samples and video metadata.</td></tr>
+      <tr><td>Database</td><td><code>data/race_officer.db</code> — races, entries, boats, settings, users, event logs, weather samples and video metadata — and <code>data/logs/</code>, the activity log of who did what. A restore adds only the activity log days that are missing here; a day already here is kept as it is.</td></tr>
       <tr><td>GPS tracks</td><td><code>data/track_positions.db</code> — every recorded tracker fix: the race map history, replays and the evidence behind GPS finishes.</td></tr>
       <tr><td>Hut power history</td><td><code>data/power_history.db</code> — battery, solar and load readings from the hut power monitor.</td></tr>
       <tr><td>Marks, Courses, start/finish line</td><td><code>data/marks.json</code>, <code>data/courses.json</code>, <code>data/start_finish.json</code>.</td></tr>

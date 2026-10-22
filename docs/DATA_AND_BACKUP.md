@@ -77,7 +77,7 @@ The SQLite database stores operational data such as:
 
 From v0.124, the race-office app has a **Backup / restore** page at the bottom of the side menu. It creates and restores ZIP files with selectable sections:
 
-- **Database (Races & settings)** — `data/race_officer.db`, including races, entries, boats, settings, users, event logs, weather samples and video metadata.
+- **Database (Races & settings)** — `data/race_officer.db`, including races, entries, boats, settings, users, event logs, weather samples and video metadata, and `data/logs/`, the **activity log** of who did what. The log goes with the database because it is the record of who changed what in it, and so it is in the nightly off-site copy too. A restore adds only the days of the log that are missing; a day already on the PC is kept as it is, so the days since the backup — the record of the restore itself among them — are never lost to it.
 - **GPS tracks** — `data/track_positions.db`, every recorded tracker fix: the race map history, replays, and the evidence behind GPS finishes. This is a *separate* database from the one above, and until v0.192 it was not in any backup.
 - **Hut power history** — `data/power_history.db`, battery/solar/load readings from the power monitor. Also its own database, also missing before v0.192.
 - **Marks, Courses, start/finish line** — `data/marks.json`, `data/courses.json`, `data/start_finish.json`.

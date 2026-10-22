@@ -1,14 +1,22 @@
 """Daily-rotating activity/audit log.
 
 A plain-text history of who did what — logins, and race/boat/entry/settings
-changes — written to ``runtime/logs/`` with no UI. There is one file per day, named for the day
-(``activity-2026-08-17.log``) and never renamed -- renaming the live file at
-midnight is what used to lose it, see :mod:`core.logfiles`. Kept deliberately
-simple and best-effort: a logging failure must never break a request.
+changes — written to ``data/logs/``, readable in Settings. There is one file per
+day, named for the day (``activity-2026-08-17.log``) and never renamed --
+renaming the live file at midnight is what used to lose it, see
+:mod:`core.logfiles`. Kept deliberately simple and best-effort: a logging
+failure must never break a request.
+
+It lives with the club's data, not in ``runtime/``. An upgrade unzips the new
+version into a folder of its own and copies the ``data`` folder across, so a log
+in ``runtime/`` stayed behind in the old version's folder every time and had to
+be carried over by hand. Sixty days are kept.
 """
 from __future__ import annotations
 
 import logging
+import re
+import shutil
 import threading
 from pathlib import Path
 from typing import Optional
@@ -19,6 +27,67 @@ from core import logfiles
 _LOGGER: Optional[logging.Logger] = None
 _LOCK = threading.Lock()
 
+LOG_STEM = "activity"
+# Two months: enough to answer "who changed that?" about anything this season's
+# racing still depends on, without the folder growing for ever.
+KEEP_DAYS = 60
+# Every name a day of the log has had: activity-2026-08-17.log now, and the old
+# rotating handler's activity.log and activity.log.2026-08-13. Anything else in
+# the folder is not the log, and is neither backed up nor restored as it.
+LOG_FILE_NAME = re.compile(r"^activity(-\d{4}-\d{2}-\d{2}\.log|\.log(\.\d{4}-\d{2}-\d{2})?)$")
+
+
+def is_log_file_name(name: str) -> bool:
+    """Whether a bare file name is one day of the activity log."""
+    return bool(LOG_FILE_NAME.match(str(name)))
+
+
+def log_dir() -> Path:
+    """Where the activity log is written and read: inside the data folder."""
+    return appstate.DATA_DIR / "logs"
+
+
+def legacy_log_dir() -> Path:
+    """Where it was written before it moved into the data folder."""
+    return appstate.RUNTIME_DIR / "logs"
+
+
+def move_legacy_logs(directory: Optional[Path] = None) -> int:
+    """Move activity logs left in ``runtime/logs`` into ``data/logs``. Returns how many.
+
+    Run once as the logger starts, which also covers the upgrade that moves the
+    log: copy the old version's ``runtime\\logs`` into the new one, as before, and
+    the first start files them where they now live. Every naming the reader knows
+    is moved -- the day-stamped files and the old rotating handler's -- and only
+    activity logs: the slow-request log is a diagnostic and stays in runtime/.
+
+    A day that is already in both places (today's, if the app has written to the
+    new place before the copy arrived) is joined, the older lines first, rather
+    than one overwriting the other. A file another process holds open is left
+    where it is and tried again at the next start.
+    """
+    source = legacy_log_dir()
+    target_dir = Path(directory) if directory is not None else log_dir()
+    try:
+        if source.resolve() == target_dir.resolve():
+            return 0
+    except OSError:
+        return 0
+    moved = 0
+    for paths in logfiles.files_by_day(source, LOG_STEM).values():
+        for path in paths:
+            target = target_dir / path.name
+            try:
+                if target.exists():
+                    target.write_bytes(path.read_bytes() + target.read_bytes())
+                    path.unlink()
+                else:
+                    shutil.move(str(path), str(target))
+                moved += 1
+            except OSError:
+                continue
+    return moved
+
 
 def _get_logger() -> Optional[logging.Logger]:
     global _LOGGER
@@ -28,13 +97,20 @@ def _get_logger() -> Optional[logging.Logger]:
         if _LOGGER is not None:
             return _LOGGER
         try:
-            log_dir = appstate.RUNTIME_DIR / "logs"
-            log_dir.mkdir(parents=True, exist_ok=True)
+            directory = log_dir()
+            directory.mkdir(parents=True, exist_ok=True)
+            move_legacy_logs(directory)
+            # The handler prunes when the day changes; this trims a backlog kept
+            # under the old 400-day rule as soon as the app starts.
+            logfiles.prune_days(directory, LOG_STEM, KEEP_DAYS)
             logger = logging.getLogger("pwllheli.activity")
             logger.setLevel(logging.INFO)
             logger.propagate = False
-            if not logger.handlers:
-                handler = logfiles.DatedFileHandler(log_dir, "activity", keep_days=400)
+            # A file handler of our own, not just any handler: something else
+            # attached to this logger (pytest's log capture is one) must not be
+            # taken for the file, or the lines go there and never reach the disk.
+            if not any(isinstance(h, logfiles.DatedFileHandler) for h in logger.handlers):
+                handler = logfiles.DatedFileHandler(directory, LOG_STEM, keep_days=KEEP_DAYS)
                 handler.setFormatter(logging.Formatter("%(asctime)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
                 logger.addHandler(handler)
             _LOGGER = logger
@@ -121,10 +197,6 @@ LOG_DAY_PATTERN = logfiles.DAY_PATTERN
 MAX_LOG_LINES = 2000
 
 
-def log_dir() -> Path:
-    return appstate.RUNTIME_DIR / "logs"
-
-
 def log_days() -> list:
     """Which days of activity log exist, today first then newest.
 
@@ -132,7 +204,8 @@ def log_days() -> list:
     written now, and the ``activity.log`` / ``activity.log.YYYY-MM-DD`` the old
     rotating handler left behind.
     """
-    by_day = logfiles.files_by_day(log_dir(), "activity")
+    _get_logger()       # so a backlog still in runtime/ has been moved before it is listed
+    by_day = logfiles.files_by_day(log_dir(), LOG_STEM)
     now = logfiles.today()
     out = []
     for day, paths in by_day.items():
@@ -166,7 +239,8 @@ def read_log(day: str = "") -> dict:
     day = str(day or "").strip()
     if day and not LOG_DAY_PATTERN.match(day):
         day = ""
-    paths = logfiles.files_by_day(log_dir(), "activity").get(day or logfiles.today(), [])
+    _get_logger()
+    paths = logfiles.files_by_day(log_dir(), LOG_STEM).get(day or logfiles.today(), [])
     lines = []
     found = False
     for path in paths:

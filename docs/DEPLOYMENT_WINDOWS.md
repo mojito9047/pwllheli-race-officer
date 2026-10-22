@@ -198,6 +198,7 @@ The easiest way is the app's own **Backup / restore** page at the bottom of the 
 
 - **three** databases, not one: `race_officer.db` (races, entries, boats, settings, users), `track_positions.db` (recorded GPS tracks) and `power_history.db` (hut battery and solar history);
 - the course and mark files, polars, sail charts and branding;
+- the activity log, in `data\logs` (the Backup / restore page includes it with the database);
 - the saved evidence clips, in `data\video_clips`.
 
 The `runtime` folder holds logs, caches, live preview frames and the rolling video buffer. It is useful for troubleshooting, but it is not race data and does not need backing up.
@@ -207,7 +208,7 @@ The `runtime` folder holds logs, caches, live preview frames and the rolling vid
 1. Back up (above).
 2. Stop the old version by removing its task: run `uninstall_startup_task.cmd` from the **old** version's `deploy\windows`.
 3. Unzip the new version into `C:\RaceOfficer`, beside the old one.
-4. Copy the old version's `data` folder into the new version's folder, replacing the one that came in the ZIP.
+4. Copy the old version's `data` folder into the new version's folder, replacing the one that came in the ZIP. It holds the activity log too (`data\logs`), so who did what comes across with everything else. Upgrading from a version before the log moved there, also copy the old `runtime\logs` folder into the new version's `runtime`: the first start moves the activity log from it into `data\logs`.
 5. Run `install_startup_task.cmd` from the **new** version's `deploy\windows`, as in step 3.
 6. Log in again — sessions from the old version are treated as stale — and check Settings, races, boats, horn, weather and video.
 

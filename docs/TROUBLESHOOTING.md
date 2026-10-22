@@ -433,7 +433,7 @@ freezing it. Update the render machine as well as the hut.
 
 ## No start photo, or it came from the start video
 
-The race page shows each start photo's outcome next to the start video, and the activity log (`runtime/logs/activity.log`, action `start photo`) says what the camera did.
+The race page shows each start photo's outcome next to the start video, and the activity log (`data/logs/activity-YYYY-MM-DD.log`, or Settings → Recent hardware events → activity log; action `start photo`) says what the camera did.
 
 - **"from the start video" / no camera time on the public page**: the camera gave nothing at the gun, so the frame came out of the recording. Use **Settings → Camera zoom / PTZ presets → Save and take a test start photo**: it says whether the camera answers and how long it takes. The address and login there are used even with preset switching off.
 - **The camera refused the login**: the app stops asking the camera &mdash; for presets and photos alike &mdash; so it cannot lock the Hikvision account. Type the current camera password there and save.

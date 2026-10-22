@@ -89,7 +89,9 @@ _DERIVED_DATA_PATHS = {
 
 # Folders left out of the copy. Race video is the club's evidence: hundreds of
 # megabytes that no test reads, and it has its own (gitignored) tree.
-_SANDBOX_SKIP_DIRS = {"video_clips", "video"}
+# "logs" is the developer's own activity log, which a test has no business reading
+# and which only grows.
+_SANDBOX_SKIP_DIRS = {"video_clips", "video", "logs"}
 
 # Subfolders the real layout always has, created even when the developer's copy
 # has yet to grow one, so a test that writes a logo or a polar behaves the same

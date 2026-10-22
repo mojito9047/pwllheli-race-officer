@@ -286,9 +286,9 @@ Four printable guides are built from `scripts/build_*.py` and kept in `docs/`:
 app.py                    Flask app core: setup, auth/CSRF/session, settings form, background tasks
 routes/                   The HTTP route handlers, split out of app.py
 core/                     Domain and hardware logic: db, scoring, courses, weather, video, tracking, ...
-data/                     Database, courses, marks, sail charts, polars, branding and saved video clips
+data/                     Database, courses, marks, sail charts, polars, branding, saved video clips and the activity log
 club_configs/             Other clubs' marks, courses and lines, as worked examples; not in the release
-runtime/                 Temporary caches, video buffer, live preview, FFmpeg and activity logs
+runtime/                 Temporary caches, video buffer, live preview, FFmpeg and slow-request logs
 deploy/                   Race-hut PC scripts, the relay (Traccar, live stream), the 3D render machine, the website camera embed
 scripts/                  Developer tooling (PDF builders, screenshots, simulators, verifiers), and replay3d/, the 3D film renderer
 static/                   CSS, JavaScript, images and icons

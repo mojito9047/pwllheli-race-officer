@@ -26,7 +26,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from core import appstate
+from core import activitylog, appstate
 from core.db import init_db
 
 try:                                    # optional: only encrypted backups need it
@@ -44,10 +44,12 @@ BACKUP_SECTION_DEFINITIONS: List[Dict[str, Any]] = [
     {
         "id": "database",
         "label": "Database (Races & settings)",
-        "description": "SQLite database with races, entries, boats, settings, users, weather history and video metadata.",
+        "description": "SQLite database with races, entries, boats, settings, users, weather history and video metadata, "
+                       "and the activity log of who did what (data/logs/).",
         "default_backup": True,
         "default_restore": True,
-        "warning": "Restoring this replaces the current race-office database.",
+        "warning": "Restoring this replaces the current race-office database. Activity log days already here are kept; "
+                   "only the missing ones are restored.",
     },
     {
         "id": "tracks",
@@ -115,7 +117,10 @@ def normalise_backup_section_ids(values: Iterable[Any]) -> List[str]:
 def backup_section_prefixes(section_id: str) -> List[str]:
     """Return ZIP member prefixes owned by one backup section."""
     return {
-        "database": ["data/race_officer.db"],
+        # The activity log goes with the database: it is the record of who
+        # changed what in it. Restored day by day, never over a day already here
+        # (see restore_backup_archive in app.py).
+        "database": ["data/race_officer.db", "data/logs/"],
         "tracks": ["data/track_positions.db"],
         "power_history": ["data/power_history.db"],
         "marks_courses": ["data/marks.json", "data/courses.json", "data/start_finish.json"],
@@ -204,6 +209,24 @@ def add_directory_to_backup(zip_file: zipfile.ZipFile, directory: Path) -> int:
     for source in sorted(directory.rglob("*")):
         if source.is_file():
             zip_file.write(source, safe_backup_archive_name(source))
+            count += 1
+    return count
+
+
+ACTIVITY_LOG_MEMBER_PREFIX = "data/logs/"
+
+
+def add_activity_log_to_backup(zip_file: zipfile.ZipFile) -> int:
+    """Add each day of the activity log, and nothing else in its folder."""
+    directory = activitylog.log_dir()
+    try:
+        sources = sorted(directory.iterdir())
+    except OSError:
+        return 0
+    count = 0
+    for source in sources:
+        if source.is_file() and activitylog.is_log_file_name(source.name):
+            zip_file.write(source, ACTIVITY_LOG_MEMBER_PREFIX + source.name)
             count += 1
     return count
 
@@ -399,6 +422,7 @@ def create_data_backup_zip(selected_sections: Iterable[Any], passphrase: str = "
                         sqlite_backup_to_file(tmp_db)
                         if add_file_to_backup(zf, tmp_db, "data/race_officer.db"):
                             files_added += 1
+                        files_added += add_activity_log_to_backup(zf)
                     elif section_id in extra_databases:
                         live_path, member_name = extra_databases[section_id]
                         staged = Path(tmpdir) / live_path.name

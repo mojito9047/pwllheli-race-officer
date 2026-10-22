@@ -23,6 +23,10 @@ data/race_officer.db
 # admin Backup page, not source. (Also excluded from release ZIPs.)
 data/video_clips/
 
+# The activity log: who did what, by name, day by day. It lives in data/ so it
+# moves with the data folder at an upgrade; it is the club's record, not source.
+data/logs/
+
 # ODM start-line tuning workbench (large test frames; detector lives in core/ and deploy/)
 odm_frames/
 

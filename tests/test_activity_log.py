@@ -48,7 +48,7 @@ def activity_log(client, tmp_path, monkeypatch):
             logger.removeHandler(handler)
         activitylog._LOGGER = None
 
-    monkeypatch.setattr(ro.appstate, "RUNTIME_DIR", tmp_path)
+    monkeypatch.setattr(activitylog, "log_dir", lambda: tmp_path / "logs")
     reset()
     activitylog._get_logger()
     # One file per day, named for the day: renaming the live file at midnight
@@ -286,8 +286,8 @@ class TestTheLineFormat:
     def test_a_log_that_cannot_be_opened_never_reaches_the_caller(self, tmp_path, monkeypatch):
         """A log that cannot be written must not break a race-day request.
 
-        Driven by making the directory genuinely un-creatable — RUNTIME_DIR pointing
-        at a *file* — rather than by patching the logger, so it is the real
+        Driven by making the directory genuinely un-creatable — inside a *file* —
+        rather than by patching the logger, so it is the real
         best-effort path in _get_logger that is under test.
         """
         blocker = tmp_path / "not-a-directory"
@@ -297,7 +297,7 @@ class TestTheLineFormat:
             handler.close()
             logger.removeHandler(handler)
         monkeypatch.setattr(activitylog, "_LOGGER", None)
-        monkeypatch.setattr(ro.appstate, "RUNTIME_DIR", blocker)
+        monkeypatch.setattr(activitylog, "log_dir", lambda: blocker / "logs")
 
         activitylog.log_activity("something", "details")      # must not raise
         assert activitylog._get_logger() is None

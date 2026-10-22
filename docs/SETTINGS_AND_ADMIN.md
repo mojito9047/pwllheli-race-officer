@@ -305,7 +305,7 @@ The images are stored under `data/branding/`. The public live-camera page serves
 
 ## Activity log
 
-The app keeps a plain-text **activity log** of who did what. From v0.249 it can be read in the browser: **Settings → Recent hardware events** carries a link to it, newest entry first with a button per day. Administrators only, since it names who did what, and read-only &mdash; there is no route that can edit or clear it. It is written to `runtime/logs/activity.log` on the race-office PC, with one file per day (the previous day rolls over to `activity.log.YYYY-MM-DD`). The log lives under `runtime/`, so it is not included in backups or release packages.
+The app keeps a plain-text **activity log** of who did what. From v0.249 it can be read in the browser: **Settings → Recent hardware events** carries a link to it, newest entry first with a button per day. Administrators only, since it names who did what, and read-only &mdash; there is no route that can edit or clear it. It is written to `data/logs/` on the race-office PC, one file per day (`activity-YYYY-MM-DD.log`), and the last sixty days are kept. It lives in the data folder so that it comes across with it at an upgrade, where it used to be left behind in the old version's `runtime/`. It is backed up with the **Database** section, and so goes off-site each night; a restore adds only the days that are missing and never rewrites one that is here. It is never in a release package.
 
 As of v0.245 it records everything that changes state, which is to say:
 

@@ -25,7 +25,7 @@ TOKEN = "test-csrf-token"
 @pytest.fixture()
 def log_files(client, tmp_path, monkeypatch):
     """A logs directory with today plus two rolled-over days."""
-    monkeypatch.setattr(ro.appstate, "RUNTIME_DIR", tmp_path)
+    monkeypatch.setattr(activitylog, "log_dir", lambda: tmp_path / "logs")
     logger = logging.getLogger("pwllheli.activity")
     for handler in list(logger.handlers):
         handler.close()
@@ -55,7 +55,7 @@ class TestListingTheDays:
         assert all(d["bytes"] > 0 for d in activitylog.log_days())
 
     def test_a_missing_directory_is_not_an_error(self, client, tmp_path, monkeypatch):
-        monkeypatch.setattr(ro.appstate, "RUNTIME_DIR", tmp_path / "nothing-here")
+        monkeypatch.setattr(activitylog, "log_dir", lambda: tmp_path / "nothing-here")
         assert activitylog.log_days() == []
 
 

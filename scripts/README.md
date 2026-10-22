@@ -234,7 +234,7 @@ the browser opens. Beware two traps that cost time the first time round:
   which looks exactly like a bug in the rounding rule.
 
 Log lines for the activity-log figure are made by performing the actions, not by
-writing them into the file. Delete the day's `runtime/logs/activity-YYYY-MM-DD.log`
+writing them into the file. Delete the day's `data/logs/activity-YYYY-MM-DD.log`
 first (one file per day, named for it; stop the app — Windows holds it open) or the
 fresh instance's first settings save, which diffs every key from blank, fills the
 figure.

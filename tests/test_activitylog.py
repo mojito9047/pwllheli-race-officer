@@ -14,9 +14,10 @@ def _reset_logger():
     activitylog._LOGGER = None
 
 
-def test_log_activity_writes_to_runtime_logs(tmp_path, monkeypatch):
+def test_log_activity_writes_to_data_logs(tmp_path, monkeypatch):
+    """In the data folder, so it moves with it at an upgrade."""
     _reset_logger()
-    monkeypatch.setattr(appstate, "RUNTIME_DIR", tmp_path)
+    monkeypatch.setattr(appstate, "DATA_DIR", tmp_path)
     try:
         activitylog.log_activity("race created", "#1 'Club Race'", user="admin")
         for handler in logging.getLogger("pwllheli.activity").handlers:
