@@ -93,8 +93,9 @@ The app makes that password up on its first start. Change it straight away: **Se
 
 The task starts the app when the race-office user logs in, not when the PC is switched on. If the app stops on its own, the task restarts it, up to three times a minute apart.
 
-Four Windows settings decide whether the hut recovers by itself and keeps going. The installer sets none of them, and a fresh Windows has all four the wrong way round, so set them once on every new or rebuilt hut PC:
+Five settings decide whether the hut recovers by itself and keeps going: one in the PC's BIOS and four in Windows. The installer sets none of them, and a new PC has them all the wrong way round, so set them once on every new or rebuilt hut PC:
 
+0. **Switch on when the power comes back (BIOS).** The hut runs from its solar battery. After a power cut, or the battery's low-voltage cut-off, the PC has to start by itself when power returns. Otherwise nothing below happens until somebody presses the power button. As the PC starts, press **Delete** (or **F2**) to open its setup. Find the setting, which is named differently from one maker to the next: *Restore on AC Power Loss*, *AC Power Recovery*, *Power On after Power Failure*, or *State After G3*. Set it to **Power On** (for *State After G3*, **S0**). Avoid *Last State*: that leaves the PC off if it was off when the power went. Windows cannot see this setting, so the check script cannot report it. Test it by pulling the power lead with the PC running, then putting it back: the PC should start without a button press.
 1. **Log the race-office user in automatically.** Without it, the app does not start after a power cut until somebody logs in. Microsoft's own **Autologon** tool (Sysinternals, from learn.microsoft.com) does it and keeps the password encrypted. Or use `netplwiz`. On Windows 11 its *Users must enter a user name and password* box only appears once Settings → Accounts → Sign-in options → *For improved security, only allow Windows Hello sign-in* is turned off.
 2. **Never sleep.** A PC that sleeps stops the horn, the recorder and the app with it. In PowerShell opened as administrator:
 
@@ -110,7 +111,7 @@ Four Windows settings decide whether the hut recovers by itself and keeps going.
 
 4. **Delivery Optimization off.** Otherwise Windows shares the updates it has downloaded with other PCs on the internet, which at the hut means up the 4G link. Turn it off in Settings → Windows Update → Advanced options → Delivery Optimization: *Allow downloads from other PCs* **Off**.
 
-`deploy\windows\check_hut_pc.ps1` reports on the last three, and on the Defender exclusions in step 6. Run it once they are set; it changes nothing itself.
+`deploy\windows\check_hut_pc.ps1` reports on sleep, USB selective suspend and Delivery Optimization, and on the Defender exclusions in step 6. Run it once they are set; it changes nothing itself.
 
 It is a task in the signed-in user's session rather than a Windows service on purpose. The app speaks VHF announcements through the desktop audio, drives the horn through a USB serial adapter and can record from a USB camera, and all three work reliably from the signed-in user's session and badly from a service account. For the same reason the task runs with the user's ordinary rights (`Limited`), not as an administrator.
 
