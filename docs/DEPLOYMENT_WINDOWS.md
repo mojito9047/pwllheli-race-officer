@@ -89,9 +89,28 @@ The app makes that password up on its first start. Change it straight away: **Se
 
 `http://localhost:5050`, without `/admin`, is the public read-only current-race page.
 
-## 5. Make it come back after a power cut
+## 5. Make it come back after a power cut, and keep it running
 
-The task starts the app when the race-office user logs in, not when the PC is switched on. For a hut PC that should recover by itself, set Windows to log that user in automatically at power-up, or make logging in part of the race-day checklist. If the app stops on its own, the task restarts it, up to three times a minute apart.
+The task starts the app when the race-office user logs in, not when the PC is switched on. If the app stops on its own, the task restarts it, up to three times a minute apart.
+
+Four Windows settings decide whether the hut recovers by itself and keeps going. The installer sets none of them, and a fresh Windows has all four the wrong way round, so set them once on every new or rebuilt hut PC:
+
+1. **Log the race-office user in automatically.** Without it, the app does not start after a power cut until somebody logs in. Microsoft's own **Autologon** tool (Sysinternals, from learn.microsoft.com) does it and keeps the password encrypted. Or use `netplwiz`. On Windows 11 its *Users must enter a user name and password* box only appears once Settings → Accounts → Sign-in options → *For improved security, only allow Windows Hello sign-in* is turned off.
+2. **Never sleep.** A PC that sleeps stops the horn, the recorder and the app with it. In PowerShell opened as administrator:
+
+   ```powershell
+   powercfg /change standby-timeout-ac 0; powercfg /change hibernate-timeout-ac 0
+   ```
+
+3. **USB selective suspend off.** Windows powers down idle USB ports. The horn's USB serial adapter sits idle between signals, and a suspended port is a classic cause of a horn that does not fire:
+
+   ```powershell
+   powercfg /setacvalueindex SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0; powercfg /setactive SCHEME_CURRENT
+   ```
+
+4. **Delivery Optimization off.** Otherwise Windows shares the updates it has downloaded with other PCs on the internet, which at the hut means up the 4G link. Turn it off in Settings → Windows Update → Advanced options → Delivery Optimization: *Allow downloads from other PCs* **Off**.
+
+`deploy\windows\check_hut_pc.ps1` reports on the last three, and on the Defender exclusions in step 6. Run it once they are set; it changes nothing itself.
 
 It is a task in the signed-in user's session rather than a Windows service on purpose. The app speaks VHF announcements through the desktop audio, drives the horn through a USB serial adapter and can record from a USB camera, and all three work reliably from the signed-in user's session and badly from a service account. For the same reason the task runs with the user's ordinary rights (`Limited`), not as an administrator.
 

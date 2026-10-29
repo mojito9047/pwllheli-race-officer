@@ -176,7 +176,12 @@ try {
     $conns = @(Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue |
                Where-Object { $_.State -ne 'Listen' })
     Item "Open connections" $conns.Count
-    $conns | Group-Object State | Sort-Object Count -Descending | ForEach-Object {
+    # The state is read inside a try. Windows 11 build 26300 reported one socket on
+    # the rebuilt hut PC in a state its own enum has no name for ("0"), and
+    # Group-Object State then printed a page of red into the middle of the report.
+    # That socket is counted as "other" instead.
+    $conns | Group-Object { $s = $null; try { $s = [string]$_.State } catch { }; if ($s) { $s } else { 'other' } } |
+        Sort-Object Count -Descending | ForEach-Object {
         Item ("  {0}" -f $_.Name) $_.Count
     }
     $peers = $conns | Group-Object RemoteAddress | Sort-Object Count -Descending |
