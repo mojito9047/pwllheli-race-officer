@@ -1,4 +1,4 @@
-// Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+// Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.
 // Live camera panels: refreshing snapshots first, the relay's live stream once
 // it is running.
 //

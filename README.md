@@ -314,5 +314,16 @@ Do not connect horns, horn batteries or horn switches directly to a PC serial po
 
 The public competitor pages are intentionally unauthenticated. The race-officer app is protected by username/password login.
 
+## Licence
+
+MIT -- see [LICENSE](LICENSE). Use it, change it, run it for your own club.
+
+The licence covers the source code. The Pwllheli Sailing Club crest and the
+sponsor logos in `data/branding/` are not CapeNet's to license and are not
+covered: replace them with your own club's, which is a settings change rather
+than a code one (**Settings -> Club name and branding**, and
+[docs/CLUB_CUSTOMISATION.md](docs/CLUB_CUSTOMISATION.md)). The bundled fonts
+carry the SIL Open Font Licence. [NOTICE.md](NOTICE.md) sets all of this out.
+
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd

@@ -1,5 +1,5 @@
 <#
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.
 
 One-time setup for a 3D replay render machine: make the virtual environment,
 install what the renderer needs, put a settings file in place and check that

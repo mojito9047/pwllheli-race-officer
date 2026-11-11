@@ -123,4 +123,4 @@ The series export contains every race in the series in one file, numbered in ord
 4. Check the scoring system and discard profile in Sailwave: this app's settings are not carried in the file.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

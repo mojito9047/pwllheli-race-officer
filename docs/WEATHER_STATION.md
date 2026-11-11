@@ -69,4 +69,4 @@ Public and race pages label the wind as **wind at the hut**. This avoids implyin
 - If no samples appear, restart the app after saving settings to restart background polling.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

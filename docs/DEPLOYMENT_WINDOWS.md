@@ -332,4 +332,4 @@ when it ends, and `--purge` removes every race a previous run left behind.
 - The scripts themselves: [`deploy/windows/README.md`](../deploy/windows/README.md)
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

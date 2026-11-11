@@ -1,5 +1,5 @@
 <#
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.
 
 Stop the renderer and remove its scheduled task. Nothing else is touched: the
 virtual environment, the settings and the cached map tiles all stay, so

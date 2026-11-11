@@ -3783,4 +3783,4 @@ This file summarises the main changes added through the MVP versions.
 Earlier versions introduced the race sheet, dual IRC/YTC results, weather integration, polar-based course recommendation, manual course builder, horn hardware support, boat database, rating importers, and the original race-pack/course data.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

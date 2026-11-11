@@ -1,4 +1,4 @@
-/* Copyright © 2026 CapeNet Ltd. All Rights Reserved. */
+/* Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE. */
 /*
  * The dashboard map: every mark, plus whoever is actually on the water.
  *

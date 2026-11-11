@@ -1,4 +1,4 @@
-/* Copyright © 2026 CapeNet Ltd. All Rights Reserved. */
+/* Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE. */
 /*
  * Course chart renderer used by race, recommendation, manual-builder and
  * public competitor pages. It renders the same data payload either with

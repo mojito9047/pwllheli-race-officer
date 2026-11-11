@@ -1,4 +1,4 @@
-/* Copyright © 2026 CapeNet Ltd. All Rights Reserved. */
+/* Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE. */
 /*
  * Setting a mark's position from a phone on the water.
  *

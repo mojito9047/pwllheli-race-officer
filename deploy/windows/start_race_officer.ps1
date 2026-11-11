@@ -1,5 +1,5 @@
 <#
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.
 
 Start script for the Pwllheli Race Officer app on a Windows race-hut PC.
 It is designed to be called directly by Task Scheduler, or via start_race_officer.cmd for manual diagnostics.

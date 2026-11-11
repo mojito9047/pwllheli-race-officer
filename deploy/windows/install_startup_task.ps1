@@ -1,5 +1,5 @@
 <#
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.
 
 Install a Windows Scheduled Task that starts Pwllheli Race Officer when the
 current race-office user logs in.  This is preferred to a Windows service for

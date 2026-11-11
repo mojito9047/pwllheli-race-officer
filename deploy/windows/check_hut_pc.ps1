@@ -1,5 +1,5 @@
 <#
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.
 
 Read-only health check for the race-office PC.
 

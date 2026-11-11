@@ -212,4 +212,4 @@ runtime/logs/race_officer.log
 This file is useful for troubleshooting, but it is not part of the normal race-data backup. Back up `data/`; keep `runtime/` only if you want diagnostics.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

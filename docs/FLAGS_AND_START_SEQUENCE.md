@@ -121,4 +121,4 @@ Potential next additions:
 - Audio prompts for physical flag handling as well as horn/audio signals.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

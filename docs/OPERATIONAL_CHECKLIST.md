@@ -60,4 +60,4 @@ Use this checklist before, during and after racing.
 - **Public videos upload in the background, one at a time.** On a slow hut connection a start clip of tens of megabytes can take twenty minutes, and finish clips queue behind it — so do not wait on the last one before closing up. The evidence copy is on the hut PC either way; only the public web copy goes to Cloudflare. If one fails, `docs/TROUBLESHOOTING.md` has the causes.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

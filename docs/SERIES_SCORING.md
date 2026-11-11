@@ -105,4 +105,4 @@ Series results can be exported as CSV from the series detail page. Discarded sco
 The series CSV export contains the series standings first, followed by the race-by-race result tables for the races in that series. This gives one file that can be used for checking both the series calculation and the underlying race results.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

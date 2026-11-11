@@ -1,4 +1,4 @@
-// Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+// Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.
 //
 // The first-warning-signal field suggests a time when you open it, and only
 // then.

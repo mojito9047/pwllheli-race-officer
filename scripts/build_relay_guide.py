@@ -297,7 +297,7 @@ def on_page(canvas, doc):
     canvas.drawRightString(PAGE_W - MARGIN, MARGIN - 22, f"Page {doc.page - 1}")
     canvas.setFont("Helvetica", 6.5)
     canvas.setFillColor(colors.HexColor("#9aa5b1"))
-    canvas.drawCentredString(PAGE_W / 2, MARGIN - 33, "Copyright © 2026 CapeNet Ltd. All Rights Reserved.")
+    canvas.drawCentredString(PAGE_W / 2, MARGIN - 33, "Copyright © 2026 CapeNet Ltd. MIT licence.")
     canvas.restoreState()
 
 
@@ -344,7 +344,7 @@ cover_table = Table([
     [Paragraph(f"Covers app version {APP_VERSION}", styles["CoverMeta"])],
     [Paragraph("Internal technical reference · human-supervised prototype", styles["CoverMeta"])],
     [Spacer(1, 0.35 * cm)],
-    [Paragraph("Copyright © 2026 CapeNet Ltd. All Rights Reserved.",
+    [Paragraph("Copyright © 2026 CapeNet Ltd. MIT licence.",
                ParagraphStyle("coverCopy", parent=styles["CoverMeta"], fontSize=8,
                               textColor=colors.HexColor("#5a6b80")))],
 ], colWidths=[PAGE_W])

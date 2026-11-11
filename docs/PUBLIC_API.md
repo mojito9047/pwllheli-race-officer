@@ -310,4 +310,4 @@ state fields include `course_set`, `postponed_flag`, `postponement_ends_at` and
 Everything in this document is read-only and carries the same kind of race, course and mark information competitors can already see. The race office's own APIs stay behind the `/admin` login.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

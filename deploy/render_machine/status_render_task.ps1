@@ -1,5 +1,5 @@
 <#
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.
 
 What the renderer is doing: the scheduled task, and what the club's bucket says
 about it. The bucket is the honest half -- the task can be running happily while

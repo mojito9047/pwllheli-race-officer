@@ -1,4 +1,4 @@
-# Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+# Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.
 """A weather forecast from the internet, for the Virtual Race Officer to read.
 
 The club's own instrument says what the wind is doing now; nothing in the app

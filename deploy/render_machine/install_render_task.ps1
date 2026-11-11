@@ -1,5 +1,5 @@
 <#
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.
 
 Install a Windows Scheduled Task that runs the 3D replay renderer whenever this
 machine is logged in, so a race queued from the hut is picked up without anybody

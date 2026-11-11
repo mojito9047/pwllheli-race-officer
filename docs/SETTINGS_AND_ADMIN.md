@@ -343,5 +343,5 @@ Backup and restore are selectable by section: database, GPS tracks, hut power hi
 The database option uses SQLite's online backup API so it can copy the live race database safely while the app is running. Temporary database connections are closed explicitly before the temporary backup folder is removed, which avoids Windows file-lock errors during backup creation.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.
 

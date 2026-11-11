@@ -363,7 +363,7 @@ The whole build pipeline is version-controlled under `scripts/` (see `scripts/RE
 Then `release.ps1` (repo root) tags `vX.Y`, pushes it, and creates the GitHub release with `gh`, pulling notes from `docs/CHANGELOG.md` and attaching the ZIP. Release checklist: bump `VERSION`, prepend `docs/CHANGELOG.md`, add the new entry to the README's recent-releases window and drop the oldest (`tests/test_readme_current.py` holds it to five, and to this version at the top), rebuild all four PDFs + ZIP, `pytest -q`, commit, push, `.\release.ps1`.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.
 
 ## PTZ manual test hold
 

@@ -62,4 +62,4 @@ Each component mark is a normal coordinate-bearing mark, with `component_of` and
 `display` is optional, but it lets the app show `Ya` rather than the internal JSON key `YA`.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

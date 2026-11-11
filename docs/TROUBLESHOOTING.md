@@ -749,4 +749,4 @@ rmdir /s /q .venv\Lib\site-packages\~ip-<version>.dist-info
 If the last line reports a version, pip is healthy. If anything went wrong, deleting the whole `.venv` folder and re-running `start_race_officer.cmd` rebuilds it from `requirements.txt`.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

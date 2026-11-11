@@ -217,7 +217,7 @@ The competitor landing page separately shows start-hut wind, wind history and th
 For a television in the club bar there is a separate display at `/bar` — see [`BAR_DISPLAY.md`](BAR_DISPLAY.md). Full detail on the competitor pages is in [`PUBLIC_COMPETITOR_PAGE.md`](PUBLIC_COMPETITOR_PAGE.md).
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.
 
 
 ## Add entries tab layout

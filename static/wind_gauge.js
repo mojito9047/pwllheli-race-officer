@@ -1,4 +1,4 @@
-// Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+// Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.
 // Analog wind-speed and direction instrument, shared by the race-office
 // dashboard and the public competitor home page.
 //

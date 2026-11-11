@@ -172,4 +172,4 @@ Normally configured in **Settings → Hut power (Victron VE.Direct)**:
 For Cloudflare Tunnel / off-site access notes, see [`REMOTE_ACCESS_CLOUDFLARE.md`](REMOTE_ACCESS_CLOUDFLARE.md).
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

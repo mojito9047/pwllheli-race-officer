@@ -76,4 +76,4 @@ Class flags are selected from Numeral 0 through Numeral 9. The race-office and c
 Older stored text-style class/start settings are still parsed internally so existing databases can load. Old free-text flag names such as `YTC 1 flag` are normalised to `Numeral 1` where possible.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

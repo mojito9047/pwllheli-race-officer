@@ -206,4 +206,4 @@ For a pursuit race the specific race page shows a **Start times** panel instead 
 For Cloudflare Tunnel setup, see `docs/REMOTE_ACCESS_CLOUDFLARE.md`. The tunnel should forward the whole app service to `http://localhost:5050`; do not configure the tunnel to forward only `/public`, because the public page also needs `/static/...` CSS, JavaScript and image files.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

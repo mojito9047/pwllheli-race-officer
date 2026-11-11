@@ -192,4 +192,4 @@ Replay races are named `RERUN — …` and `--purge` removes every one a previou
 left behind.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

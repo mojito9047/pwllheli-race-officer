@@ -494,4 +494,4 @@ you happened to be looking at.
 
 ---
 
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

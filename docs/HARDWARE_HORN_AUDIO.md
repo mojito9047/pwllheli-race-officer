@@ -99,4 +99,4 @@ The **normal** rate has a floor of its own for the same reason: the “Stand by 
 The automatic start-sequence scheduler also runs centrally. Browser pages display the countdown and signal plan, but they no longer fire automatic horns or generate automatic speech. The horn signal remains the authoritative race signal.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

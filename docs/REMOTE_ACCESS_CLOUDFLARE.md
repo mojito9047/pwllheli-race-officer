@@ -149,4 +149,4 @@ a VPS with a public IP — the configuration is unchanged.
 The public site root redirects competitors to the competitor landing page. Race officers should use `/admin` for the dashboard or `/admin/race/current` to jump directly to the current race sheet.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

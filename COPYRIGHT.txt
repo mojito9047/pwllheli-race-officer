@@ -1,1 +1,8 @@
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd.
+
+This software is published under the MIT licence; the terms are in LICENSE.
+
+The licence covers the source code. It does not cover the club and sponsor
+logos that ship as Pwllheli's default branding, which are not CapeNet's to
+license -- see NOTICE.md.
+

@@ -273,7 +273,7 @@ Recommended post-race check:
 4. Open the competitor-facing video link in a private browser window and confirm it uses the R2/custom-domain URL, not the hut-PC Cloudflare Tunnel origin.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.
 
 ## Settings layout
 

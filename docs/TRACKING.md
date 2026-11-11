@@ -993,4 +993,4 @@ moves* above: a race officer can set a mark's position from a phone alongside it
 extension is for the drift between measurements, not a substitute for making one.
 
 ---
-Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.

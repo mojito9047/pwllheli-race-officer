@@ -1,4 +1,4 @@
-// Copyright © 2026 CapeNet Ltd. All Rights Reserved.
+// Copyright © 2026 CapeNet Ltd. MIT licence; see LICENSE.
 // Shared countdown formatting so every timer reads the same way:
 // D:HH:MM:SS, dropping the leading days and hours segments while they are zero.
 // Minutes and seconds are always shown. Callers add any +/- sign or state text.
