@@ -67,6 +67,14 @@ EXCLUDE_REL_DIRS = {os.path.join("docs", "hardware"),
                     os.path.join("data", "logs")}
 EXCLUDE_FILES = {
     str(Path("data") / "race_officer.db"),
+    # The club's papers -- the costs document, its printable copy, and the note
+    # for members and the committee -- are for people at the club, not for the
+    # hut. Nothing installed reads them, and another club installing the app has
+    # no use for Pwllheli's spending and plans. They are kept in the repository so
+    # they are versioned with the system they describe.
+    str(Path("docs") / "SYSTEM_COSTS.md"),
+    str(Path("docs") / "Pwllheli_System_Costs.pdf"),
+    str(Path("docs") / "What_the_Race_Hut_System_Does_for_the_Club.docx"),
 }
 # Naming a database by its suffix has now failed three times. ".db" did not catch
 # "race_officer.db-wal", and a developer whose database had been in WAL mode shipped

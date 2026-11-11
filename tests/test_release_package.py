@@ -260,6 +260,39 @@ class TestOtherClubsDoNotShip:
         assert (_ROOT / "club_configs" / "liverpool_yc" / "marks.json").is_file()
 
 
+class TestTheClubHandoutsDoNotShip:
+    """docs/ ships, but three files in it are papers for the club rather than
+    documentation for an install: the costs document, its printable copy, and
+    the note for members and the committee. Pwllheli's spending and plans have
+    no place on a hut PC or in another club's download.
+
+    EXCLUDE_FILES is built with Path, so it cannot be read with
+    ast.literal_eval; assert on the assignment's source instead.
+    """
+
+    HANDOUTS = ("SYSTEM_COSTS.md", "Pwllheli_System_Costs.pdf",
+                "What_the_Race_Hut_System_Does_for_the_Club.docx")
+
+    def _exclude_files_source(self):
+        source = _SCRIPT.read_text(encoding="utf-8")
+        assert "EXCLUDE_FILES = {" in source, "the packaging script no longer defines it"
+        return source.split("EXCLUDE_FILES = {", 1)[1].split("}", 1)[0]
+
+    @pytest.mark.parametrize("name", HANDOUTS)
+    def test_it_is_excluded(self, name):
+        assert f'str(Path("docs") / "{name}")' in self._exclude_files_source()
+
+    @pytest.mark.parametrize("name", HANDOUTS)
+    def test_the_file_is_where_the_rule_expects(self, name):
+        """A renamed or moved file would leave the rule matching nothing, silently."""
+        assert (_ROOT / "docs" / name).is_file()
+
+    def test_the_rule_is_applied_to_files_as_it_walks(self):
+        source = _SCRIPT.read_text(encoding="utf-8")
+        assert "rel_str in EXCLUDE_FILES" in source, (
+            "the exclusion list is defined but no longer consulted")
+
+
 class TestNothingGitIgnoresShips:
     """v1.011 shipped HutData/Caddyfile -- the relay's live config, with the
     bcrypt hash of its /stats password -- in a public release, the second

@@ -253,8 +253,9 @@ Detailed documentation is in the `docs/` folder:
 - [`docs/CLUB_CUSTOMISATION.md`](docs/CLUB_CUSTOMISATION.md) — setting the app up for another club: its marks and line, its name and logos, and what stays Pwllheli's.
 - [`docs/CLASSES_AND_STARTS.md`](docs/CLASSES_AND_STARTS.md) — IRC/YTC rating-band classes, start plans and series entry synchronisation.
 - [`docs/HARDWARE_HORN_AUDIO.md`](docs/HARDWARE_HORN_AUDIO.md) — serial horn output, manual horn input and VHF audio.
-- [`docs/SYSTEM_COSTS.md`](docs/SYSTEM_COSTS.md) — what the hut kit, the trackers and the running services cost, and how to cut the running costs. A printable copy for the club is [`docs/Pwllheli_System_Costs.pdf`](docs/Pwllheli_System_Costs.pdf).
-- [`docs/What_the_Race_Hut_System_Does_for_the_Club.docx`](docs/What_the_Race_Hut_System_Does_for_the_Club.docx) — for the club's members and committee: what the system does for race officers, competitors, spectators, members, sponsors and the bar, and ideas for its future development.
+- [`docs/SYSTEM_COSTS.md`](https://github.com/mojito9047/pwllheli-race-officer/blob/master/docs/SYSTEM_COSTS.md) — what the hut kit, the trackers and the running services cost, and how to cut the running costs. A printable copy for the club is [`docs/Pwllheli_System_Costs.pdf`](https://github.com/mojito9047/pwllheli-race-officer/blob/master/docs/Pwllheli_System_Costs.pdf).
+- [`docs/What_the_Race_Hut_System_Does_for_the_Club.docx`](https://github.com/mojito9047/pwllheli-race-officer/blob/master/docs/What_the_Race_Hut_System_Does_for_the_Club.docx) — for the club's members and committee: what the system does for race officers, competitors, spectators, members, sponsors and the bar, and ideas for its future development.
+  These three are the club's own papers: they are in the repository on GitHub but not in the release download.
 - [`docs/FLAGS_AND_START_SEQUENCE.md`](docs/FLAGS_AND_START_SEQUENCE.md) — dynamic flag model and scheduled signal plan.
 - [`docs/VIDEO_RECORDING.md`](docs/VIDEO_RECORDING.md) — FFmpeg, camera setup, live preview and video troubleshooting.
 - [`docs/TRACKING.md`](docs/TRACKING.md) — GPS yacht tracking, *Position on the water* and automated finishes.
