@@ -99,7 +99,7 @@ Free services: Open-Meteo forecasts, Mapbox (within its free tier), Traccar (sel
 
 ## Software
 
-The software costs nothing to license. The race officer app and everything around it are published and documented on GitHub at [github.com/mojito9047/pwllheli-race-officer](https://github.com/mojito9047/pwllheli-race-officer), to be released under the MIT licence so anyone can use them, and every part they rely on is free.
+The software costs nothing to license. The race officer app and everything around it are published and documented on GitHub at [github.com/mojito9047/pwllheli-race-officer](https://github.com/mojito9047/pwllheli-race-officer), released under the MIT licence so anyone can use them, and every part they rely on is free.
 
 | Part | Software | Licence |
 | --- | --- | --- |
