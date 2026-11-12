@@ -242,13 +242,15 @@ One boat carrying two trackers on one day is a good reason to check the others.
 tracks as they were when it was rendered, so an old one still has the jumps in
 it.
 
-## The replay stops part-way, or the chart will not run past twelve hours
+## The replay stops part-way, or the chart will not run past forty-eight hours
 
-The replay window is capped at **twelve hours** from the warning signal
-(v0.276). The longest race the club has sailed is 2h40, so on a real race you
-will never meet this &mdash; if you have, the race almost certainly has a **bad
-finish time** or a boat still marked **RACING** from months ago, either of which
-makes the app believe the race is still going.
+The replay window is capped at **forty-eight hours** from the warning signal.
+It was twelve hours from v0.276 until an ISORA passage race to Dún Laoghaire
+was found to outrun it. Even a slow boat on a passage race is in well inside
+forty-eight hours, so on a real race you will never meet this &mdash; if you
+have, the race almost certainly has a **bad finish time** or a boat still marked
+**RACING** from months ago, either of which makes the app believe the race is
+still going.
 
 Open the race's **Entries and finish times** tab and look for a finish on the
 wrong date, or a boat left on RACING that should be FINISHED, RET or DNC. Fix

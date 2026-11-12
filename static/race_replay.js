@@ -560,8 +560,24 @@
 
     // Only what is new comes back, so a long race is not re-sent every poll.
     function mergeUpdate(payload) {
-      if (!payload.incremental) { adopt(payload); return; }
+      if (!payload.incremental) {
+        // The whole race again, mid-race: fixes arrived that belong behind what is
+        // on screen (a tracker's saved fixes after a spell out of signal). Someone
+        // who had wound back stays where they were rather than being thrown to
+        // the live edge.
+        const keep = atLive ? null : clock;
+        adopt(payload);
+        if (keep !== null) {
+          clock = Math.min(Math.max(keep, data.start), data.end);
+          atLive = false;
+          drawFrame();
+          refreshBoard();
+          describe();
+        }
+        return;
+      }
       data.end = payload.end;
+      if (payload.stored !== undefined && payload.stored !== null) data.stored = payload.stored;
       (payload.boats || []).forEach(nb => {
         const b = boatById[nb.entry_id];
         if (!b) return;
@@ -574,11 +590,39 @@
       });
       const nb = payload.boards;
       if (nb && nb.times && nb.times.length) {
-        data.boards.times = data.boards.times.concat(nb.times);
-        data.boards.rows = data.boards.rows.concat(nb.rows);
+        // The server cuts the board at the cursor this page sends; this only
+        // guards against a snapshot arriving twice.
+        const last = lastBoardTime();
+        const keep = nb.times.map((t, i) => i).filter(i => last === null || nb.times[i] > last);
+        data.boards.times = data.boards.times.concat(keep.map(i => nb.times[i]));
+        data.boards.rows = data.boards.rows.concat(keep.map(i => nb.rows[i]));
         data.boards.total = nb.total || data.boards.total;
       }
+      // New wind readings are appended, so the gauge keeps up with a live race
+      // rather than going blank once the reading it loaded with is ten minutes old.
+      if (payload.wind && payload.wind.length) {
+        const have = lastWindTime();
+        data.wind = (data.wind || []).concat(payload.wind.filter(w => have === null || w[0] > have));
+      }
       applyWindow();
+    }
+
+    function lastBoardTime() {
+      const t = data && data.boards && data.boards.times;
+      return t && t.length ? t[t.length - 1] : null;
+    }
+
+    function lastWindTime() {
+      const w = data && data.wind;
+      return w && w.length ? w[w.length - 1][0] : null;
+    }
+
+    // The newest board snapshot and wind reading this page holds, so a reply
+    // carries only what comes after each of them.
+    function cursorParams() {
+      const b = lastBoardTime(), w = lastWindTime();
+      return (b !== null ? `&board=${encodeURIComponent(b)}` : '')
+        + (w !== null ? `&wind=${encodeURIComponent(w)}` : '');
     }
 
     function applyWindow() {
@@ -627,7 +671,11 @@
       if (!data) return;
       const since = lastFixTime();
       try {
-        const url = trackUrl + (since !== null ? `?since=${encodeURIComponent(since)}` : '');
+        // `stored` hands back the server's cursor, so it can tell when fixes have
+        // landed behind `since` and send the whole race instead.
+        const url = trackUrl + (since !== null ? `?since=${encodeURIComponent(since)}` : '')
+          + (since !== null && data.stored != null ? `&stored=${encodeURIComponent(data.stored)}` : '')
+          + (since !== null ? cursorParams() : '');
         const res = await fetch(url, {headers: {'Accept': 'application/json'}, cache: 'no-store'});
         if (!res.ok) return;
         const payload = await res.json();

@@ -134,7 +134,7 @@ class TestHowOftenItAsks:
         sent = []
         monkeypatch.setattr(track, "track_config", lambda: dict(CFG))
         monkeypatch.setattr(track, "send_tracker_command",
-                            lambda uid, cmd, cfg=None: sent.append((uid, cmd)) or (True, "ok"))
+                            lambda uid, cmd, cfg=None, **kw: sent.append((uid, cmd)) or (True, "ok"))
         now = time.time()
         assert track.run_race_position_polling(now=now) == 1
         assert track.run_race_position_polling(now=now + 5) == 0     # too soon
@@ -149,7 +149,7 @@ class TestHowOftenItAsks:
         _race_with_boat()
         calls = []
         monkeypatch.setattr(track, "track_config", lambda: dict(CFG))
-        def boom(uid, cmd, cfg=None):
+        def boom(uid, cmd, cfg=None, **kw):
             calls.append(uid)
             raise RuntimeError("relay down")
         monkeypatch.setattr(track, "send_tracker_command", boom)

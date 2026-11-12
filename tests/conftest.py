@@ -235,6 +235,10 @@ def no_r2_uploader_thread(monkeypatch):
     # Reset the login brute-force guard so failed-login tests don't accumulate
     # lockouts across the session (same test-client ip + username).
     loginguard.reset_all()
+    # The holes the back-fill is still to ask Traccar about are kept per process;
+    # one test's must not turn up in another test's back-fill.
+    with track._CLOSED_GAPS_LOCK:
+        track._CLOSED_GAPS.clear()
     yield
 
 

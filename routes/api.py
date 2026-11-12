@@ -267,7 +267,11 @@ def api_race_track(race_id):
     if not race:
         return jsonify({"ok": False, "error": "race not found", "boats": []}), 404
     since = request.args.get("since", type=float)   # only what is new
-    history = race_track_history(race_id, since_ts=since)
+    stored = request.args.get("stored", type=int)   # the reply's own cursor, sent back
+    board = request.args.get("board", type=float)   # newest board snapshot the viewer has
+    wind = request.args.get("wind", type=float)     # newest wind reading the viewer has
+    history = race_track_history(race_id, since_ts=since, stored_id=stored,
+                                 board_since=board, wind_since=wind)
     response = jsonify({"ok": True, "server_now": time.time(), **history})
     response.headers["Cache-Control"] = "no-store"
     return response

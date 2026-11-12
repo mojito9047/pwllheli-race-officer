@@ -1161,8 +1161,10 @@ def ingest_forwarded_positions(payload: Any) -> Dict[str, Any]:
     cfg = track_config()
     # sqlite3.OperationalError ("database is locked") goes to the caller, which
     # answers 503 so the relay sends the push again.
+    # accept_late: a tracker back in signal pushes what it saved after its first
+    # live fix, so those fixes are older than the newest stored. See insert_positions.
     stored = insert_positions(positions, retention_days=cfg["retention_days"],
-                              busy_timeout_s=INGEST_BUSY_TIMEOUT_S)
+                              busy_timeout_s=INGEST_BUSY_TIMEOUT_S, accept_late=True)
     finishes = 0
     if stored:
         try:
@@ -1187,6 +1189,59 @@ def ingest_forwarded_positions(payload: Any) -> Dict[str, Any]:
 #   GET /api/positions?deviceId=<id>&from=<iso>&to=<iso>   (from/to required)
 BACKFILL_MAX_HOURS = 6          # never ask for more than this in one go
 BACKFILL_MIN_GAP_S = 30.0       # a gap smaller than this is just normal spacing
+
+# The back-fill above looks forward from the newest stored fix, which finds an
+# outage of the *app*. It cannot find an outage of the *tracker*. A tracker out
+# of signal (mid Irish Sea, on an ISORA passage race) keeps recording and sends
+# what it saved once it is back -- and the GL521MG sends it AFTER its first live
+# fix, because the club's units run <Buffer Mode> 1 in AT+GTSRI ("buffered
+# messages will be sent after the real-time messages", protocol §3.3.5). By the
+# time the saved fixes arrive the newest stored fix is the live one, so a look
+# forward from it never sees the hole.
+#
+# So the hole is remembered when the fix that closes it is stored, and Traccar
+# is asked for it again a few times over the next half hour while the saved
+# fixes are still coming in. With push working they mostly land on their own
+# (insert_positions(accept_late=True)); this is what catches them when push is
+# not configured, or a pushed fix was refused.
+BACKFILL_GAP_MIN_S = 180.0      # three of a GL's 60 s reports; anything shorter is spacing
+BACKFILL_GAP_MAX_HOURS = 36.0   # longer than any race; past that the tracker was just off
+BACKFILL_GAP_RECHECKS_S = (0.0, 60.0, 120.0, 300.0, 600.0, 1200.0, 1800.0)
+BACKFILL_GAP_MAX_REMEMBERED = 200   # a ceiling on memory, not a working limit
+_CLOSED_GAPS: Dict[Tuple[str, float], Dict[str, float]] = {}
+_CLOSED_GAPS_LOCK = threading.Lock()
+
+
+def note_closed_gap(unique_id: str, gap_start: float, gap_end: float,
+                    now: Optional[float] = None) -> None:
+    """Remember a hole in a tracker's track that a newly stored fix has just closed."""
+    if not unique_id or gap_end - gap_start <= BACKFILL_GAP_MIN_S:
+        return
+    now = time.time() if now is None else now
+    with _CLOSED_GAPS_LOCK:
+        if len(_CLOSED_GAPS) >= BACKFILL_GAP_MAX_REMEMBERED:
+            oldest = min(_CLOSED_GAPS, key=lambda k: _CLOSED_GAPS[k]["found_at"])
+            _CLOSED_GAPS.pop(oldest, None)
+        _CLOSED_GAPS[(str(unique_id), float(gap_start))] = {
+            "end": float(gap_end), "found_at": float(now), "checks": 0}
+
+
+def _due_closed_gaps(now: float) -> List[Tuple[str, float, float]]:
+    """Remembered holes due another look, as (unique_id, start, end).
+
+    Each is looked at on the BACKFILL_GAP_RECHECKS_S schedule and then forgotten.
+    """
+    due: List[Tuple[str, float, float]] = []
+    with _CLOSED_GAPS_LOCK:
+        for key, gap in list(_CLOSED_GAPS.items()):
+            checks = int(gap["checks"])
+            if checks >= len(BACKFILL_GAP_RECHECKS_S):
+                _CLOSED_GAPS.pop(key, None)
+                continue
+            if now - gap["found_at"] >= BACKFILL_GAP_RECHECKS_S[checks]:
+                gap["checks"] = checks + 1
+                due.append((key[0], key[1], gap["end"]))
+    return due
 
 
 def _iso_utc(epoch: float) -> str:
@@ -1245,6 +1300,11 @@ def backfill_positions(cfg: Optional[Dict[str, Any]] = None, now: Optional[float
     gap looks trivial — an outage would then never be back-filled at all. Seen
     for real: a 100-second outage recovered exactly one fix per boat until the
     caller started passing the earlier snapshot.
+
+    It also asks again for any hole a newly stored fix has closed (see
+    note_closed_gap): the saved fixes of a tracker that was out of signal arrive
+    after its first live one, so they lie *behind* the newest stored fix, where
+    the look forward cannot reach them.
     """
     cfg = cfg or track_config()
     if not (cfg["base_url"] and cfg["token"]):
@@ -1252,9 +1312,16 @@ def backfill_positions(cfg: Optional[Dict[str, Any]] = None, now: Optional[float
     now = now if now is not None else time.time()
     latest = _latest_fix_times() if since is None else dict(since)
     boat_of = _device_boat_map()
-    wanted = [uid for uid, boat in boat_of.items() if boat and uid in latest
-              and (now - latest[uid]) > BACKFILL_MIN_GAP_S]
-    if not wanted:
+    # (unique_id, from, to): the look forward from each track's end...
+    windows: List[Tuple[str, float, float]] = [
+        (uid, max(latest[uid] + 0.001, now - BACKFILL_MAX_HOURS * 3600), now)
+        for uid, boat in boat_of.items() if boat and uid in latest
+        and (now - latest[uid]) > BACKFILL_MIN_GAP_S]
+    # ...and the holes behind it that are due another look. The open ends keep
+    # the fixes either side of the hole, which are already stored, out of it.
+    windows += [(uid, max(start, end - BACKFILL_GAP_MAX_HOURS * 3600) + 0.001, end - 0.001)
+                for uid, start, end in _due_closed_gaps(now) if boat_of.get(uid)]
+    if not windows:
         return 0, None
     try:
         devices = traccar_list_devices(cfg)
@@ -1262,14 +1329,13 @@ def backfill_positions(cfg: Optional[Dict[str, Any]] = None, now: Optional[float
         return 0, f"Could not list Traccar devices: {exc}"
     id_of = {str(d.get("uniqueId", "")): d.get("id") for d in devices if isinstance(d, dict)}
     inserted = 0
-    for uid in wanted:
+    for uid, start, end in windows:
         device_id = id_of.get(uid)
-        if device_id is None:
+        if device_id is None or end <= start:
             continue
-        start = max(latest[uid] + 0.001, now - BACKFILL_MAX_HOURS * 3600)
         try:
             rows = _traccar_get(
-                cfg, f"/api/positions?deviceId={int(device_id)}&from={_iso_utc(start)}&to={_iso_utc(now)}",
+                cfg, f"/api/positions?deviceId={int(device_id)}&from={_iso_utc(start)}&to={_iso_utc(end)}",
                 timeout=8.0,
             )
         except Exception as exc:
@@ -1457,10 +1523,22 @@ def _latest_fix_times(unique_ids: Optional[Iterable[str]] = None,
 
 
 def insert_positions(positions: List[Dict[str, Any]], retention_days: Optional[int] = None,
-                     busy_timeout_s: Optional[float] = None) -> int:
+                     busy_timeout_s: Optional[float] = None, accept_late: bool = False) -> int:
     """Store new fixes (skipping ones not newer than the last stored per device).
 
     Returns the number of rows inserted.
+
+    ``accept_late`` also stores a fix *older* than the newest one, unless that
+    exact fix is already stored. The relay's push asks for it. A tracker back in
+    signal sends what it saved while it was out, and a GL521MG sends it after
+    its first live fix -- so every saved fix arrives behind the newest stored
+    one, and the plain rule threw away the whole spell: hours of an ISORA
+    passage race across the Irish Sea. The poll keeps the plain rule; it only
+    ever sees each device's latest fix, so anything older from it is a repeat.
+
+    A fix that lands well after the previous newest closes a hole, which is
+    remembered (note_closed_gap) so the back-fill asks Traccar for it again
+    while the saved fixes are still arriving.
 
     It does **not** purge old rows. It used to, on every call — and every call is
     every position pushed by the relay, several a minute per tracker. The purge
@@ -1497,8 +1575,16 @@ def insert_positions(positions: List[Dict[str, Any]], retention_days: Optional[i
                 continue
             if ft > horizon:      # bad clock on the tracker — don't poison the track
                 continue
-            if uid in latest and ft <= latest[uid]:
-                continue
+            late = uid in latest and ft <= latest[uid]
+            if late:
+                if not accept_late:
+                    continue
+                # One index seek, and only for a fix that arrived out of order.
+                if db.execute("SELECT 1 FROM track_positions WHERE unique_id = ? AND fix_time = ? LIMIT 1",
+                              (uid, ft)).fetchone():
+                    continue
+            elif uid in latest:
+                note_closed_gap(uid, latest[uid], ft, now)
             db.execute(
                 "INSERT INTO track_positions (device_id, unique_id, boat_id, name, lat, lon, speed_kn, course_deg, fix_time, server_time, battery_pct, "
                 "altitude, accuracy, hdop, pdop, sat, rssi, valid, protocol) "
@@ -1507,7 +1593,8 @@ def insert_positions(positions: List[Dict[str, Any]], retention_days: Optional[i
                  p.get("speed_kn"), p.get("course_deg"), ft, now, p.get("battery_pct"),
                  *(p.get(k) for k in QUALITY_FIELDS)),
             )
-            latest[uid] = ft
+            if not late:
+                latest[uid] = ft
             inserted += 1
         db.commit()
     return inserted
@@ -1837,8 +1924,16 @@ def command_refusal(text: str) -> Optional[str]:
 
 
 def send_tracker_command(unique_id: str, text: str,
-                         cfg: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
-    """Send a raw protocol command to a tracker through Traccar. Returns (ok, message)."""
+                         cfg: Optional[Dict[str, Any]] = None,
+                         queue: bool = True) -> Tuple[bool, str]:
+    """Send a raw protocol command to a tracker through Traccar. Returns (ok, message).
+
+    Traccar holds a command for a device it has no connection to and delivers it
+    when the device next connects -- right for the Commands console, where an
+    ATC700 asleep between reports should still get its setparam. ``queue=False``
+    asks it not to (Traccar's ``noQueue`` attribute), for a request that is only
+    worth anything now; a Traccar too old to know the attribute ignores it.
+    """
     unique_id = str(unique_id or "").strip()
     body = str(text or "").strip()
     refusal = command_refusal(body)
@@ -1856,9 +1951,12 @@ def send_tracker_command(unique_id: str, text: str,
     if device_id is None:
         return False, f"Traccar does not know a device with id '{unique_id}'."
     try:
+        attributes: Dict[str, Any] = {"data": body}
+        if not queue:
+            attributes["noQueue"] = True
         _traccar_request(cfg, "POST", "/api/commands/send",
                          body={"deviceId": int(device_id), "type": "custom",
-                               "attributes": {"data": body}}, timeout=10.0)
+                               "attributes": attributes}, timeout=10.0)
     except Exception as exc:
         return False, f"Traccar would not take the command: {str(exc)[:160]}"
     return True, ("Sent. A tracker that is awake answers in seconds; one that sleeps "
@@ -2861,6 +2959,13 @@ def boat_course_progress(fixes: List[Dict[str, Any]], seq: List[Dict[str, Any]],
     }
 
 
+# How old a crossing can be and still get the automatic horn. A GL521MG's own
+# 60 s report reaches the app 45 s late and the finish is pinned by the fix
+# after the line, so a crossing can be nearly three minutes old by the time it
+# is found in ordinary running; five minutes is clear of that.
+GPS_FINISH_HORN_MAX_LATE_S = 300.0
+
+
 def run_finish_detection(only_devices: Optional[Iterable[str]] = None) -> int:
     """Scan armed, in-progress races for GPS finish crossings.
 
@@ -2968,8 +3073,13 @@ def run_finish_detection(only_devices: Optional[Iterable[str]] = None) -> int:
                     f"{datetime.fromtimestamp(crossing['t']).strftime('%H:%M:%S')} "
                     f"({crossing['t'] - skipped:.0f}s later). Check it against the video.")
             if auto:
+                # The horn only for a crossing that has just happened. One found in
+                # fixes that arrived late -- a tracker's saved fixes after a spell out
+                # of signal -- is still a finish, but a horn minutes afterwards would
+                # be sounding for nobody.
+                fresh = time.time() - crossing["t"] <= GPS_FINISH_HORN_MAX_LATE_S
                 record_gps_finish(int(race["id"]), int(entry["id"]), iso, "gps-auto",
-                                  fire_horn=cfg["finish_horn"])
+                                  fire_horn=cfg["finish_horn"] and fresh)
                 # Record a confirmed proposal too, so the review UI has provenance.
                 with get_db() as db:
                     db.execute(
@@ -3293,7 +3403,8 @@ def set_next_mark_override(race_id: int, entry_id: int, idx: Optional[int],
 # last finish (see _progress_walk_end), which is the normal case and much
 # tighter. This is the backstop for one left open with boats still marked RACING.
 #
-# Three days, not the replay reply's twelve hours. That constant caps the SIZE of
+# Three days, not the replay reply's window (REPLAY_MAX_WINDOW_S, twelve hours
+# when this was written and forty-eight now). That constant caps the SIZE of
 # one HTTP response and can be as mean as it likes; this one decides whether a
 # boat still shows progress and whether its GPS finish is ever detected, and the
 # club sails ISORA passage races -- Pwllheli to Ireland finishes on the transit
@@ -3587,7 +3698,16 @@ REPLAY_POST_FINISH_S = 120.0    # a little after the last boat, so nothing cuts 
 # series and another 170 for the row that goes out. That is ~1 MB per hour per
 # three boats before a single fix is counted, and it is what turned one request
 # into gigabytes. The longest race the club has sailed is 2.7 hours.
-REPLAY_MAX_WINDOW_S = 12 * 3600.0
+#
+# It was twelve hours until the club looked at following an ISORA passage race
+# from Pwllheli to Dún Laoghaire: seventy-odd miles, which a slow boat in light
+# air can stretch well past twelve hours, and at twelve the chart stopped with
+# the fleet mid-Irish-Sea. Forty-eight is past any passage race the club enters
+# and still short of the three-day progress backstop (PROGRESS_MAX_WINDOW_S), so
+# it still catches a year-long window from a bad timestamp. What it costs is
+# held by the board's snapshot budget instead (replay_board_step): a window past
+# twelve hours is sampled more coarsely, never more often.
+REPLAY_MAX_WINDOW_S = 48 * 3600.0
 
 # The budget bounds RATE, which the window cannot see. Trackers report every 5 s
 # today (the busiest observed real unit: 1,768 fixes in its busiest hour), but
@@ -3647,11 +3767,15 @@ def race_track_window(race: Any) -> Optional[Tuple[float, float]]:
         # at "now". For a race in progress those are the same thing; for one that
         # stopped reporting hours ago, running to now leaves a long dead tail
         # where the boats sit still and their trails age out of view.
+        #
+        # Each boat's newest fix is one index seek. This used to read every fix
+        # the race had to find the last one, on every viewer's every poll: a
+        # tenth of a second each on a twenty-hour race.
         last_fix = None
         for e in entries:
-            fixes = positions_for_entry_since(e, start_ts) if effective_tracker_for_entry(e) else []
-            if fixes:
-                last_fix = fixes[-1]["t"] if last_fix is None else max(last_fix, fixes[-1]["t"])
+            newest = latest_position_for_entry(e) if effective_tracker_for_entry(e) else None
+            if newest and newest["t"] >= start_ts:
+                last_fix = newest["t"] if last_fix is None else max(last_fix, newest["t"])
         end_ts = last_fix if last_fix is not None else now
     # Never past now, and never longer than a race can be. Clamping here rather
     # than at the caller means the fixes, the board series and the wind series
@@ -3665,6 +3789,27 @@ REPLAY_BOARD_STEP_S = 5.0        # how often the replay's order is snapshotted.
 # The viewer shows the latest snapshot at or before the clock, so this is also the
 # worst the order can trail the chart. At 5 s a 20-knot boat has moved ~50 m — about
 # a boat length on screen — and the whole series still builds in a fraction of a second.
+
+# The most snapshots one reply carries: what a twelve-hour window always had at
+# 5 s. The board is the expensive part of a reply, and a race still going rebuilds
+# the whole series on every viewer's poll, so a long race is held to this count by
+# spacing its snapshots further apart rather than allowed to cost more.
+REPLAY_MAX_BOARD_SNAPSHOTS = int(12 * 3600 / REPLAY_BOARD_STEP_S)
+
+
+def replay_board_step(window_s: float) -> float:
+    """The board's snapshot step for a replay window this long.
+
+    Five seconds up to twelve hours, as it always was. Past that, the next whole
+    multiple of five seconds that keeps the count within
+    REPLAY_MAX_BOARD_SNAPSHOTS: 10 s to 24 hours, 15 s to 36, 20 s to 48. Whole
+    multiples, so on a race still going the grid changes three times at most
+    rather than on every poll; at 20 s a six-knot boat has moved about 60 m.
+    """
+    if window_s <= 0:
+        return REPLAY_BOARD_STEP_S
+    multiple = max(1, math.ceil(window_s / (REPLAY_BOARD_STEP_S * REPLAY_MAX_BOARD_SNAPSHOTS)))
+    return REPLAY_BOARD_STEP_S * multiple
 
 
 # One wind reading every half minute is plenty for a dial a viewer is watching,
@@ -3882,23 +4027,123 @@ def thin_fixes(rows: List[Any], keep: int) -> List[Any]:
     return [rows[int(round(i * span))] for i in range(keep)]
 
 
-def race_track_history(race_id: int, since_ts: Optional[float] = None) -> Dict[str, Any]:
+def race_track_history(race_id: int, since_ts: Optional[float] = None,
+                       stored_id: Optional[int] = None, board_since: Optional[float] = None,
+                       wind_since: Optional[float] = None) -> Dict[str, Any]:
     """The replay's tracks; the whole race is shared between requests.
 
     The whole race is what every page asks for when it loads, so what a reload
     at a finish asks for many times at once. The reply is only serialised, never
     changed, so it is handed out as it is. A ``since_ts`` poll is the asker's
     own: its starting point differs from page to page.
+
+    ``stored_id`` is the ``stored`` cursor of the asker's previous reply. When
+    fixes have been stored since then that belong well *before* ``since_ts`` --
+    a tracker's saved fixes arriving after a spell out of signal -- an
+    incremental reply cannot place them, so the whole race goes out instead and
+    the viewer starts again from it.
+
+    ``board_since`` and ``wind_since`` are the times of the newest board
+    snapshot and wind reading the asker already has. See
+    _race_track_history_computed for why each needs its own cursor.
     """
-    if since_ts is not None:
-        return _race_track_history_computed(race_id, since_ts=since_ts)
+    if since_ts is not None and not _late_fixes_for_race(race_id, since_ts, stored_id):
+        return _race_track_history_computed(race_id, since_ts=since_ts, board_since=board_since,
+                                            wind_since=wind_since)
     fingerprint = _race_data_fingerprint(race_id)
     if fingerprint is None:
         return _race_track_history_computed(race_id)
     return _shared_result(("track", int(race_id), fingerprint), lambda: _race_track_history_computed(race_id))
 
 
-def _race_track_history_computed(race_id: int, since_ts: Optional[float] = None) -> Dict[str, Any]:
+# How far behind the asker's newest fix a newly stored one has to be before an
+# incremental reply gives way to the whole race. A GL521MG's own report lands
+# 45 s late in ordinary running, and resending the whole race every minute for
+# that would undo what incremental replies are for; the saved fixes from a spell
+# out of signal are hours behind.
+REPLAY_LATE_RELOAD_S = 300.0
+
+
+def _track_max_id() -> Optional[int]:
+    """The newest row's id: the cursor a viewer hands back to say what it has seen."""
+    try:
+        with get_track_db() as tdb:
+            return tdb.execute("SELECT MAX(id) FROM track_positions").fetchone()[0]
+    except sqlite3.Error:
+        return None
+
+
+def _late_fixes_for_race(race_id: int, since_ts: float, stored_id: Optional[int]) -> bool:
+    """Whether fixes for this race's boats have been stored since ``stored_id``
+    that belong more than REPLAY_LATE_RELOAD_S before ``since_ts``.
+
+    ``id > ?`` is a range on the primary key, so this reads only the rows stored
+    since the asker's last poll. Never raises; on any doubt the answer is no and
+    the reply stays incremental, as it was before the cursor existed.
+    """
+    if stored_id is None:
+        return False
+    try:
+        from core.races import get_race, get_entries
+        race = get_race(race_id)
+        if not race:
+            return False
+        start_dt = race_first_start_dt(race)
+        if not start_dt:
+            return False
+        devices: List[str] = []
+        boats: List[int] = []
+        for e in get_entries(race_id):
+            loaner = _entry_loaner(e)
+            if loaner:
+                devices.append(str(loaner))
+            elif row_get(e, "boat_id", None):
+                boats.append(int(row_get(e, "boat_id", None)))
+        if not devices and not boats:
+            return False
+        who = " OR ".join(
+            ([f"unique_id IN ({','.join('?' * len(devices))})"] if devices else [])
+            + ([f"boat_id IN ({','.join('?' * len(boats))})"] if boats else []))
+        with get_track_db() as tdb:
+            row = tdb.execute(
+                f"SELECT 1 FROM track_positions WHERE id > ? AND fix_time >= ? AND fix_time < ?"
+                f" AND ({who}) LIMIT 1",
+                (int(stored_id), start_dt.timestamp() - REPLAY_PRE_START_S,
+                 float(since_ts) - REPLAY_LATE_RELOAD_S, *devices, *boats)).fetchone()
+        return row is not None
+    except Exception:
+        return False
+
+
+# How long one build of a race's board serves everyone watching it. Every open
+# chart and the clubhouse display ask every 10 s, and each used to build the
+# whole series from the warning signal, then send the last few snapshots and
+# throw the rest away: 0.2 s per viewer per poll on a twenty-hour race, so the
+# cost grew with the audience. Now a race's board is built at most once in this
+# long, however many are watching, and each viewer is sent the part it is
+# missing. Five seconds is one snapshot at the usual step, so the board a viewer
+# sees is never more than a snapshot behind what a build of its own would show.
+REPLAY_BOARD_SHARE_S = 5.0
+
+
+def _shared_board_series(race_id: int, start_ts: float, end_ts: float, step_s: float) -> Dict[str, Any]:
+    """The race's board series, built once for every viewer polling inside
+    REPLAY_BOARD_SHARE_S. Callers must not change what comes back.
+
+    Keyed on the window's start and the step but not its end: the end moves with
+    every fix, so a key with it in would never be shared during a race. The
+    database files are in the key so two databases (a test's, a restore) never
+    share an answer.
+    """
+    key = ("boards", int(race_id), round(float(start_ts), 3), float(step_s),
+           str(appstate.DB_PATH), str(TRACK_DB_PATH))
+    return _shared_result(key, lambda: race_leaderboard_series(race_id, start_ts, end_ts, step_s=step_s),
+                          ttl=REPLAY_BOARD_SHARE_S)
+
+
+def _race_track_history_computed(race_id: int, since_ts: Optional[float] = None,
+                                 board_since: Optional[float] = None,
+                                 wind_since: Optional[float] = None) -> Dict[str, Any]:
     """Every tracked boat's recorded fixes for a race, for the replay viewer.
 
     Fixes go out as compact ``[t, lat, lon, sog, cog]`` arrays rather than objects
@@ -3912,6 +4157,20 @@ def _race_track_history_computed(race_id: int, since_ts: Optional[float] = None)
     replace. Progress is cumulative, so the order series is still walked from the
     start of the race; only the new snapshots are sent.
 
+    ``stored`` is the newest row id at the time of the reply, read before any
+    fix is, so a row stored while this runs is still newer than it. The viewer
+    sends it back with its next poll; see race_track_history.
+
+    An incremental reply's board comes from the build shared by every viewer
+    (_shared_board_series), which can be a few seconds older than the viewer's
+    newest fix. So the board is cut at ``board_since``, the newest snapshot the
+    viewer has, not at ``since_ts``: cut at the fixes, the snapshots between the
+    shared build's end and the viewer's newest fix would never be sent. A viewer
+    that sends no ``board_since`` (a page loaded before it existed) is cut at
+    ``since_ts`` as before. The wind is cut at ``wind_since`` the same way, and
+    only the new readings are looked up; an incremental reply used to carry the
+    whole race's wind every time, which the viewer then ignored.
+
     Two bounds keep the reply a reply and not a database dump — the window
     (``REPLAY_MAX_WINDOW_S``, applied in ``race_track_window``) and the fix budget
     (``REPLAY_MAX_FIXES``, applied here). Neither can change a race result: this
@@ -3922,6 +4181,7 @@ def _race_track_history_computed(race_id: int, since_ts: Optional[float] = None)
         from core.races import get_race, get_entries
     except Exception:
         return {"start": None, "end": None, "first_start": None, "boats": [], "incremental": False}
+    stored = _track_max_id()
     race = get_race(race_id)
     window = race_track_window(race) if race else None
     if not race or window is None:
@@ -3962,12 +4222,24 @@ def _race_track_history_computed(race_id: int, since_ts: Optional[float] = None)
             **ratings.get(int(e["id"]), {}),
         })
     # The order on the water at every step, so the viewer never has to ask again.
-    boards = race_leaderboard_series(race_id, start_ts, end_ts)
+    step = replay_board_step(end_ts - start_ts)
     if incremental:
-        keep = [i for i, bt in enumerate(boards["times"]) if bt > from_ts]
+        # Shared, and cut at the viewer's own board cursor (see the docstring).
+        boards = _shared_board_series(race_id, start_ts, end_ts, step)
+        board_cut = float(board_since) if board_since is not None and board_since >= start_ts else from_ts
+        keep = [i for i, bt in enumerate(boards["times"]) if bt > board_cut]
         boards = {**boards,
                   "times": [boards["times"][i] for i in keep],
                   "rows": [boards["rows"][i] for i in keep]}
+        wind_cut = float(wind_since) if wind_since is not None and wind_since >= start_ts else from_ts
+        wind = [w for w in race_wind_series(wind_cut, end_ts) if w[0] > wind_cut]
+    else:
+        # The whole race is built fresh: it is what a viewer starts again from
+        # after late fixes, and a shared build from before they landed would
+        # leave them out of the board for good. It is shared between requests
+        # one level up, by race_track_history.
+        boards = race_leaderboard_series(race_id, start_ts, end_ts, step_s=step)
+        wind = race_wind_series(start_ts, end_ts)
     # The gun, so the replay can count elapsed time the way a sailor does. The
     # window opens at the warning signal, five minutes earlier, and counting from
     # there made the clock read 15:00 when the race was ten minutes old - which is
@@ -3982,8 +4254,8 @@ def _race_track_history_computed(race_id: int, since_ts: Optional[float] = None)
     # carries what was recorded beside what was sent, and the reply says plainly
     # whether anything was left out.
     return {"start": start_ts, "end": end_ts, "first_start": first_start,
-            "boats": boats, "boards": boards, "wind": race_wind_series(start_ts, end_ts),
-            "incremental": incremental,
+            "boats": boats, "boards": boards, "wind": wind,
+            "incremental": incremental, "stored": stored,
             "thinned": dropped > 0, "fixes_dropped": dropped,
             "max_window_s": REPLAY_MAX_WINDOW_S}
 
@@ -4153,6 +4425,13 @@ def low_battery_trackers(threshold_pct: Optional[float] = None) -> List[Dict[str
 RACE_POLL_INTERVAL_S = 20.0
 RACE_POLL_GRACE_S = 60.0          # keep asking this long after a boat stops racing
 RACE_POLL_MAX_RACE_HOURS = 30.0   # a backstop against a race left open for ever
+# Stop asking a tracker that has gone quiet. Out of signal -- mid Irish Sea on a
+# passage race -- a request cannot reach it, and Traccar holds each one to deliver
+# when the tracker reconnects: at one every 20 s, a four-hour crossing would leave
+# about 700 waiting for it on the far side. Three minutes is past the quietest a
+# working GL gets (a 60 s report arriving 45 s late, plus one missed upload); the
+# first fix it sends on reconnecting brings the asking straight back.
+RACE_POLL_SILENT_S = 180.0
 # Which trackers get asked, keyed by IMEI type code rather than by protocol. "gl200" is
 # Queclink's whole @Track family and the models in it do not answer alike -- the command
 # below carries "gl521m", which is the GL521M's *password*, so another Queclink would
@@ -4246,9 +4525,16 @@ def run_race_position_polling(cfg: Optional[Dict[str, Any]] = None,
     if not targets:
         return 0
     protocols = tracker_protocols()
+    try:
+        last_fix = _latest_fix_times(targets)
+    except Exception:
+        last_fix = {}
     asked = 0
     for uid in targets:
         if now - _RACE_POLL_LAST_SENT.get(uid, 0.0) < RACE_POLL_INTERVAL_S:
+            continue
+        # Out of signal: the request would only queue up for the far side.
+        if uid not in last_fix or now - last_fix[uid] > RACE_POLL_SILENT_S:
             continue
         command = race_poll_command_for(uid, protocols.get(uid, ""))
         if not command:
@@ -4257,7 +4543,8 @@ def run_race_position_polling(cfg: Optional[Dict[str, Any]] = None,
         # a tight retry loop around the whole fleet.
         _RACE_POLL_LAST_SENT[uid] = now
         try:
-            send_tracker_command(uid, command, cfg)
+            # Not queued either: a position asked for now is worthless delivered later.
+            send_tracker_command(uid, command, cfg, queue=False)
             asked += 1
         except Exception:
             pass

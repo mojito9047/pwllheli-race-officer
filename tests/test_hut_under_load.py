@@ -160,7 +160,7 @@ class TestOneBoardForEveryone:
     def test_the_whole_track_is_shared_and_a_poll_is_not(self, race_id, monkeypatch):
         seen = []
         monkeypatch.setattr(track, "_race_track_history_computed",
-                            lambda race_id, since_ts=None: seen.append(since_ts) or {"boats": [], "since": since_ts})
+                            lambda race_id, since_ts=None, **cursors: seen.append(since_ts) or {"boats": [], "since": since_ts})
         track.race_track_history(race_id)
         track.race_track_history(race_id)
         track.race_track_history(race_id, since_ts=5.0)

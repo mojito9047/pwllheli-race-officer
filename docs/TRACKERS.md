@@ -411,6 +411,32 @@ answers in a second.
 AGPS (`AT+GTCFG` field 18) is disabled. It would speed acquisition after a restart; the
 manual warns some operators cannot serve the URL fetch it needs, and the club's SIM roams.
 
+#### Out of signal, and in Ireland
+
+Out of signal the GL keeps recording. It saves up to **10,000 reports** in non-volatile memory,
+about a week at one a minute, and sends them as `+BUFF` once it can reach the relay again
+(protocol §3.3.5). The club's units run `<Buffer Mode>` **1** in `AT+GTSRI`, which sends them
+**after** the live reports, so every saved fix reaches the app behind the newest one. The app
+stores them anyway; see *A tracker out of signal* in [`TRACKING.md`](TRACKING.md). Mode 2 would
+send them first, but it is set in `AT+GTSRI`, the same command that holds the server address.
+The manual says a blank field clears some values, and the console cannot read a GL's reply, so
+a mistake there leaves the tracker unreachable until someone reconnects it over USB. Leave it
+at 1.
+
+**Which networks it uses.** `AT+GTBSI` has network mode 0 (auto) and LTE mode 2 (Cat-M1), so it
+looks for **LTE-M first, then 2G, and never NB-IoT**. On the Hologram *Global-3* profile, read
+from the SIM dashboard on 12 November 2026, Ireland has:
+
+| Network | LTE-M | 2G |
+|---|---|---|
+| Three | yes | yes |
+| Vodafone | — | yes |
+| Meteor (eir) | — | yes |
+
+So in Ireland a GL connects on Three's LTE-M, or on 2G on any of the three. That table was read
+from an ATC700's SIM; which networks a SIM can use depends on its profile, so check each GL's
+SIM is on Global-3 too.
+
 ### Teltonika RUTX50
 
 The router on Mojito. Mains powered, pushes in real time at zero delay, and reports an
@@ -491,6 +517,9 @@ you happened to be looking at.
   can serve the URL fetch it needs.
 * What the degraded reporting spells actually are. `getops` was sent twice and never
   replied.
+* How far off the Welsh and Irish coasts a GL keeps signal, and so how long the mid-channel
+  gap on a Pwllheli to Dún Laoghaire race is. Nobody has measured it.
+* Whether Three Ireland accepts the Hologram SIM on LTE-M, or whether a GL there ends up on 2G.
 
 ---
 

@@ -23,6 +23,7 @@ is deliberately left unbounded, and these tests hold that line too.
 """
 from __future__ import annotations
 
+import time
 from datetime import datetime, timedelta
 
 import pytest
@@ -69,14 +70,15 @@ class TestTheWindowIsBounded:
         assert abs(start_ts - before) < 2
 
     def test_the_board_series_is_bounded_with_it(self, client):
-        """The point of the whole exercise: the board is one snapshot every
-        REPLAY_BOARD_STEP_S across the window, so bounding the window is what
-        bounds the snapshot count -- and the snapshots are the expensive part."""
+        """The point of the whole exercise: the board is one snapshot every step
+        across the window, so bounding the window -- and, past twelve hours, the
+        step with it -- is what bounds the snapshot count, and the snapshots are
+        the expensive part."""
         race_id, ids, gun = _seed_race(client, minutes_ago=500 * 24 * 60)
         _finish_everyone(race_id, datetime.now() - timedelta(days=100))
         start_ts, end_ts = track.race_track_window(ro.get_race(race_id))
-        snapshots = (end_ts - start_ts) / track.REPLAY_BOARD_STEP_S
-        assert snapshots <= track.REPLAY_MAX_WINDOW_S / track.REPLAY_BOARD_STEP_S + 1
+        snapshots = (end_ts - start_ts) / track.replay_board_step(end_ts - start_ts)
+        assert snapshots <= track.REPLAY_MAX_BOARD_SNAPSHOTS + 1
         # Unclamped this race would have asked for over six million.
         assert snapshots < 20000, snapshots
 
@@ -100,8 +102,45 @@ class TestTheWindowIsBounded:
 
     def test_the_clamp_is_longer_than_any_race(self, client):
         """A guard on the constant itself: set below a real race length it would
-        silently truncate replays instead of catching bad data."""
-        assert track.REPLAY_MAX_WINDOW_S >= 6 * 3600
+        silently truncate replays instead of catching bad data. The longest races
+        are ISORA passages to Ireland, which can run well past twelve hours."""
+        assert track.REPLAY_MAX_WINDOW_S >= 24 * 3600
+        assert track.REPLAY_MAX_WINDOW_S < track.PROGRESS_MAX_WINDOW_S
+
+
+class TestAPassageRaceFitsTheChart:
+    """Pwllheli to Dún Laoghaire is seventy-odd miles. At twelve hours the chart
+    stopped with a slow boat still mid-Irish-Sea, though finish detection, which
+    has its own three-day backstop, carried on."""
+
+    def test_a_twenty_hour_race_is_not_cut_off(self, client):
+        race_id, ids, gun = _seed_race(client, minutes_ago=20 * 60 + 5)
+        last = time.time() - 60
+        _track("SIMR-Alpha", ids["Alpha"]["boat_id"],
+               [(gun + i * 3600, 52.88 + i * 0.01, -4.40 - i * 0.08) for i in range(20)] + [(last, 53.29, -6.13)])
+        start_ts, end_ts = track.race_track_window(ro.get_race(race_id))
+        assert end_ts - start_ts > 20 * 3600
+        assert end_ts == pytest.approx(last, abs=1)
+
+    @pytest.mark.parametrize("hours, step", [(2.7, 5), (12, 5), (12.01, 10), (24, 10),
+                                             (24.01, 15), (36, 15), (36.01, 20), (48, 20)])
+    def test_the_step_is_five_seconds_until_twelve_hours(self, hours, step):
+        """Nothing about a club race changes; a passage race is sampled more coarsely."""
+        assert track.replay_board_step(hours * 3600) == step
+
+    def test_no_window_costs_more_snapshots_than_twelve_hours_did(self):
+        for minutes in range(1, int(track.REPLAY_MAX_WINDOW_S / 60) + 1, 7):
+            window = minutes * 60.0
+            assert window / track.replay_board_step(window) <= track.REPLAY_MAX_BOARD_SNAPSHOTS
+
+    def test_the_reply_for_a_twenty_hour_race_is_sampled_at_ten_seconds(self, client):
+        race_id, ids, gun = _seed_race(client, minutes_ago=20 * 60 + 5)
+        _track("SIMR-Alpha", ids["Alpha"]["boat_id"],
+               [(gun + i * 3600, 52.88 + i * 0.01, -4.40 - i * 0.08) for i in range(20)]
+               + [(time.time() - 60, 53.29, -6.13)])
+        times = track.race_track_history(race_id)["boards"]["times"]
+        assert times[1] - times[0] == pytest.approx(10.0)
+        assert len(times) <= track.REPLAY_MAX_BOARD_SNAPSHOTS + 2
 
 
 class TestThinning:

@@ -54,6 +54,17 @@ Positions reach the app two ways, and both are wanted:
   only ever returns each device's *latest* fix, so an app outage used to leave a permanent
   hole in the track. The poller now asks Traccar for the missing range and fills it in.
 
+**A tracker out of signal** is a different hole, and it comes in from the other side. Mid
+Irish Sea on an ISORA passage race a tracker keeps recording and sends what it saved once
+it is back in signal — and a GL521MG sends it *after* its first live fix (it runs
+`<Buffer Mode>` 1 in `AT+GTSRI`). So every saved fix lands behind the newest one stored. The
+push stores them anyway, skipping any already held. The fix that closes a hole of more than
+three minutes is also noted, and Traccar is asked for that stretch again a few times over
+the next half hour while the saved fixes are still arriving. That catches them when push is
+not set up, or when a pushed fix was refused. Before this, the push threw the saved fixes
+away and the back-fill, looking forward from the newest fix, never saw the hole: the
+mid-channel hours were simply missing.
+
 With push working you can raise the poll interval to about 30 seconds; it is no longer
 carrying the latency.
 
@@ -84,6 +95,36 @@ While you are at the live edge it keeps up on its own, asking every ten seconds 
 fixes it does not already have**. The moment you wind back it stops dragging you forward and lets
 you look around; the window keeps growing behind you, and **Live** returns you to the front. Play
 forward far enough and it rejoins live by itself.
+
+When fixes arrive that belong well behind what the chart already shows — a tracker's saved
+fixes after a spell out of signal — the chart is sent the whole race again and redraws, keeping
+your place if you had wound back. Each reply carries a `stored` cursor that the chart sends back
+with its next request, which is how the server can tell. A GL's ordinary report, which lands
+about 45 seconds late, does not count: only fixes more than five minutes behind do.
+
+**What each viewer costs the hut.** Every open race page asks every ten seconds while the race
+is on, whichever tab is showing, and so does the clubhouse display. Each request used to build
+the race's whole order-on-the-water series from the warning signal, send the last few
+snapshots and throw the rest away. Finding where the window ended read every fix of the race
+too, and every reply carried the whole race's wind, which the page then ignored. So the cost
+grew with the audience: on a twenty-hour race, a quarter of a second of work and 84 kB per
+viewer per poll. Now:
+
+- **The board is built once for everyone.** A race's series is built at most once every five
+  seconds (`REPLAY_BOARD_SHARE_S`), however many are watching, and each page is sent the part it
+  is missing. Five seconds is one snapshot, so nobody sees a board more than a snapshot behind.
+- **Each page sends its own cursors**: `board`, the newest snapshot it has, and `wind`, the
+  newest wind reading. The shared build can be a few seconds older than a page's newest fix, so
+  the board is cut at its own cursor rather than at the fixes; otherwise the snapshots in between
+  would never arrive.
+- **Only new wind goes out**, and the page appends it. The chart's wind gauge used to go blank on
+  a live race once the reading it loaded with was ten minutes old.
+- **The window's end is one index lookup per boat**, not a read of the whole track.
+
+Measured on a twenty-hour race with three boats: twenty pages' polls take **0.47 s** between
+them, against **5.8 s** with a build each, and each reply is about 2 kB. A page loaded before
+this change sends no cursors and still works: its board is cut at its fixes as before, and the
+wind it ignored is simply no longer sent.
 
 There is no separate Replay tab: two map tabs showing the same fleet was one too many. Old
 `#ptab-replay` links land on the chart. With GPS tracking switched off the tab is the plain course
@@ -135,14 +176,22 @@ the expense, and the board is a function of the window alone.
 
 So there are two bounds, doing different jobs:
 
-- **`REPLAY_MAX_WINDOW_S` — twelve hours** (`core/track.py`, applied in `race_track_window`).
-  This is the one that matters, because it bounds the board and the wind series as well as the
-  fixes. Twelve hours is not a performance setting: it is the line between a long race and bad
-  data. The longest race the club has ever sailed is **2 hours 40 minutes** (the median is 1h
-  8m), so the clamp sits at four and a half times the worst real case and cannot touch a real
-  replay. It is the **end** that is clamped, never the start — a race left with a boat stuck on
-  RACING since March would, if you kept the most recent twelve hours instead, show an empty sea
-  and cut the racing out entirely.
+- **`REPLAY_MAX_WINDOW_S` — forty-eight hours** (`core/track.py`, applied in `race_track_window`).
+  This one bounds time, and with it the board and the wind series as well as the fixes. It is not
+  a performance setting: it is the line between a long race and bad data. The longest club race
+  ever sailed is **2 hours 40 minutes** (the median is 1h 8m), but an ISORA passage race from
+  Pwllheli to Dún Laoghaire is seventy-odd miles, and a slow boat in light air can take well past
+  twelve hours. The window was twelve hours until that was looked at, and the chart stopped with
+  the fleet mid-Irish-Sea. Forty-eight is past any passage race the club enters and still short of
+  the three-day backstop on following a boat. It is the **end** that is clamped, never the start —
+  a race left with a boat stuck on RACING since March would, if you kept the most recent hours
+  instead, show an empty sea and cut the racing out entirely.
+- **`REPLAY_MAX_BOARD_SNAPSHOTS` — 8,640**, what a twelve-hour window always had at five seconds.
+  A window longer than twelve hours is not allowed to cost more; its snapshots are spaced further
+  apart instead (`replay_board_step`): every 10 s up to 24 hours, 15 s up to 36 and 20 s up to 48,
+  while every club race stays at 5 s. Measured with three boats reporting every 20 s, a 20-hour
+  race builds a 1.9 MB reply in 0.33 s against 1.8 MB in 0.32 s for an 11.9-hour one. That
+  matters beyond one reply: a race still going rebuilds the whole series on every viewer's poll.
 - **`REPLAY_MAX_FIXES` — 60,000 across the fleet, floor 1,000 a boat** (applied in
   `race_track_history`). The window bounds time; it cannot see **rate**. Every club tracker
   reports every five seconds today — the busiest real unit managed 1,768 fixes in its busiest
@@ -501,6 +550,17 @@ from the family it belongs to.
 Switch it off in **Settings → GPS tracking** if you need to. It is on by default, does nothing
 unless Traccar is configured, and a race left open by mistake stops being polled after 30 hours so
 a forgotten one cannot flatten a tracker.
+
+**A tracker that has gone quiet is not asked.** Out of signal — mid-channel on a passage race — a
+request cannot reach it, and Traccar holds commands for a device it has no connection to and
+delivers them when it reconnects. At one every 20 seconds, a four-hour crossing would have left
+about 700 waiting on the far side. So a tracker whose newest fix is more than three minutes old is
+skipped, and the first fix it sends on reconnecting brings the asking straight back. Three minutes
+is past the quietest a working GL gets: a 60-second report arriving 45 seconds late, plus one
+missed upload. The requests are also sent with Traccar's `noQueue` attribute, so a Traccar that
+honours it drops one it cannot deliver; one too old to know the attribute ignores it, which is why
+the silence check is the guard that matters. The **Commands** console still queues, because an
+ATC700 asleep between reports should get its `setparam` when it wakes.
 
 ### What the SIM is doing (v0.270)
 
@@ -894,7 +954,9 @@ out however far out it is — if a boat is really out there, the map follows it.
 - With auto-confirm **on**, the finish is recorded immediately (tagged `gps-auto`) and a
   finish video clip is scheduled around the moment for later review. The horn only sounds on
   an auto-finish if you enable **Sound horn on auto-confirmed GPS finish** in Settings (off by
-  default — GPS latency makes an auto-horn late and risky).
+  default — GPS latency makes an auto-horn late and risky). Even then it does not sound for a
+  crossing more than five minutes old, which is what a finish found in a tracker's saved fixes
+  is: the finish is recorded, but a horn that late would be for nobody.
 
 A boat is only finished once it has **rounded every mark in the course** and then crosses the
 finish line — so a course that passes the ODM several times (e.g. O‑F‑O‑1‑O) finishes correctly

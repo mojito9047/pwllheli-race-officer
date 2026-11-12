@@ -98,7 +98,7 @@ class TestARaceStillBeingSailedIsWalkedToNow:
 
 
 class TestAPassageRaceIsNotCutOff:
-    """The reason the backstop is three days and not the replay's twelve hours."""
+    """The reason the backstop is three days and not the replay's window."""
 
     def test_the_backstop_is_generous_enough_for_an_offshore_race(self):
         assert track.PROGRESS_MAX_WINDOW_S >= 24 * 3600, (
@@ -106,9 +106,9 @@ class TestAPassageRaceIsNotCutOff:
         )
 
     def test_and_is_not_the_replay_reply_cap(self):
-        """Reusing REPLAY_MAX_WINDOW_S here would freeze a passage race at 12
-        hours. One caps a response size; this one decides whether a boat is
-        still being followed."""
+        """Reusing REPLAY_MAX_WINDOW_S here would freeze a passage race wherever
+        that cap sits (twelve hours when this was written). One caps a response
+        size; this one decides whether a boat is still being followed."""
         assert track.PROGRESS_MAX_WINDOW_S > track.REPLAY_MAX_WINDOW_S
 
     def test_a_boat_twenty_hours_into_a_passage_race_is_still_followed(self, client):
