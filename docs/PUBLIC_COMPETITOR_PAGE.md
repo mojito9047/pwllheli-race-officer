@@ -66,7 +66,7 @@ The same page serves phones, tablets and PCs (see **Phones and tablets** below);
 
 ## Competitor landing page
 
-The default competitor page is designed as the page to share publicly. The top of the page — the race-information header — carries the current race name, its first start, a **Go to current race** button, and two instruments:
+The default competitor page is designed as the page to share publicly. The top of the page — the race-information header — carries the current race name, its first start, a **Go to current race** button, and two instruments (side by side on a phone). A small **cog** at the top of the page opens **Settings**: notifications where the club has switched them on, the favourite boats with a **Clear** button, and the offer to add the pages to the home screen. Those used to be lines of their own on every page; they are now in one place and out of the way everywhere else.
 
 - The **wind dial**: the same analog TWD/TWS instrument the race officer sees on the dashboard (`templates/partials/wind_gauge.html` driven by `static/wind_gauge.js`, refreshing from `/api/weather/current` every 5 seconds). It is deliberately *not* wired to the weather-station status line, so raw station errors stay off the public page; with no wind available the dial simply reads `—°` / `— kt`. The Wind tab has the detail and the history.
 - The **countdown** to the current race's first start, in the same words as the race page (*Counting down* / *Race started* / *Race finished* / *Start not set*). It is calculated in the browser from the server-rendered start time. With no current race, no countdown is shown.
@@ -95,9 +95,9 @@ If the current race is not assigned to a series, the page still shows the curren
 
 The page is organised into **tabs** below the race header, so it stays short — especially on a phone. The race name, warning/start times, course sequence, flag panel and countdown sit above the tabs and are always visible.
 
-While the race is on there are three: **Entries** (or **Start times** for a pursuit race), **Chart** and **Course analysis** &mdash; and, where the hut has a camera, a fourth, **Start photo** (v1.014). Once every boat has stopped racing, a **Leader board** tab appears holding the results, and it is the tab shown first. The others stay available as a record of the race. (The live handicap-corrected order during a race lives under the **Chart** tab, next to the boats it is about; the *Leader board* tab holds the confirmed result.)
+While the race is on there are three: **Entries** (or **Start times** for a pursuit race), **Chart** and **Course analysis** &mdash; and, where the hut has a camera, a fourth, **Start photo** (v1.014). Once every boat has stopped racing, a **Leader board** tab appears holding the results. The others stay available as a record of the race. **The page opens on the Chart**, before, during and after the race: it is what people come to look at. (The live handicap-corrected order during a race lives under the **Chart** tab, next to the boats it is about; the *Leader board* tab holds the confirmed result.)
 
-**Start photo** holds the camera's own 3840 x 2160 still taken at each start signal, with the start line drawn from the pole to the outer distance mark and the club logo. It appears a few seconds after the gun &mdash; during the race, unlike the start and finish videos &mdash; and the page reloads itself to show it — so leave a phone on the **Start photo** tab before the gun and the photo arrives on its own, scrolled into view. Tapping it opens the full-size photo to zoom in on. It says plainly that it is an early guide and the race officer's calls stand. See [`VIDEO_RECORDING.md`](VIDEO_RECORDING.md#start-photo-v1014).
+**Start photo** holds the camera's own 3840 x 2160 still taken at each start signal, with the start line drawn from the pole to the outer distance mark and the club logo. It appears a few seconds after the gun &mdash; during the race, unlike the start and finish videos &mdash; and the page reloads itself to show it — so leave a phone on the **Start photo** tab before the gun and the photo arrives on its own, scrolled into view. Tapping it opens the full-size photo to zoom in on. It is an early guide only; the race officer's calls stand. See [`VIDEO_RECORDING.md`](VIDEO_RECORDING.md#start-photo-v1014).
 
 The selected tab is remembered in the page address (`#ptab-entries`, `#ptab-chart`, `#ptab-analysis`, `#ptab-startphoto`, `#ptab-results`), so a link can point at a particular tab.
 
@@ -142,7 +142,7 @@ The specific race page shows race-level information before and during racing:
 
   The card has four buttons. **Follow** keeps the boat in view as it moves: the chart shifts only when the boat nears the edge, and dragging the chart stops it. **Finish video** opens that boat's finish, once there is one to watch. **Share** hands over a link to this race with this boat already picked out (`?boat=` and the sail number), through the phone's own share sheet where it has one. **✕** closes the card. On a phone the card opens small, across the bottom of the chart, with the first four readings; **More** opens the rest. It stands aside while the leaderboard is rolled up.
 
-- **Favourite boats.** A **☆** beside a boat, on the card, in the leaderboard and in the Entries and results tables, makes it a favourite. A favourite carries a **★** on the chart, its rows are flagged, and when a favourite is sailing in the race the page opens with it already picked out. Favourites are kept **on the phone that chose them** and nowhere else: nothing is sent to the club, and another phone has its own. They are remembered by sail number, so a boat starred in one race is still starred in the next. The competitor home page lists who is being followed, with a **Clear** button.
+- **Favourite boats.** A **☆** beside a boat, on the card, in the leaderboard and in the Entries and results tables, makes it a favourite. A favourite carries a **★** on the chart, its rows are flagged, and when a favourite is sailing in the race the page opens with it already picked out. Favourites are kept **on the phone that chose them** and nowhere else: nothing is sent to the club, and another phone has its own. They are remembered by sail number, so a boat starred in one race is still starred in the next. A favourite is ringed and its track stands out when the page opens; its card opens when it is tapped, so the chart is not half covered on arrival. **Settings** on the competitor home page (the cog) lists the favourites, with a **Clear** button.
 
 - **Playback speed and views.** Speed is a list: **1×, 2×, 5×, 10×, 30×, 60×**. A club race plays through in a few minutes at 10×; 60× is there for a passage race, where seven hours takes 42 minutes at 10×. **View…** moves the chart to the **start line**, the **whole course**, the **finish line** or **all boats**, and to the **favourites** when one is racing. The speed, the boat picked out and whether it is being followed all survive the page reloading itself when the race officer changes something.
 
@@ -158,10 +158,10 @@ The flag panel uses the same state as the race-office page. It only displays fla
 
 ## What it shows after racing
 
-When all entries are no longer racing, the **Leader board** tab appears and opens first:
+When all entries are no longer racing, the **Leader board** tab appears:
 
 - Provisional IRC/YTC results, split by configured rating class where available.
-- Public video links when configured and allowed.
+- Public video links when configured and allowed: **View start video** above the results and, beside it, **Watch the 3D replay** once the film exists.
 - For a pursuit race, the finishing-order table instead of corrected times.
 
 The Chart and Course analysis tabs then become a **record of the conditions**: instead of the live hut wind they use the **average wind over the race**, measured from the first warning signal to the last boat finishing. TWD is vector-averaged (a plain mean would be wrong across north), TWS is a mean with its range shown alongside, and the gust figure is the highest seen in that window. The chart's wind arrow uses the same averaged direction, and nothing on those tabs refreshes any more, because the numbers no longer change. The live GPS tracking columns are dropped from the Entries tab at the same time.
@@ -170,7 +170,7 @@ Wind samples inside a race window are exempt from the normal 24-hour history pur
 
 ### The 3D replay film (v1.002)
 
-Once a race has been rendered as a [3D replay film](RACE_REPLAY_3D.md), a link to it appears by itself: a **3D replay** button beside *Open* in the races list, and **Watch the 3D replay** in the race page header under the entry counts. It is also in each race's section of a published results document.
+Once a race has been rendered as a [3D replay film](RACE_REPLAY_3D.md), a link to it appears by itself: a **3D replay** button beside *Open* in the races list, and **Watch the 3D replay** on the race page's **Leader board** tab, beside the start video. It is also in each race's section of a published results document.
 
 Nothing appears until the film is actually in the bucket, so an unrendered race looks exactly as it did before, and race day is unchanged — a film exists about an hour after the racing, usually by the time the crews are ashore, not on the water. The link goes straight to the storage bucket rather than through the hut, so it plays whether or not the clubhouse PC is switched on and a large download never crosses the hut's 4G connection.
 
@@ -182,6 +182,14 @@ There is now **one responsive public page** for every device. On a phone the wid
 
 The page also stops spending a third of a phone screen on borders. The results used to sit inside three nested frames — the tab panel, a card round each class's results, then a card per boat — each with its own border and padding. On a phone the middle frame keeps its heading and gives up its box, and the page gutter now scales with the screen instead of giving a sideways phone the margin meant for a desktop.
 
+**Laid out for a phone held in one hand (November 2026).** Looked at as an app, the pages were spending most of a phone screen on things that were not the race, and the chart was a screen and a half down. On a phone now:
+
+- the header is **one slim row** (the banner and **Home**, or the Settings cog), and the tabs stay on screen beneath it as the page scrolls;
+- the race summary is a few lines, the flag board shows **only while a flag is flying**, and the clock is one line across the page;
+- each card reads as **a line of facts** (`ELAPSED 5:13:12  CORRECTED 5:39:31  IRC TCC 1.084`) rather than a row per fact with the label at one edge and the value at the other, so a boat's result is three lines where it was eight;
+- the races list puts each race and its buttons on one line;
+- the explanatory sentences under each heading are gone (they are in the competitor's guide), and the footer is two short lines, the same on both pages.
+
 ### On the home screen, like an app
 
 The competitor pages can be **added to a phone's home screen**, where they get the club's logo as an icon and open full-screen, without the browser's bars, on the competitor home page.
@@ -189,13 +197,13 @@ The competitor pages can be **added to a phone's home screen**, where they get t
 - **Android (Chrome):** a line above the page offers **Add to home screen**. It can also be found in the browser's menu.
 - **iPhone and iPad:** an iPhone gives a page no way to ask, so the line says where the button is: **Share**, then **Add to Home Screen**.
 
-The line appears once and stays away when dismissed, and it never shows inside the installed app. The app's name and icon are the club's own from **Settings → Club name and branding**, so another club's installation gets its own. Only the competitor pages are part of it: the race office stays a web page behind its login.
+The line appears once and stays away when dismissed, and it never shows inside the installed app. Turned down, the offer can still be found under **Settings** on the competitor home page. The app's name and icon are the club's own from **Settings → Club name and branding**, so another club's installation gets its own. Only the competitor pages are part of it: the race office stays a web page behind its login.
 
 It needs the internet exactly as the page in a browser does. Nothing is kept on the phone except the favourites, the dismissed line and the notification choices below.
 
 ### Notifications
 
-Where the club has switched them on (**Settings → Phone notifications**), both competitor pages carry **Turn on notifications**. The phone asks its owner's permission, and from then on it is told, whether or not the page is open:
+Where the club has switched them on (**Settings → Phone notifications**), **Settings** on the competitor home page (the cog at the top) has **Turn on notifications**. The phone asks its owner's permission, and from then on it is told, whether or not the page is open:
 
 - **Race notices**: a race has **started**, been **postponed** (and when the postponement is ending, with the new warning time), had its **course shortened**, been **abandoned**, and when **all boats are in** and the provisional results are up.
 - **My favourite boats**: when a starred boat **finishes**, with its finish time.

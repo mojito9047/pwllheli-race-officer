@@ -115,17 +115,21 @@ class TestThePinnedPageStillPins:
 
     def test_and_says_the_racing_has_moved_on(self, client):
         """Otherwise a bookmark leaves somebody watching a finished race with
-        nothing on the page to say where everyone went."""
+        nothing on the page to say where everyone went.
+
+        It used to be a sentence ("This is one particular race, and it is not
+        the one being sailed now"). On a phone that was two lines to say what
+        the link says by being there, so the link is all that is left."""
         first = _race("Race One")
         _finish_the_fleet(first)
         _race("Race Two", hours_ago=0)
         html = client.get(f"/public/race/{first}").get_data(as_text=True)
-        assert "not the one being sailed now" in html
+        assert 'current-race-link"><a href="/public/race">Go to the current race</a>' in html
 
     def test_the_current_race_pinned_says_no_such_thing(self, client):
         rid = _race("Race One")
         html = client.get(f"/public/race/{rid}").get_data(as_text=True)
-        assert "not the one being sailed now" not in html
+        assert "current-race-link" not in html and "Go to the current race" not in html
         assert "follows whichever race is current" not in html
 
 

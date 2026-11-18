@@ -296,7 +296,10 @@ class TestThePublicPage:
         tabs = html.index('data-tab="ptab-analysis"'), html.index('data-tab="ptab-startphoto"')
         assert tabs[0] < tabs[1]
         assert _row(clip_id)["photo_url"] in html
-        assert "the race officer's calls stand" in html
+        # The tab used to say the photo was an early guide and the race
+        # officer's calls stand. The page's footer says whose decisions count,
+        # on every tab; the guide says the rest.
+        assert "Race officer decisions and published results are authoritative" in html
 
     def test_waiting_for_the_signal(self, hut):
         race_id, start = _race_with_start_at(_now_start() + timedelta(minutes=10))

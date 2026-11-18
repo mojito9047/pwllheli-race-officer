@@ -77,9 +77,10 @@ class TestRacePageTabs:
         html = client.get(f"/public/race/{race_id}").get_data(as_text=True)
         for tab in ('data-tab="ptab-entries"', 'data-tab="ptab-chart"', 'data-tab="ptab-analysis"'):
             assert tab in html, tab
-        # Entries is the default pane; the chart and analysis panes exist too.
-        assert 'class="tab-pane active" id="ptab-entries"' in html
-        assert 'id="ptab-chart"' in html and 'id="ptab-analysis"' in html
+        # The chart is the pane the page opens on (it was Entries until
+        # November 2026); the entries and analysis panes exist too.
+        assert 'class="tab-pane active" id="ptab-chart"' in html
+        assert 'id="ptab-entries"' in html and 'id="ptab-analysis"' in html
         # The race header/countdown stays above the tabs.
         assert html.index('class="race-header') < html.index('data-tab="ptab-entries"')
 
@@ -100,11 +101,13 @@ class TestRacePageTabs:
                        (datetime.now().isoformat(timespec="seconds"), race_id))
             db.commit()
         html = client.get(f"/public/race/{race_id}").get_data(as_text=True)
-        # The other three tabs survive; the leader board is added and opens first.
+        # The other three tabs survive and the leader board is added. The page
+        # still opens on the chart, as it does at every stage of a race
+        # (tests/test_public_phone_layout.py).
         for tab in ('data-tab="ptab-results"', 'data-tab="ptab-entries"',
                     'data-tab="ptab-chart"', 'data-tab="ptab-analysis"'):
             assert tab in html, tab
-        assert 'data-default-tab="ptab-results"' in html
+        assert 'data-default-tab="ptab-chart"' in html
 
     def test_no_desktop_mobile_toggle_link(self, client):
         race_id = _race()

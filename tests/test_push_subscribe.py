@@ -57,6 +57,7 @@ class TestOffUntilSwitchedOn:
         html = client.get("/public/current").get_data(as_text=True)
         assert "ro-push-key" not in html
         assert 'id="publicNotify" hidden' in html, "the place for the switch is there, empty and hidden"
+        assert 'id="publicNotifyPart" hidden' in html, "and so is its heading in the Settings dialog"
 
     def test_a_subscription_is_not_accepted(self, client):
         resp = client.post("/public/push/subscribe", json=body())
@@ -81,7 +82,10 @@ class TestSwitchedOn:
         from tests.test_competitor_follows_the_current_race import _race
         race_id = _race("Race One")
         html = switched_on.get(f"/public/race/{race_id}").get_data(as_text=True)
-        assert 'name="ro-push-key"' in html and 'id="publicNotify" hidden' in html
+        # The key, so that starring a boat here keeps the hut in step; the
+        # switch itself is under Settings on the competitor home, and only there.
+        assert 'name="ro-push-key"' in html
+        assert "publicNotify" not in html
 
     def test_the_private_key_never_reaches_a_page(self, switched_on):
         private_pem, _public = notify.vapid_keys()

@@ -124,7 +124,10 @@ class TestFinishedRacePageUsesTheAverage:
         assert "Average TWD" in html
         assert "Average TWS" in html
         assert "Peak gust" in html
-        assert "from the warning signal to the last finish" in html
+        # "Average" on each chip is the whole of the explanation now: the
+        # sentence that followed them is in the guide, not on the page.
+        assert "from the warning signal to the last finish" not in html
+        assert 'id="publicWindStatus"' not in html
         # The chart's wind arrow uses the same averaged direction.
         assert 'data-wind-direction="2' in html
 

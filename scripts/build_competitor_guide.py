@@ -365,7 +365,7 @@ story += note_box(
 story += note_box(
     "The page is split into tabs below the race header — <b>Entries</b> (or <b>Start times</b> for a "
     "pursuit race), <b>Chart</b>, <b>Course analysis</b> and <b>Start photo</b>, joined by <b>Leader board</b> "
-    "once the race has finished. Tap a tab to switch; the race name, times, flags and countdown stay visible above them. On a "
+    "once the race has finished. The page opens on the <b>Chart</b>. Tap a tab to switch; the race name, times, flags and countdown stay visible above them. On a "
     "phone each table is shown as one card per boat, so nothing is cut off.")
 story += note_box(
     "The flag panel mirrors what the race officer's system is displaying - it is a helpful reference, not a "
@@ -409,7 +409,7 @@ story.append(PageBreak())
 story += chapter_heading("Chapter 4", "The race page: results")
 story.append(Paragraph(
     "Once every entered boat has finished, retired or otherwise stopped racing, a <b>Leader board</b> tab "
-    "appears and opens first. The race status clock changes to <b>Finished</b>, and the leader board holds a "
+    "appears. The race status clock changes to <b>Finished</b>, and the leader board holds a "
     "results table for each configured class:", styles["Body"]))
 story.append(bullets([
     "<b>Rank</b> - the boat's placing in that table once corrected; a dash means it didn't finish.",
@@ -503,7 +503,9 @@ story.append(Paragraph(
     "appears.", styles["Body"]))
 story.append(bullets([
     "Each tracked boat is drawn as a <b>hull seen from above</b>, turned the way it is actually heading, in its "
-    "own colour, with its sail number beside it and a trail of where it has been for the last ten minutes.",
+    "own colour, with its sail number beside it and a trail of where it has been for the last ten minutes. "
+    "Boats are drawn between their reported positions, so the line between two fixes is interpolated, not "
+    "observed.",
     "The chart <b>opens at the latest positions</b> — during a race that is simply the live view. Drag the "
     "timeline underneath it, or press play, to wind back through the race so far and watch it again at up to "
     "60x. <b>Live</b> returns you to the front.",
@@ -512,7 +514,7 @@ story.append(bullets([
     "is showing. <b>Follow</b> keeps that boat in view as it moves, and <b>Share</b> sends somebody a link "
     "to the race with that boat already picked out.",
     "The <b>star</b> beside a boat makes it a <b>favourite</b>. Favourites carry a star on the chart and are "
-    "picked out for you when you open a race they are sailing in. They are kept on your own phone; nothing is "
+    "picked out for you when you open a race they are sailing in: tap one for its card. They are kept on your own phone; nothing is "
     "sent to the club.",
     "<b>View</b> moves the chart to the start line, the whole course, the finish line or all the boats.",
     "<b>Full screen</b> gives the chart your whole display, which is worth doing on a phone.",
@@ -596,8 +598,8 @@ story.append(bullets([
     "<b>You can keep it on your home screen.</b> On an Android phone the page offers <b>Add to home "
     "screen</b>; on an iPhone, tap <b>Share</b> and then <b>Add to Home Screen</b>. It then opens from "
     "its own icon, full-screen, like an app. It still needs the internet.",
-    "<b>You can be told when things happen.</b> Where your club has switched it on, the page offers "
-    "<b>Turn on notifications</b>: your phone is then told when a race starts, is postponed or shortened, "
+    "<b>You can be told when things happen.</b> Where your club has switched it on, the small cog at the "
+    "top of the competitor home page opens <b>Settings</b>, which has <b>Turn on notifications</b>: your phone is then told when a race starts, is postponed or shortened, "
     "when the results are up, and when a boat you have starred finishes. On an iPhone, add the page to your "
     "home screen first and turn them on from there. Nothing is asked for but your say-so, and <b>Turn off</b> "
     "stops them.",
@@ -636,7 +638,7 @@ story.append(figure("replay3d_film.png",
 story.append(Paragraph("When a race has one, a link appears by itself:", styles["Body"]))
 story.append(bullets([
     "a <b>3D replay</b> button beside <b>Open</b> in the races list on the competitor home page;",
-    "<b>Watch the 3D replay</b> at the top of that race's own page;",
+    "<b>Watch the 3D replay</b> on that race's <b>Leader board</b> tab, beside the start video;",
     "a line in the race's section of the club's published results.",
 ]))
 story.append(Paragraph(

@@ -177,6 +177,7 @@
     let playing = false;
     let speedIx = SPEEDS.indexOf(DEFAULT_SPEED);
     let selected = null;        // entry_id of the boat the card and the highlight are on, or null
+    let cardOpen = false;       // its card is showing (a favourite is picked out without one)
     let following = false;      // the chart keeps the selected boat in view
     let finishAt = {};          // entry id -> time of the first snapshot showing it finished
     let lastFrame = null;       // performance.now() of the previous animation frame
@@ -442,15 +443,19 @@
     function saveState() {
       try {
         window.sessionStorage.setItem(STATE_KEY, JSON.stringify(
-          {sel: selected, follow: following, speed: SPEEDS[speedIx]}));
+          {sel: selected, card: cardOpen, follow: following, speed: SPEEDS[speedIx]}));
       } catch (err) { /* no storage: the choices last until the next reload */ }
     }
 
     function selectBoat(id, opts) {
       const o = opts || {};
       const want = (id === null || id === undefined) ? null : Number(id);
-      selected = (o.toggle && selected === want) ? null : want;
+      // A second tap on the boat that is picked out lets it go -- unless its
+      // card is not up, which is how a favourite stands when the page opens:
+      // then the tap is asking for the card.
+      selected = (o.toggle && selected === want && cardOpen) ? null : want;
       if (selected !== null && !boatById[selected]) selected = null;
+      cardOpen = selected !== null;
       if (selected === null) following = false;
       saveState();
       drawFrame();           // redraws the card as well
@@ -541,7 +546,7 @@
     function renderCard(force) {
       if (!card) return;
       const boat = (selected !== null && data) ? boatById[selected] : null;
-      if (!boat) { card.hidden = true; panel.classList.remove('boat-card-open'); return; }
+      if (!boat || !cardOpen) { card.hidden = true; panel.classList.remove('boat-card-open'); return; }
       const nowMs = window.performance.now();
       if (!force && nowMs - cardDrawnAt < CARD_REFRESH_MS) return;
       cardDrawnAt = nowMs;
@@ -683,6 +688,16 @@
       if (!map) return;
       mapBound = true;
       map.on('dragstart', () => { if (following) setFollowing(false); });
+    }
+    // The chart says when it can first be seen (static/course_map.js): anything
+    // that was placed for a chart of no size -- a boat kept clear of its card --
+    // is placed again.
+    if (mapRoot) {
+      mapRoot.addEventListener('coursemap:shown', () => {
+        if (!data) return;
+        drawFrame();
+        revealSelected();
+      });
     }
 
     async function shareBoat() {
@@ -1168,19 +1183,29 @@
     // Which boat to open on. What the viewer had chosen before a reload comes
     // first, including having chosen none; then a boat named in the address (a
     // shared link); then their first favourite sailing in this race.
+    //
+    // A favourite is picked out -- ringed, its track standing out -- but its
+    // card stays shut until it is tapped. On a phone the card lies across the
+    // lower half of the chart, and a chart that opens half covered, moved aside
+    // to keep one boat clear of the card, looks like a chart that has not drawn
+    // properly. A shared link is about its boat, so that one opens on the card;
+    // and a reload puts the card back the way the viewer had it.
     function restoreChoices() {
       if (selected !== null && !boatById[selected]) selected = null;
+      if (selected === null) cardOpen = false;
       if (stateRestored) return;
       stateRestored = true;
       const saved = loadState();
       if ('sel' in saved) {
         selected = (saved.sel !== null && boatById[saved.sel]) ? Number(saved.sel) : null;
+        cardOpen = selected !== null && saved.card === true;
         following = !!saved.follow && selected !== null;
         return;
       }
       const asked = new URLSearchParams(window.location.search).get('boat') || '';
       const byKey = key => (data.boats.find(b => key && keyOf(b.entry_id) === key) || {}).entry_id;
       let want = byKey(asked);
+      cardOpen = want !== undefined;
       if (want === undefined && favs) {
         favs.list().some(f => { want = byKey(f.key); return want !== undefined; });
       }

@@ -11,16 +11,27 @@
  * that can be done is to say where the button is, once.
  *
  * Either way it is one quiet line above the page, it goes away for good when
- * dismissed, and it never shows inside the installed app.
+ * dismissed, and it never shows inside the installed app. Turned down, the
+ * offer is still to be found under Settings.
+ *
+ * SETTINGS
+ *
+ * The competitor home has a small cog in its header that opens a dialog
+ * (#publicSettings): notifications, the favourite boats, the home-screen offer.
+ * These were lines of their own on every page; now they are in one place, and
+ * out of the way everywhere else.
  *
  * NOTIFICATIONS
  *
- * When the club has switched them on, the page carries the key to subscribe
- * with (a <meta name="ro-push-key">) and a place for the switch
- * (#publicNotify). Pressing it asks the browser's permission, registers the
- * service worker (/public/sw.js, which is what shows a notification while the
- * page is closed) and sends the subscription to the hut with two choices: race
- * notices, and the favourite boats. Nothing is asked for but the say-so.
+ * When the club has switched them on, every public page carries the key to
+ * subscribe with (a <meta name="ro-push-key">), and the Settings dialog has the
+ * switch (#publicNotify). Pressing it asks the browser's permission, registers
+ * the service worker (/public/sw.js, which is what shows a notification while
+ * the page is closed) and sends the subscription to the hut with two choices:
+ * race notices, and the favourite boats. Nothing is asked for but the say-so.
+ *
+ * A race page has no switch, but it still keeps the hut in step: starring a
+ * boat there changes what this phone should be told about.
  *
  * An iPhone only allows this for a page that has been added to the home
  * screen, so in Safari the switch explains that instead of failing.
@@ -90,25 +101,51 @@
     main.insertBefore(bar, main.firstChild);
   }
 
+  // The browser's own question. It can be asked once per offer, from the bar
+  // or from Settings, whichever is pressed.
+  async function askToInstall() {
+    if (!installEvent) return;
+    const prompt = installEvent;
+    installEvent = null;
+    removeBar();
+    drawInstall();
+    try {
+      prompt.prompt();
+      const choice = await prompt.userChoice;
+      if (choice && choice.outcome === 'dismissed') store(DISMISS_KEY, 'dismissed');
+    } catch (err) { /* the browser declined to ask; nothing to tidy up */ }
+  }
+
+  // The same offer in the Settings dialog, where it can still be found after
+  // the bar has been turned down. Shown only where there is something to do.
+  function drawInstall() {
+    const part = document.getElementById('publicInstallPart');
+    if (!part) return;
+    const text = document.getElementById('publicInstallNote');
+    const press = document.getElementById('publicInstallButton');
+    if (standalone() || (!installEvent && !isIos())) { part.hidden = true; return; }
+    part.hidden = false;
+    text.textContent = installEvent
+      ? 'Keep these pages on your home screen, like an app.'
+      : 'To keep these pages on your home screen: tap the Share button, then “Add to Home Screen”.';
+    press.hidden = !installEvent;
+  }
+
   window.addEventListener('beforeinstallprompt', ev => {
     // Hold the browser's own banner back and offer it in the page instead,
     // where it can be turned down once and stay turned down.
     ev.preventDefault();
     installEvent = ev;
-    showBar('Keep this on your home screen, like an app.', 'Add to home screen', async () => {
-      if (!installEvent) return;
-      const prompt = installEvent;
-      installEvent = null;
-      removeBar();
-      try {
-        prompt.prompt();
-        const choice = await prompt.userChoice;
-        if (choice && choice.outcome === 'dismissed') store(DISMISS_KEY, 'dismissed');
-      } catch (err) { /* the browser declined to ask; nothing to tidy up */ }
-    });
+    showBar('Keep this on your home screen, like an app.', 'Add to home screen', askToInstall);
+    drawInstall();
   });
 
-  window.addEventListener('appinstalled', () => { store(DISMISS_KEY, 'dismissed'); removeBar(); });
+  window.addEventListener('appinstalled', () => {
+    store(DISMISS_KEY, 'dismissed');
+    installEvent = null;
+    removeBar();
+    drawInstall();
+  });
 
   // --- Notifications ---------------------------------------------------------
 
@@ -117,7 +154,7 @@
   const RESEND_AFTER_MS = 24 * 3600 * 1000;
 
   let pushMeta = null;                 // the <meta> carrying the key and the addresses
-  let line = null;                     // where the switch is drawn
+  let line = null;                     // where the switch is drawn: the Settings dialog, home page only
   let busy = false;
   let note = '';                       // one line of explanation after something went wrong
 
@@ -288,12 +325,10 @@
     line.textContent = '';
     line.hidden = false;
     if (!pushSupported()) {
-      if (isIos() && !standalone()) {
-        line.appendChild(say('Notifications: on an iPhone, first add this page to your home screen '
-          + '(Share, then “Add to Home Screen”), then open it from there and turn them on.'));
-      } else {
-        line.hidden = true;
-      }
+      line.appendChild(say(isIos() && !standalone()
+        ? 'On an iPhone, first add this page to your home screen (Share, then “Add to Home Screen”), '
+          + 'then open it from there and turn them on.'
+        : 'This browser cannot show notifications.'));
       return;
     }
     if (window.Notification.permission === 'denied') {
@@ -313,8 +348,9 @@
     }
   }
 
+  // Also what keeps the hut in step on a page with no switch to draw.
   async function refreshSwitch() {
-    if (!line || !pushMeta) return;
+    if (!pushMeta) return;
     if (!pushSupported()) { drawSwitch(null); return; }
     let subscription = null;
     try {
@@ -347,9 +383,25 @@
     if (isIos() && !standalone()) {
       showBar('Keep this on your home screen: tap the Share button, then “Add to Home Screen”.');
     }
+    // The cog on the competitor home opens its Settings dialog.
+    document.addEventListener('click', ev => {
+      const opener = ev.target.closest('[data-public-settings]');
+      const dialog = opener ? document.getElementById(opener.dataset.publicSettings) : null;
+      if (!dialog) return;
+      ev.preventDefault();
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', '');
+    });
+    const installButton = document.getElementById('publicInstallButton');
+    if (installButton) installButton.addEventListener('click', askToInstall);
+    drawInstall();
+
     pushMeta = document.querySelector('meta[name="ro-push-key"]');
+    if (pushMeta && !pushMeta.content) pushMeta = null;
     line = document.getElementById('publicNotify');
-    if (pushMeta && pushMeta.content && line) {
+    const part = document.getElementById('publicNotifyPart');
+    if (part) part.hidden = !pushMeta;
+    if (pushMeta) {
       refreshSwitch();
       // Starring a boat changes what this phone should be told about.
       if (window.PublicFollow) {

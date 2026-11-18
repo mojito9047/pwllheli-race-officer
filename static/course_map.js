@@ -295,8 +295,11 @@
           attribution: '&copy; seamark/chart contributors'
         }).addTo(map);
       }
-      container._courseMap = {map, layers: [], tileHash};
-      setTimeout(() => map.invalidateSize(), 0);
+      // `sized` says whether the view below was worked out for a chart that
+      // had a size. One built inside a tab that is not open has none: see settle().
+      container._courseMap = {map, layers: [], tileHash, sized: hasSize(container)};
+      watchSize(container);
+      setTimeout(() => settle(container), 0);
     }
     const state = container._courseMap;
     state.layers.forEach(layer => state.map.removeLayer(layer));
@@ -455,16 +458,22 @@
          [separateFinish.seaward.lat, separateFinish.seaward.lon]]
       : startView;
     state.views = {start: startView, finish: finishView, course: fit.concat(finishView)};
-    if (fit.length) {
-      state.map.fitBounds(L.latLngBounds(fit), {padding: [28, 28], maxZoom: 14});
-    } else {
+    // Kept as something that can be done again: a chart built while its tab was
+    // shut worked this out for a chart of no size, and settle() repeats it the
+    // first time the chart can actually be seen.
+    state.home = () => {
+      if (fit.length) {
+        state.map.fitBounds(L.latLngBounds(fit), {padding: [28, 28], maxZoom: 14, animate: false});
+        return;
+      }
       // Nothing on the page has a position. Centre on the start line's shore
       // point if the page gave one; otherwise there is nowhere to centre on.
       const shoreLat = parseNumber(container.dataset.bridgeLat);
       const shoreLon = parseNumber(container.dataset.bridgeLon);
       if (shoreLat !== null && shoreLon !== null) state.map.setView([shoreLat, shoreLon], 13);
       else state.map.setView([0, 0], 2);
-    }
+    };
+    state.home();
     // A compound mark (Y, A) has no position of its own: it stands for its
     // corner buoys, and those are what is drawn. It is on the chart when every
     // corner is, so it must not be reported as missing while both are in view.
@@ -477,7 +486,41 @@
       .map(m => markDisplayCode(allMarks, m.mark));
     const msg = container.closest('.course-map-wrap')?.querySelector('.course-map-message');
     if (msg) msg.textContent = missing.length ? `Chart note: no coordinates are available for ${missing.join(', ')}.` : '';
-    setTimeout(() => state.map.invalidateSize(), 100);
+    setTimeout(() => settle(container), 100);
+  }
+
+  // --- A chart that is not on screen has no size --------------------------
+  //
+  // Leaflet measures its container once and draws for that size. A chart inside
+  // a tab that is not open measures 0 x 0: the course is fitted to nothing, and
+  // when the tab is opened the tiles cover a corner and the course sits wherever
+  // the arithmetic for an empty box left it. The page used to put that right
+  // itself, once, fifty milliseconds after the first time the tab was shown --
+  // which missed a chart that was not built yet, and did nothing for a chart
+  // re-measured while hidden (below), so it "did not always draw properly".
+  //
+  // So the chart looks after itself. settle() is called whenever its box changes
+  // size, and does nothing while it has none.
+  function hasSize(container) {
+    return container.clientWidth > 0 && container.clientHeight > 0;
+  }
+
+  function settle(container) {
+    const state = container && container._courseMap;
+    if (!state || !state.map || !hasSize(container)) return;
+    state.map.invalidateSize({animate: false});
+    if (state.sized) return;
+    // The first time it can be seen: fit the course again, now that there is
+    // something to fit it to, and tell the page, which may have a boat to show.
+    state.sized = true;
+    if (state.home) state.home();
+    container.dispatchEvent(new window.CustomEvent('coursemap:shown', {bubbles: true}));
+  }
+
+  function watchSize(container) {
+    if (!window.ResizeObserver || container._courseMapWatch) return;
+    container._courseMapWatch = new window.ResizeObserver(() => settle(container));
+    container._courseMapWatch.observe(container);
   }
 
   function projectPoint(p, bounds, width, height, pad) {
@@ -707,14 +750,16 @@
   // window — or rotating a phone — changes the container and Leaflet has to be
   // told, or it keeps drawing tiles for the size it was built at. Debounced,
   // because a drag-resize fires this continuously.
+  //
+  // Only a chart that is on screen. A phone fires `resize` every time its
+  // address bar slides away, which is every time the page is scrolled; telling
+  // a chart in a closed tab to measure itself then set it to 0 x 0, and it
+  // was still that size when its tab was opened.
   let resizeTimer = null;
   window.addEventListener('resize', () => {
     window.clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(() => {
-      document.querySelectorAll('.course-map').forEach(container => {
-        const state = container._courseMap;
-        if (state && state.map) state.map.invalidateSize();
-      });
+      document.querySelectorAll('.course-map').forEach(settle);
     }, 150);
   });
 
@@ -782,10 +827,7 @@
   // event, and Leaflet would carry on drawing at the old size.
   function invalidate(root) {
     if (!window.L) return;
-    (root || document).querySelectorAll('.course-map').forEach(container => {
-      const state = container._courseMap;
-      if (state && state.map) state.map.invalidateSize();
-    });
+    (root || document).querySelectorAll('.course-map').forEach(settle);
   }
 
   // The Leaflet map under `root`, for a page that needs to move it or listen to

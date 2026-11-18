@@ -2494,7 +2494,7 @@ story.append(Paragraph(
 story.append(Paragraph("What competitors see", styles["H2"]))
 story.append(Paragraph(
     "Once a film exists a link appears by itself in three places: a <b>3D replay</b> button beside "
-    "<i>Open</i> in the public races list, <b>Watch the 3D replay</b> in the public race page header, and "
+    "<i>Open</i> in the public races list, <b>Watch the 3D replay</b> on the public race page's Leader board tab, and "
     "a line in each race's section of a published results document. Nothing appears until the film is "
     "actually in the bucket, so an unrendered race looks exactly as it did before. Every one of those "
     "links goes straight to the storage bucket rather than through the hut, so a film plays whether or not "

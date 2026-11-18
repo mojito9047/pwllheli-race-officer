@@ -699,12 +699,14 @@ class TestCompetitorRaceHeaderLayout:
         assert resp.status_code == 200
         body = resp.data.decode("utf-8")
         # Once everyone has finished, the results appear as a fourth "Leader board"
-        # tab and open first — but the entries, chart and course analysis stay
-        # available as a record of the race (v0.180).
+        # tab, and the entries, chart and course analysis stay available as a
+        # record of the race (v0.180). The page opens on the chart, as it does
+        # before and during the race.
         assert 'id="publicResultsPanel"' in body
         assert 'data-tab="ptab-results"' in body
         assert ">Leader board</button>" in body
-        assert 'class="tab-pane active" id="ptab-results"' in body
+        assert 'class="tab-pane" id="ptab-results"' in body
+        assert 'class="tab-pane active" id="ptab-chart"' in body
         assert 'id="publicEntriesPanel"' in body
         assert 'id="publicCourseAnalysisPanel"' in body
 

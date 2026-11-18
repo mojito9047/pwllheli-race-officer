@@ -407,7 +407,6 @@ button.danger, .button.danger { background: #b3261e; color: white; }
 
 /* The 3D replay link in the public race header. Its own line under the
    counts, with the margin the summary grid does not give it. */
-.film-link { margin: 10px 0 0; }
 
 /* A tab's own heading sits right at the top of the pane. */
 h3.tab-heading { margin: 0 0 12px; }
@@ -2517,7 +2516,6 @@ body.replay-fullscreen-open { overflow: hidden; }
   cursor: pointer;
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.2);
 }
-.replay-footnote { margin-top: 0.6rem; }
 
 .replay-board-picker { margin-top: 4px; }
 .replay-board-picker {
@@ -3576,3 +3574,198 @@ button.boat-card-close:hover { background: var(--ink, #1c1a15); color: var(--pap
 .notify-line label { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
 .notify-line input[type="checkbox"] { width: auto; }
 .notify-line .notify-note { flex: 1 1 100%; color: var(--ink-faint, #667085); }
+
+/* ------------------------------------------------------- The public pages, tightened
+   Looked at as an app on a phone (November 2026), the competitor pages spent
+   most of the screen on things that were not the race: a two-row header, a
+   summary a screen and a half tall, a box saying no flags were up, a clock box
+   saying "Finished" twice, cards that put a label at one edge and its value at
+   the other with nothing between, and a five-line footer. Everything below is
+   about getting to the chart, the boats and the times sooner. Nothing is taken
+   away from a wide screen except the footer's sprawl. */
+
+/* The foot of the page: two short lines, the same on both pages
+   (templates/partials/public_footer.html). The race-office footer is a flex
+   row, which made every link here an item of its own. */
+.public-page .public-footer {
+  display: block;
+  padding: 8px 14px 14px;
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+}
+.public-page .public-footer p { margin: 0; }
+
+/* Settings: a small cog in the competitor home's header, and the dialog it
+   opens (static/public_app.js). */
+.public-page button.public-settings-open {
+  position: absolute; right: 10px; top: 50%;
+  transform: translateY(-50%);
+  width: 38px; height: 38px; min-height: 0; padding: 8px;
+  background: none; border: 0; border-radius: 0; box-shadow: none;
+  color: var(--ink-2, #344054);
+  cursor: pointer;
+}
+.public-page button.public-settings-open:hover {
+  background: none; box-shadow: none; transform: translateY(-50%);
+  color: var(--ink, #101828);
+}
+.public-settings-open svg { display: block; width: 22px; height: 22px; stroke: currentColor; }
+dialog.public-settings { width: min(26rem, calc(100vw - 2rem)); }
+.public-settings h5 {
+  margin: 14px 0 6px; padding-top: 10px;
+  border-top: 1px solid var(--rule, #d4dce9);
+  font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-faint, #667085);
+}
+.public-settings-part[hidden] { display: none; }
+.public-settings .follow-line,
+.public-settings .notify-line { margin: 0; }
+.public-settings .follow-line:not([hidden]) + .follow-none { display: none; }
+.public-settings #publicInstallButton { margin-top: 6px; }
+.public-settings #publicInstallButton[hidden] { display: none; }
+
+/* The start video and the film of the race, side by side above the results. */
+.result-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; }
+.current-race-link { margin: 6px 0; }
+
+/* "Competitor home" on a wide screen, "Home" on a phone. */
+.nav-short { display: none; }
+
+@media (max-width: 700px) {
+  /* --- One slim row across the top, on both pages. The race page had the
+     banner and its Home button on a row each: 100px that stayed on screen,
+     being sticky, all the way down the page. */
+  .public-page { --public-header-h: 48px; }
+  .public-page > header,
+  .competitor-race-page > header {
+    flex-direction: row; align-items: center; gap: 10px;
+    height: var(--public-header-h); min-height: 0;
+    padding: 0 12px;
+  }
+  .competitor-race-page > header { justify-content: space-between; }
+  .competitor-race-page > header .public-club-brand {
+    width: auto; flex: 1 1 auto; min-width: 0; justify-content: flex-start;
+  }
+  .competitor-race-page > header .public-club-brand img {
+    height: auto; max-height: 32px; max-width: 100%;
+  }
+  .competitor-race-page > header nav { width: auto; flex: 0 0 auto; }
+  .public-page > header nav a { padding: 5px 10px; }
+  .nav-long { display: none; }
+  .nav-short { display: inline; }
+  /* The home page keeps its banner in the middle, clear of the cog. */
+  .public-page .public-club-brand img { height: auto; max-height: 34px; max-width: calc(100vw - 110px); }
+
+  /* The tabs are the page's navigation, so they stay on screen -- under the
+     header, not behind it, which is where top: 0 had put them. */
+  .public-page .race-tabs .tab-nav { top: var(--public-header-h); }
+  .public-page .tab-pane { scroll-margin-top: calc(var(--public-header-h) + 52px); }
+
+  /* --- The summary: the race, its times, its course, and how it stands. */
+  .public-page main { padding: 8px; }
+  .public-page .race-header { padding: 10px 12px; gap: 8px; margin-bottom: 8px; }
+  .public-page .card { margin-bottom: 8px; }
+  .public-page .race-summary-main { flex: 0 0 auto; }
+  .public-page .race-summary-main h2 { margin: 0 0 2px; font-size: 1.25rem; line-height: 1.2; }
+  .public-page .race-summary-main p { margin: 4px 0; }
+  .public-page .race-summary-main > p:first-of-type { font-size: 0.9rem; line-height: 1.4; }
+  .public-page .race-summary-main .sequence { margin: 6px 0 4px; }
+  .public-page .public-action-row { margin-top: 8px; }
+  /* Four short facts on one line where they fit, not four half-width boxes. */
+  .public-page .summary-grid { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  /* A board with nothing flying is a box of nothing. It comes back with the
+     first flag. */
+  .public-page .race-header-flags.no-flags-up { display: none; }
+  /* The clock as one line across the page: still the instrument, a third of
+     the height. Once the race is over it has one thing to say, once. */
+  .competitor-race-page .countdown {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    padding: 6px 12px; text-align: left;
+  }
+  .competitor-race-page .countdown .time { font-size: 26px; line-height: 1.2; }
+  .competitor-race-page .countdown:not([data-race-finished="1"]) .label,
+  .competitor-race-page .countdown[data-race-finished="1"] .state { display: none; }
+
+  /* The home page: its title across the top, then the wind and the clock side
+     by side instead of one above the other. */
+  .public-page:not(.competitor-race-page) .public-summary {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center; gap: 8px 14px;
+  }
+  .public-page:not(.competitor-race-page) .public-summary > .race-summary-main,
+  .public-page:not(.competitor-race-page) .public-summary > :last-child:nth-child(2) { grid-column: 1 / -1; }
+  .public-page:not(.competitor-race-page) .public-summary > * { width: auto; }
+  .public-page .public-wind-instrument .wind-dial { width: min(100%, 160px); }
+  .public-page:not(.competitor-race-page) .countdown { min-width: 0; padding: 10px 8px; }
+  .public-page:not(.competitor-race-page) .countdown .time { font-size: 24px; }
+
+  /* The wind figures as chips side by side, not three bars the width of the
+     page one above the other. */
+  .public-page .weather-controls { display: flex; flex-wrap: wrap; gap: 6px; }
+  .public-page .wind-chip { width: auto; flex: 1 1 auto; }
+
+  /* --- Tabs: two short lines each rather than tall boxes. */
+  .public-tabs .tab-button { padding: 8px 4px; font-size: 0.78rem; line-height: 1.15; }
+  .public-page .tab-pane { padding: 10px; }
+  .public-page .tab-pane h3:first-child,
+  .public-page .tab-pane > div > h3:first-child { margin-top: 0; }
+  .public-page .tab-pane .section-head { margin-bottom: 8px; }
+  .public-page .result-card h4 { margin-bottom: 2px; }
+  .public-page .result-card > p { margin: 2px 0 8px; }
+  .public-page .results-grid { gap: 12px; }
+
+  /* --- One card per row, read as a line of facts.
+     Each cell used to be a row of its own, label hard left and value hard
+     right: eight rows and 340px for one boat's result, most of it the gap in
+     the middle. Now the first cell heads the card and the rest follow it as
+     "LABEL value" pairs that wrap like words, so a result is three lines.
+     The leaderboard under the chart (.replay-board) has a layout of its own. */
+  .public-page .stack-table:not(.replay-board) tr {
+    display: flex; flex-wrap: wrap; align-items: baseline;
+    gap: 2px 14px; padding: 7px 10px; margin-bottom: 8px;
+  }
+  .public-page .stack-table:not(.replay-board) td {
+    display: inline-flex; flex: 0 1 auto; align-items: baseline; justify-content: flex-start;
+    gap: 6px; order: 2;
+    border: 0; padding: 1px 0; text-align: left;
+  }
+  .public-page .stack-table:not(.replay-board) td:first-child {
+    display: block; flex: 1 1 100%; order: 0;
+    border: 0; padding: 0 0 2px;
+  }
+  /* A table that leads with a position: "1  MOJITO" heads the card. */
+  .public-page .stack-table:not(.replay-board) td:first-child[data-label="Rank"],
+  .public-page .stack-table:not(.replay-board) td:first-child[data-label="Position"],
+  .public-page .stack-table:not(.replay-board) td:first-child[data-label="#"] {
+    flex: 0 0 auto; min-width: 1.4em;
+    font-family: var(--mono, monospace); font-size: 1.15rem;
+  }
+  .public-page .stack-table:not(.replay-board) td[data-label="Rank"] + td,
+  .public-page .stack-table:not(.replay-board) td[data-label="Position"] + td,
+  .public-page .stack-table:not(.replay-board) td[data-label="#"] + td {
+    flex: 1 1 0; min-width: 60%; order: 0;
+    font-family: var(--text-face, inherit); font-size: 1.08rem; font-weight: 600;
+  }
+  .public-page .stack-table:not(.replay-board) td[data-label="Rank"] + td::before,
+  .public-page .stack-table:not(.replay-board) td[data-label="Position"] + td::before,
+  .public-page .stack-table:not(.replay-board) td[data-label="#"] + td::before { display: none; }
+  /* The times are what the card is for: first after the name, and in ink. */
+  .public-page .stack-table:not(.replay-board) td[data-label="Elapsed"],
+  .public-page .stack-table:not(.replay-board) td[data-label="Corrected"] { order: 1; }
+  .public-page .stack-table:not(.replay-board) td[data-label="Corrected"] { font-weight: 700; }
+  /* These say what they are without a label. */
+  .public-page .stack-table:not(.replay-board) td[data-label="Sail"]::before,
+  .public-page .stack-table:not(.replay-board) td[data-label="Sail no."]::before,
+  .public-page .stack-table:not(.replay-board) td[data-label="Start"]::before,
+  .public-page .stack-table:not(.replay-board) td[data-label="Status"]::before { display: none; }
+
+  /* The races list: the race and its buttons on one line, when and how it
+     stands on the next. */
+  #htab-races .stack-table td:first-child { flex: 1 1 0; min-width: 40%; }
+  #htab-races .stack-table td[data-label="Link"] { order: 0; flex: 0 0 auto; }
+  #htab-races .stack-table td[data-label="Link"]::before,
+  #htab-races .stack-table td[data-label="First start"]::before { display: none; }
+  #htab-races .stack-table td:not(:first-child):not([data-label="Link"]) { order: 1; }
+  #htab-races details.subsection > summary { line-height: 1.3; }
+}

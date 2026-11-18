@@ -45,12 +45,15 @@ class TestPublicLiveStreamLink:
 
     def test_home_camera_embeds_the_stream_when_set(self, client):
         # v0.188: the home Live camera tab plays the stream inline, so there is no
-        # separate "Watch live" button — the panel itself is the live view.
+        # separate "Watch live" button in it — the panel itself is the live view.
+        # The one link is in the footer, which is the same on both public pages.
         ro.save_app_settings({"public_live_stream_url": "https://live.example.org"})
         resp = client.get("/public/current")
         assert resp.status_code == 200
-        assert b"Watch live" not in resp.data
         assert b'data-stream-page="https://live.example.org"' in resp.data
+        assert resp.data.count(b"Watch live") == 1
+        footer = resp.data.split(b'<footer class="public-footer">')[1]
+        assert b'href="https://live.example.org"' in footer and b"Watch live" in footer
 
     def test_invalid_url_is_rejected_on_save(self, client):
         ro.save_app_settings({"public_live_stream_url": "javascript:alert(1)"})

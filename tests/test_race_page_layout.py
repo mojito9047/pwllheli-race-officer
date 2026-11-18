@@ -95,10 +95,14 @@ class TestTheChartIsCappedByWindowHeight:
 
     def test_a_window_resize_tells_leaflet(self):
         """Height now depends on the viewport, so a resize changes the container.
-        Leaflet keeps drawing at its build size unless invalidateSize is called."""
+        Leaflet keeps drawing at its build size unless invalidateSize is called.
+
+        It is called through settle(), which leaves a chart in a closed tab
+        alone: see tests/test_public_phone_layout.py."""
         js = pathlib.Path("static/course_map.js").read_text(encoding="utf-8")
         assert "addEventListener('resize'" in js
-        assert "invalidateSize()" in js
+        assert "document.querySelectorAll('.course-map').forEach(settle)" in js
+        assert "state.map.invalidateSize(" in js
 
 
 class TestTheChartCanFillTheScreen:

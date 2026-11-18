@@ -322,12 +322,18 @@ class TestTheChartTab:
         pane = html.split('id="ptab-chart"', 1)[1].split('id="ptab-analysis"', 1)[0]
         assert "on the water" in pane and "not corrected for handicap" in pane
 
-    def test_it_says_the_track_between_fixes_is_interpolated(self, client, monkeypatch):
+    def test_the_guide_says_the_track_between_fixes_is_interpolated(self, client, monkeypatch):
+        """The chart said so itself, in a paragraph under it, until the page was
+        cut down to what a phone has room for (November 2026). It is still true
+        and still worth saying, so it is said in the competitor's guide."""
         self._tracking(monkeypatch, True)
         race_id, _ids, _gun = _seed_race(client)
         html = client.get(f"/public/race/{race_id}").get_data(as_text=True)
         pane = html.split('id="ptab-chart"', 1)[1].split('id="ptab-analysis"', 1)[0]
-        assert "interpolated" in pane
+        assert "interpolated" not in pane and "replay-footnote" not in pane
+        import pathlib
+        guide = pathlib.Path("scripts/build_competitor_guide.py").read_text(encoding="utf-8")
+        assert "the line between two fixes is interpolated, not observed" in " ".join(guide.split()).replace('" "', "")
 
 
 class TestKeepingUpWithALiveRace:

@@ -251,7 +251,7 @@ class TestTheChartScript:
     def test_the_viewers_choices_survive_the_page_reloading_itself(self):
         js = self._js()
         assert "'roChart:'" in js and "sessionStorage" in js
-        assert "{sel: selected, follow: following, speed: SPEEDS[speedIx]}" in js
+        assert "{sel: selected, card: cardOpen, follow: following, speed: SPEEDS[speedIx]}" in js
 
     def test_a_finished_race_does_not_open_saying_live(self):
         assert "panel.dataset.raceFinished === '1'" in self._js().split("function describe()", 1)[1][:900]

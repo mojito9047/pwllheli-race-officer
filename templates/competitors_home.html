@@ -17,7 +17,36 @@
   <a class="public-club-brand" href="{{ url_for('competitor_current_race') }}" aria-label="{{ club_brand.name }} competitor information">
     {% include "_public_club_brand.html" %}
   </a>
+  {# What a phone can be set to do, behind one small button on this page only:
+     notifications, the favourite boats and the home-screen offer. They used to
+     be lines of their own on every page, and were in the way on all of them. #}
+  <button type="button" class="public-settings-open" data-public-settings="publicSettings"
+          aria-label="Settings" title="Settings">{% include 'icons/settings.svg' %}</button>
 </header>
+<dialog id="publicSettings" class="help-dialog public-settings">
+  <form method="dialog" class="dialog-close-row"><button class="small secondary">Close</button></form>
+  <h4>Settings</h4>
+  {# Filled in by static/public_app.js. The section stays hidden unless the club
+     has switched notifications on, when the page carries the key to subscribe with. #}
+  <section class="public-settings-part" id="publicNotifyPart" hidden>
+    <h5>Notifications</h5>
+    <div class="notify-line small" id="publicNotify" hidden></div>
+  </section>
+  {# Favourite boats are kept on the phone that starred them (static/public_follow.js),
+     so the server has nothing to put here. #}
+  <section class="public-settings-part">
+    <h5>Favourite boats</h5>
+    <p class="follow-line small" id="publicFollowLine" hidden>★ <strong class="follow-names"></strong>
+      <button type="button" class="button small secondary follow-clear">Clear</button></p>
+    <p class="small muted follow-none">None yet. Tap the star beside a boat on a race page.</p>
+  </section>
+  {# Only where the browser can do it, and never inside the installed app. #}
+  <section class="public-settings-part" id="publicInstallPart" hidden>
+    <h5>Home screen</h5>
+    <p class="small" id="publicInstallNote"></p>
+    <button type="button" class="button small" id="publicInstallButton" hidden>Add to home screen</button>
+  </section>
+</dialog>
 <main>
 <section class="race-header race-summary public-summary">
   <div class="race-summary-main">
@@ -31,13 +60,6 @@
     {% else %}
       <p class="muted">No current race has been created yet.</p>
     {% endif %}
-    {# Favourite boats are kept on the phone that starred them (static/public_follow.js),
-       so the server has nothing to put here: the line appears once there is one. #}
-    <p class="follow-line small" id="publicFollowLine" hidden>★ Following <strong class="follow-names"></strong>
-      <button type="button" class="button small secondary follow-clear">Clear</button></p>
-    {# The notifications switch. Filled in by static/public_app.js, and left
-       empty and hidden when the club has not switched notifications on. #}
-    <div class="notify-line small" id="publicNotify" hidden></div>
   </div>
   {# The same wind instrument the race officer sees, plus the current race's
      countdown, so both are visible without opening a tab or a race page. #}
@@ -75,10 +97,7 @@
   <div class="tab-pane active" id="htab-races">
     <div id="competitorRacesPanel">
     <div class="section-head">
-      <div>
-        <h3>Races in {{ race_year }}</h3>
-        <p class="muted">Series are rolled up; the current series is open. Select a race to see its start information, chart and results.</p>
-      </div>
+      <h3>Races in {{ race_year }}</h3>
     </div>
     {% if race_groups %}
       {% for group in race_groups %}
@@ -338,6 +357,6 @@
   }
 })();
 </script>
-<footer class="public-footer">Pwllheli Race Officer v{{ app_version }} · Provisional information for competitors. Race officer decisions and published results remain authoritative. · <a href="/documentation/competitor-guide" target="_blank" rel="noopener">Competitor's guide (PDF)</a> · <a href="{{ source_url }}" target="_blank" rel="noopener">Source on GitHub</a> · Copyright © 2026 CapeNet Ltd</footer>
+{% include 'partials/public_footer.html' %}
 </body>
 </html>

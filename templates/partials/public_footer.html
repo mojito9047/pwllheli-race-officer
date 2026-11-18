@@ -1,0 +1,12 @@
+{# The foot of the public competitor pages: the same two lines on the home page
+   and on a race page.
+
+   It was one long sentence written out separately in each template, and the two
+   had drifted (only one offered the live stream). It was also laid out by the
+   race-office footer's flex rule, which made every link and every scrap of text
+   between them its own item, so on a phone it ran to five lines and 140px. Two
+   short paragraphs now, and style.css takes the flex off (.public-footer). #}
+<footer class="public-footer">
+  <p>Provisional information. Race officer decisions and published results are authoritative.</p>
+  <p>{% if public_live_stream_url %}<a href="{{ public_live_stream_url }}" target="_blank" rel="noopener">Watch live</a> · {% endif %}<a href="/documentation/competitor-guide" target="_blank" rel="noopener">Competitor's guide</a> · <a href="{{ source_url }}" target="_blank" rel="noopener">Source</a> · v{{ app_version }} · © 2026 CapeNet Ltd</p>
+</footer>
