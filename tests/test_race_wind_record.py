@@ -153,11 +153,14 @@ class TestFinishedRaceDropsLiveTrackingColumns:
         return html.split('id="ptab-entries"', 1)[1].split('id="ptab-chart"', 1)[0]
 
     def test_gps_columns_go_once_the_race_is_over(self, client):
-        """Nothing polls positions after the finish, so the columns would be dashes."""
+        """Nothing polls positions after the finish, so the columns would be dashes.
+
+        Since November 2026 the whole Entries tab goes at the finish, the
+        results taking its place, and the columns go with it."""
         save_hardware_config({**hardware_config(), "track_enabled": True})
         race_id, _race = _finished_race_with_wind([200])
-        finished = self._entries_pane(client.get(f"/public/race/{race_id}").get_data(as_text=True))
-        assert "<th>Marks</th>" not in finished
+        finished = client.get(f"/public/race/{race_id}").get_data(as_text=True)
+        assert 'id="ptab-entries"' not in finished and "publicEntriesTable" not in finished.split("<script>")[0]
         assert "Boat positions come from GPS trackers" not in finished
         with ro.get_db() as db:
             db.execute("UPDATE entries SET status='RACING', finish_time=NULL WHERE race_id=?", (race_id,))

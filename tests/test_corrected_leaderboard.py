@@ -93,7 +93,7 @@ class TestVmc:
 
 class TestTheEstimateIsWithheldEarly:
     def test_ten_minutes_is_the_threshold(self):
-        """The YB Tracking convention, and the reason for it: before the first
+        """The usual convention on race trackers, and the reason for it: before the first
         mark a boat's pace is mostly which end of the line it started."""
         assert track.ESTIMATE_AFTER_S == 600.0
 

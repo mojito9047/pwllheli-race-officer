@@ -92,7 +92,7 @@ class TestRacePageTabs:
         assert 'id="publicLegAnalysisTable"' in html
         assert 'class="course-map"' in html               # chart pane still has the map
 
-    def test_leader_board_tab_is_added_once_the_race_has_finished(self, client):
+    def test_the_results_tab_replaces_entries_once_the_race_has_finished(self, client):
         race_id = _race()
         html = client.get(f"/public/race/{race_id}").get_data(as_text=True)
         assert 'data-tab="ptab-results"' not in html      # hidden while racing
@@ -101,12 +101,12 @@ class TestRacePageTabs:
                        (datetime.now().isoformat(timespec="seconds"), race_id))
             db.commit()
         html = client.get(f"/public/race/{race_id}").get_data(as_text=True)
-        # The other three tabs survive and the leader board is added. The page
-        # still opens on the chart, as it does at every stage of a race
-        # (tests/test_public_phone_layout.py).
-        for tab in ('data-tab="ptab-results"', 'data-tab="ptab-entries"',
-                    'data-tab="ptab-chart"', 'data-tab="ptab-analysis"'):
+        # The chart and the analysis survive, and the results take the place
+        # of the entries. The page still opens on the chart, as it does at
+        # every stage of a race (tests/test_public_phone_layout.py).
+        for tab in ('data-tab="ptab-results"', 'data-tab="ptab-chart"', 'data-tab="ptab-analysis"'):
             assert tab in html, tab
+        assert 'data-tab="ptab-entries"' not in html
         assert 'data-default-tab="ptab-chart"' in html
 
     def test_no_desktop_mobile_toggle_link(self, client):

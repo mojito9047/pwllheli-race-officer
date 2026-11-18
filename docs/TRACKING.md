@@ -256,7 +256,7 @@ beats: 44% spread over all directions. Direction is precisely what a headland be
 club course in sight of the hut it remains sound; for anything round Trwyn Cilan it is not.
 
 Guards keep a bad number off the page. Nothing is estimated in the first `ESTIMATE_AFTER_S` (ten
-minutes) of racing — the YB Tracking convention, and sound, because before the first mark a
+minutes) of racing — the usual convention on race trackers, and sound, because before the first mark a
 boat's pace is mostly which end of the line it started. A boat unheard from for
 `ESTIMATE_STALE_S` (three minutes) gets no estimate rather than one from a stale position. A boat
 whose distance to the next mark has *grown* over the window gets no recent-pace estimate rather

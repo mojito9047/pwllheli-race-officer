@@ -94,8 +94,13 @@
 </section>
 
 {# Tabs keep the page short — especially on a phone. The race header, flags and
-   countdown stay above them and are always visible. The Leader board tab only
-   exists once the race has finished.
+   countdown stay above them and are always visible.
+
+   Entries while boats are racing, Provisional results once none are: the one
+   takes the other's place rather than sitting beside it. Every boat on the
+   entries list is in the results, with its class, its rating and its status,
+   so after the finish the entries list was the same boats again with less to
+   say. A pursuit race keeps its Start times: those are not in its results.
 
    The page opens on the Chart, before, during and after the race: it is what
    people come to look at, and a chart that is on screen from the start is built
@@ -103,17 +108,20 @@
    "active" classes below say so in the markup, so nothing flashes on load. #}
 <section class="race-tabs card public-tabs" data-default-tab="ptab-chart">
   <nav class="tab-nav" aria-label="Race information tabs">
-    {% if race_finished %}<button type="button" class="tab-button" data-tab="ptab-results">Leader board</button>{% endif %}
-    <button type="button" class="tab-button" data-tab="ptab-entries">{% if is_pursuit %}Start times{% else %}Entries{% endif %}</button>
+    {% set entries_tab = is_pursuit or not race_finished %}
+    {% if race_finished %}<button type="button" class="tab-button" data-tab="ptab-results">Provisional results</button>{% endif %}
+    {% if entries_tab %}<button type="button" class="tab-button" data-tab="ptab-entries">{% if is_pursuit %}Start times{% else %}Entries{% endif %}</button>{% endif %}
     <button type="button" class="tab-button active" data-tab="ptab-chart">Chart</button>
     <button type="button" class="tab-button" data-tab="ptab-analysis">Course analysis</button>
     {% if start_photo_tab %}<button type="button" class="tab-button" data-tab="ptab-startphoto">Start photo</button>{% endif %}
   </nav>
 
   {% if race_finished %}
-  {# Results live in their own tab so the entries, chart and course analysis
-     stay available after the race. Named "Leader board" because a live
-     handicap-corrected order during the race will belong here too. #}
+  {# The results, in the place the entries list had while boats were racing.
+     "Provisional results" and not "Leader board", which it was called until
+     November 2026: the live order during a race is the Leaderboard under the
+     chart, and two things with one name on one page was one too many. These
+     are provisional until the race office publishes the series. #}
   <div class="tab-pane" id="ptab-results">
     <div id="publicResultsPanel">
     {# The film of the whole race, beside the start video. It is one thing for
@@ -122,7 +130,7 @@
        Nothing shows until a film has been rendered, about an hour after racing. #}
     {% macro film_button() %}{% if film_url %}<a class="button small secondary" href="{{ film_url }}" target="_blank" rel="noopener">Watch the 3D replay</a>{% endif %}{% endmacro %}
     {% if is_pursuit %}
-  <h3>Results (finishing order)</h3>
+  <h3>Provisional results (finishing order)</h3>
   {% if film_url %}<p class="small result-links">{{ film_button() }}</p>{% endif %}
   {% if pursuit_ranked %}
   <table class="entry-list stack-table">
@@ -150,7 +158,7 @@
   </table>
   {% else %}<p class="muted">Finishing positions not published yet.</p>{% endif %}
     {% else %}
-  <h3>Results</h3>
+  <h3>Provisional results</h3>
   {% if dual_results %}
     <p class="small result-links">
       {% if start_video_clip and public_video_clip_is_viewable(start_video_clip) %}
@@ -229,6 +237,7 @@
   </div>
   {% endif %}
 
+  {% if entries_tab %}
   {% set show_tracking = gps_tracking_enabled and not race_finished %}
   <div class="tab-pane" id="ptab-entries">
   {% if is_pursuit %}
@@ -288,6 +297,7 @@
     </div>
   {% endif %}
   </div>
+  {% endif %}
 
   {# One chart tab, not two. With tracking on it carries the fleet and a timeline:
      it opens at the latest positions (live) and winds back through the race. With
@@ -408,9 +418,6 @@
     <div class="section-head">
       <div>
         <h3>Course analysis</h3>
-        {% if not wind_record %}
-        <p class="muted">Wind information is measured at the start hut and may differ from the wind on the race course.</p>
-        {% endif %}
       </div>
       <form method="get" class="form-row">
         <label>Polar
@@ -832,6 +839,11 @@ document.addEventListener('click', (ev) => {
   const defaultTab = (tabsRoot && tabsRoot.dataset.defaultTab) || 'ptab-chart';
   function show(tabId, rememberInUrl) {
     if (tabId === 'ptab-replay') tabId = 'ptab-chart';   // the two tabs merged
+    // Somebody on the Entries tab when the last boat finishes is reloaded onto
+    // a page that has no Entries tab: the results have taken its place, so that
+    // is where they go. The same for an old link to either tab.
+    if (tabId === 'ptab-entries' && !document.getElementById(tabId)) tabId = 'ptab-results';
+    if (tabId === 'ptab-results' && !document.getElementById(tabId)) tabId = 'ptab-entries';
     if (!document.getElementById(tabId)) tabId = defaultTab;
     buttons.forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
     panes.forEach(p => p.classList.toggle('active', p.id === tabId));

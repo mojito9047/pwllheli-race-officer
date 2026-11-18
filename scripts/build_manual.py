@@ -663,8 +663,8 @@ story.append(Paragraph(
     "committee &mdash; use the HTML publish in Chapter 11.", styles["Body"]))
 story.append(Paragraph(
     "Competitors see the same classed tables on the public race page as soon as every boat has stopped racing: "
-    "a <b>Leader board</b> tab appears there and opens first, while the entries, chart and course analysis stay "
-    "available. Those last two switch to the <b>average wind over the race</b> (warning signal to last finish) "
+    "a <b>Provisional results</b> tab takes the place of Entries there, while the chart and course analysis stay "
+    "available. Those two switch to the <b>average wind over the race</b> (warning signal to last finish) "
     "as a record of the conditions, so nothing you do afterwards changes what they show.", styles["Body"]))
 
 story.append(PageBreak())

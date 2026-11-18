@@ -1268,8 +1268,8 @@ story.append(Paragraph(
     "series, current series open and current race highlighted), <b>Wind</b> and <b>Live camera</b> (which starts "
     "on opening the tab, with no checkbox). A <b>race page</b> is four tabs — <b>Entries</b> (or <b>Start "
     "times</b> for a pursuit), <b>Chart</b>, <b>Course analysis</b> and <b>Start photo</b> (the camera's "
-    "still at each start signal, with the start line, up a few seconds after the gun) — gaining a fifth, "
-    "<b>Leader board</b>, once every boat has stopped racing; the leader board then opens first and the Chart/Course "
+    "still at each start signal, with the start line, up a few seconds after the gun) — and opens on the Chart. "
+    "<b>Provisional results</b> takes the place of Entries once every boat has stopped racing, and the Chart/Course "
     "analysis tabs switch to the <b>average wind over the race</b> (warning signal to last finish, TWD "
     "vector-averaged) as a record of the conditions. The older <b>/public/mobile/...</b> addresses still work "
     "and redirect to the responsive page, so links already shared with competitors keep working.", styles["Body"]))
@@ -2494,7 +2494,7 @@ story.append(Paragraph(
 story.append(Paragraph("What competitors see", styles["H2"]))
 story.append(Paragraph(
     "Once a film exists a link appears by itself in three places: a <b>3D replay</b> button beside "
-    "<i>Open</i> in the public races list, <b>Watch the 3D replay</b> on the public race page's Leader board tab, and "
+    "<i>Open</i> in the public races list, <b>Watch the 3D replay</b> on the public race page's Provisional results tab, and "
     "a line in each race's section of a published results document. Nothing appears until the film is "
     "actually in the bucket, so an unrendered race looks exactly as it did before. Every one of those "
     "links goes straight to the storage bucket rather than through the hut, so a film plays whether or not "

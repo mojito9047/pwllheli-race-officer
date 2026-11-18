@@ -133,7 +133,7 @@ with sync_playwright() as p:
     shot(pub_m, "04b_race_chart_mobile.png")
 
     # Specific race page - "after racing" results state (existing finished race id=1),
-    # which now opens on its Leader board tab.
+    # on its Provisional results tab (the page itself opens on the Chart).
     pub.goto(f"{BASE}/public/race/1", wait_until="load")
     pub.wait_for_timeout(800)
     shot(pub, "05_race_results_desktop.png")

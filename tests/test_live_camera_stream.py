@@ -145,7 +145,10 @@ class TestPublicHomeCamera:
         pane = html[html.index('id="htab-camera"'):html.index('id="competitorHomeTabs"') + 1] \
             if 'id="htab-camera"' in html else html
         assert "camera-panel-actions" not in html
-        assert "The view from the start hut, while this tab is open." in html
+        # The heading is the whole of the header now: the sentence under it
+        # went with the others when the pages were cut down for a phone.
+        assert "<h3>Live start hut camera</h3>" in html
+        assert "The view from the start hut, while this tab is open." not in html
 
     def test_phone_css_lets_the_camera_fill_the_width(self, client):
         """On a phone the camera pane drops its padding and reclaims the tabs

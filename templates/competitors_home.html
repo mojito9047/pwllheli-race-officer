@@ -53,10 +53,6 @@
     <h2>{% if current_series %}{{ current_series.name }}{% else %}Race information{% endif %}</h2>
     {% if current_race %}
       <p><strong>Current race:</strong> {{ current_race.name }} · <strong>First start:</strong> {{ dt_full_display(current_race_card.first_start_time) if current_race_card else 'Not set' }}</p>
-      {# The page that FOLLOWS the current race, not a link pinned to today's id:
-         a competitor who sails a race and finishes is otherwise left on it when
-         the race officer moves on. #}
-      <p class="public-action-row"><a class="button" href="{{ url_for('competitor_current_race_sheet') }}">Go to current race</a></p>
     {% else %}
       <p class="muted">No current race has been created yet.</p>
     {% endif %}
@@ -82,6 +78,14 @@
     <span class="time" id="publicHomeCountdownTime">--:--</span>
     <span class="state" id="publicHomeCountdownState">Waiting</span>
   </div>
+  {% endif %}
+  {% if current_race %}
+  {# Under the wind and the clock, not between them and the race they describe:
+     what the race is, how it stands, then the way in. It opens the page that
+     FOLLOWS the current race, not a link pinned to today's id: a competitor who
+     sails a race and finishes is otherwise left on it when the race officer
+     moves on. #}
+  <p class="public-action-row"><a class="button" href="{{ url_for('competitor_current_race_sheet') }}">Go to current race</a></p>
   {% endif %}
 </section>
 
@@ -144,10 +148,9 @@
   <div class="tab-pane" id="htab-wind">
     <div id="competitorWindPanel">
     <div class="section-head">
-      <div>
-        <h3>Start hut wind</h3>
-        <p class="muted">The wind is measured at the start hut and may differ from the wind on the race course.</p>
-      </div>
+      {# "Start hut" in the heading and "at hut" on every figure say where
+         this is measured; the sentence that said it again is in the guide. #}
+      <h3>Start hut wind</h3>
       <label>History
         <select id="homeHistoryMinutes">
           <option value="5">5 min</option>
@@ -174,10 +177,7 @@
        so the video can fill the width. The Watch-live button is gone: the video
        now plays inline, so the panel itself is the live view. #}
     <div class="section-head camera-head">
-      <div>
-        <h3>Live start hut camera</h3>
-        <p class="muted">The view from the start hut, while this tab is open.</p>
-      </div>
+      <h3>Live start hut camera</h3>
     </div>
     {# Refreshing snapshots while the relay's on-demand stream spins up, then the
        live stream itself. See static/live_camera.js. #}

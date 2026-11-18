@@ -8,7 +8,8 @@ the race. What came out of that, and what these tests hold:
 - Notifications, the favourites and the home-screen offer are behind one cog on
   the competitor home, not lines on every page.
 - The explanatory sentences under each heading are gone.
-- The 3D replay button is on the Leader board tab, beside the start video.
+- The 3D replay button is on the results tab, beside the start video.
+- Once no boat is racing, Provisional results takes the place of Entries.
 - One footer, two lines, the same on both pages.
 - A phone gets a slim header, a short summary and cards that read as a line.
 """
@@ -51,14 +52,13 @@ class TestTheRacePageOpensOnTheChart:
         assert 'class="tab-pane active" id="ptab-chart"' in html
         assert 'class="tab-button active" data-tab="ptab-chart"' in html
 
-    def test_and_after_it_when_there_is_a_leader_board(self, client):
+    def test_and_after_it_when_there_are_results(self, client):
         race_id = _race()
         _finish(race_id)
         html = client.get(f"/public/race/{race_id}").get_data(as_text=True)
         assert 'data-tab="ptab-results"' in html
         assert 'class="tab-pane active" id="ptab-chart"' in html
         assert 'class="tab-pane" id="ptab-results"' in html
-        assert 'class="tab-pane" id="ptab-entries"' in html
 
     def test_only_one_tab_is_marked_open(self, client):
         race_id = _race()
@@ -173,6 +173,57 @@ class TestSettingsAreBehindACogOnTheHomePage:
         assert "<svg" in button and 'aria-label="Settings"' in button
 
 
+class TestTheWayInToTheCurrentRaceIsUnderTheInstruments:
+    """What the race is, how it stands (the wind and the clock), then the
+    button: not the button between the race and its instruments."""
+
+    def _summary(self, client):
+        from tests.test_competitor_follows_the_current_race import _race as racing
+        racing("Race being sailed")
+        html = client.get("/public/current").get_data(as_text=True)
+        return html.split('class="race-header race-summary public-summary"')[1].split("</section>")[0]
+
+    def test_it_is_the_last_thing_in_the_summary(self, client):
+        summary = self._summary(client)
+        assert summary.index("public-wind-instrument") < summary.index("public-action-row")
+        assert summary.index('id="publicHomeCountdown"') < summary.index("public-action-row")
+        assert summary.rstrip().endswith("Go to current race</a></p>")
+
+    def test_and_not_inside_the_text_block_any_more(self, client):
+        summary = self._summary(client)
+        text_block = summary.split('class="race-summary-main"')[1].split('class="public-wind-instrument"')[0]
+        assert "Go to current race" not in text_block
+
+    def test_with_no_race_there_is_no_button(self, client):
+        html = client.get("/public/current").get_data(as_text=True)
+        assert "Go to current race" not in html and "public-action-row" not in html
+
+    def test_it_has_a_row_to_itself_at_every_width(self):
+        block, phone = _phone_css()
+        assert ".public-summary > .public-action-row { flex: 1 1 100%; margin: 0; }" in block
+        assert ".public-summary > .public-action-row," in phone, "and the full width of the phone's grid"
+
+
+class TestTheDocumentationNamesNoOtherTracker:
+    """Asked for outright (November 2026): the documentation does not name
+    the tracking service competitors used before. The mark corners YA and YB
+    are another matter, and are everywhere."""
+
+    NAMES = ("YB Tracking", "YB Races", "YB convention", "YB app", "YB's", "yb.tl", "the YB ")
+
+    def test_nothing_that_ships_names_it(self):
+        found = []
+        places = [ROOT / "docs", ROOT / "scripts", ROOT / "templates", ROOT / "static", ROOT / "core",
+                  ROOT / "routes"]
+        for place in places:
+            for path in place.rglob("*"):
+                if path.suffix.lower() not in (".md", ".py", ".html", ".js", ".css", ".txt"):
+                    continue
+                text = path.read_text(encoding="utf-8", errors="replace")
+                found += [f"{path.relative_to(ROOT)}: {name}" for name in self.NAMES if name in text]
+        assert not found, found
+
+
 class TestTheExplanationsAreGone:
     GONE_FROM_THE_RACE_PAGE = (
         "All entered boats are no longer racing",
@@ -181,6 +232,12 @@ class TestTheExplanationsAreGone:
         "Averaged over the race, from the warning signal",
         "Taken by the hut camera at the start signal",
         "This is one particular race",
+        "may differ from the wind on the race course",
+    )
+    GONE_FROM_THE_HOME_PAGE = (
+        "Series are rolled up",
+        "may differ from the wind on the race course",
+        "The view from the start hut, while this tab is open",
     )
 
     def test_the_race_template_says_none_of_it(self):
@@ -189,8 +246,10 @@ class TestTheExplanationsAreGone:
             assert text not in tpl, text
         assert "replay-footnote" not in tpl
 
-    def test_the_home_template_does_not_explain_the_list(self):
-        assert "Series are rolled up" not in _read(TEMPLATES / "competitors_home.html")
+    def test_the_home_template_says_none_of_it_either(self):
+        tpl = _read(TEMPLATES / "competitors_home.html")
+        for text in self.GONE_FROM_THE_HOME_PAGE:
+            assert text not in tpl, text
 
     def test_a_race_that_is_not_the_current_one_just_links_to_it(self, client):
         first = _race("Earlier race")
@@ -199,13 +258,63 @@ class TestTheExplanationsAreGone:
         html = client.get(f"/public/race/{first}").get_data(as_text=True)
         assert '<p class="small current-race-link"><a href="/public/race">Go to the current race</a></p>' in html
 
-    def test_the_caveat_about_live_wind_stays(self, client):
-        """Not an explanation of the page: a warning about the number."""
+    def test_the_wind_still_says_where_it_was_measured(self, client):
+        """The sentence warning that hut wind is not course wind went too. What
+        is left of the warning is on every figure, which is the better place:
+        "at hut", and "Start hut wind" over the plot. The guide says the rest."""
+        race = client.get(f"/public/race/{_race()}").get_data(as_text=True)
+        for chip in ("TWD at hut", "TWS at hut", "Gust at hut"):
+            assert chip in race, chip
+        home = client.get("/public/current").get_data(as_text=True)
+        assert "<h3>Start hut wind</h3>" in home and "TWD at hut" in home
+        guide = _read(ROOT / "scripts" / "build_competitor_guide.py")
+        assert "<b>Hut wind, not course wind.</b>" in guide
+
+
+class TestProvisionalResultsTakeThePlaceOfEntries:
+    """Every boat on the entries list is in the results, with its class, its
+    rating and its status. After the finish the list was the same boats again
+    with less to say, in a tab of its own."""
+
+    def test_while_boats_are_racing_there_are_entries_and_no_results(self, client):
         html = client.get(f"/public/race/{_race()}").get_data(as_text=True)
-        assert "may differ from the wind on the race course" in html
+        assert 'data-tab="ptab-entries">Entries</button>' in html
+        assert 'id="publicEntriesPanel"' in html
+        assert "ptab-results" not in html.split("<script>")[0]
+        assert "Provisional results" not in html
+
+    def test_once_none_are_the_results_are_there_instead(self, client):
+        race_id = _race()
+        _finish(race_id)
+        html = client.get(f"/public/race/{race_id}").get_data(as_text=True)
+        assert 'data-tab="ptab-results">Provisional results</button>' in html
+        assert 'data-tab="ptab-entries"' not in html
+        assert 'id="ptab-entries"' not in html and "publicEntriesPanel" not in html
+
+    def test_the_tab_is_not_called_leader_board_any_more(self, client):
+        """The live order during a race is the Leaderboard under the chart. Two
+        things with one name on one page was one too many."""
+        race_id = _race()
+        _finish(race_id)
+        html = client.get(f"/public/race/{race_id}").get_data(as_text=True)
+        assert "Leader board" not in html
+        assert "<h3>Provisional results</h3>" in html
+
+    def test_a_pursuit_race_keeps_its_start_times(self):
+        """They are not in its results: those are a finishing order."""
+        tpl = _read(TEMPLATES / "competitor_race.html")
+        assert "{% set entries_tab = is_pursuit or not race_finished %}" in tpl
+        assert tpl.count("{% if entries_tab %}") == 2, "the tab and its pane, together or not at all"
+
+    def test_somebody_on_entries_when_the_last_boat_finishes_lands_on_the_results(self):
+        """The page reloads itself carrying the tab they were on, and that tab
+        is no longer there. An old link to either tab goes the same way."""
+        tpl = _read(TEMPLATES / "competitor_race.html")
+        assert "if (tabId === 'ptab-entries' && !document.getElementById(tabId)) tabId = 'ptab-results';" in tpl
+        assert "if (tabId === 'ptab-results' && !document.getElementById(tabId)) tabId = 'ptab-entries';" in tpl
 
 
-class TestTheFilmButtonIsOnTheLeaderBoard:
+class TestTheFilmButtonIsOnTheResultsTab:
     FILM = "https://films.example.org/race.mp4"
 
     def _page(self, client, monkeypatch, finished=True):
@@ -217,7 +326,7 @@ class TestTheFilmButtonIsOnTheLeaderBoard:
 
     def test_it_is_in_the_results_pane(self, client, monkeypatch):
         html = self._page(client, monkeypatch)
-        pane = html.split('id="ptab-results"')[1].split('id="ptab-entries"')[0]
+        pane = html.split('id="ptab-results"')[1].split('id="ptab-chart"')[0]
         assert f'href="{self.FILM}"' in pane and ">Watch the 3D replay<" in pane
 
     def test_and_nowhere_else_on_the_page(self, client, monkeypatch):
@@ -234,7 +343,7 @@ class TestTheFilmButtonIsOnTheLeaderBoard:
     def test_a_pursuit_race_has_it_too(self):
         """Its videos are per boat, so it has no start-video line to share."""
         tpl = _read(TEMPLATES / "competitor_race.html")
-        pursuit = tpl.split("<h3>Results (finishing order)</h3>")[1].split("{% else %}")[0]
+        pursuit = tpl.split("<h3>Provisional results (finishing order)</h3>")[1].split("{% else %}")[0]
         assert "film_button()" in pursuit
 
 

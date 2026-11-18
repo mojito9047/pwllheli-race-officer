@@ -206,7 +206,7 @@ Use **Races** in the side menu to find races grouped by series. Standalone races
 
 Use the pop-out public competitor page for a read-only display.
 
-The page is organised into tabs under the race header. During the race those are **Entries**, **Chart**, **Course analysis** and **Start photo**; a **Leader board** tab appears with the provisional results once every boat has stopped racing, and is then the tab shown first.
+The page is organised into tabs under the race header. During the race those are **Entries**, **Chart**, **Course analysis** and **Start photo**, and the page opens on the Chart. Once every boat has stopped racing, **Provisional results** takes the place of Entries (a pursuit race keeps its Start times as well).
 
 **Start photo** is the camera's still at each start signal, with the start line drawn on it, up a few seconds after the gun for competitors to see whether they were over. It is labelled as an early guide &mdash; your calls stand. The race page shows it beside the start video, with a link to the camera's own still without the line or logo (see [`VIDEO_RECORDING.md`](VIDEO_RECORDING.md#start-photo-v1014)).
 

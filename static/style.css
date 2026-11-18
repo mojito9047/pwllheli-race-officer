@@ -1720,7 +1720,6 @@ tr.next-start td { font-weight: 700; }
   #htab-camera { padding: 0; }
   #htab-camera .camera-head { padding: 12px 12px 8px; margin: 0; }
   #htab-camera .camera-head h3 { margin: 0; font-size: 1.05rem; }
-  #htab-camera .camera-head p { margin: 2px 0 0; font-size: 0.85rem; }
   #htab-camera .live-video-frame-wrap {
     max-width: none;
     border-radius: 0;
@@ -3629,6 +3628,10 @@ dialog.public-settings { width: min(26rem, calc(100vw - 2rem)); }
 .result-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; }
 .current-race-link { margin: 6px 0; }
 
+/* The way in to the current race, across the foot of the home page's summary:
+   under the wind and the clock at every width. */
+.public-summary > .public-action-row { flex: 1 1 100%; margin: 0; }
+
 /* "Competitor home" on a wide screen, "Home" on a phone. */
 .nav-short { display: none; }
 
@@ -3671,7 +3674,6 @@ dialog.public-settings { width: min(26rem, calc(100vw - 2rem)); }
   .public-page .race-summary-main p { margin: 4px 0; }
   .public-page .race-summary-main > p:first-of-type { font-size: 0.9rem; line-height: 1.4; }
   .public-page .race-summary-main .sequence { margin: 6px 0 4px; }
-  .public-page .public-action-row { margin-top: 8px; }
   /* Four short facts on one line where they fit, not four half-width boxes. */
   .public-page .summary-grid { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
   /* A board with nothing flying is a box of nothing. It comes back with the
@@ -3693,8 +3695,12 @@ dialog.public-settings { width: min(26rem, calc(100vw - 2rem)); }
     display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: center; gap: 8px 14px;
   }
+  /* The title and the button take the full width. So does the dial when it
+     has no clock beside it: last, or followed only by the button. */
   .public-page:not(.competitor-race-page) .public-summary > .race-summary-main,
-  .public-page:not(.competitor-race-page) .public-summary > :last-child:nth-child(2) { grid-column: 1 / -1; }
+  .public-page:not(.competitor-race-page) .public-summary > .public-action-row,
+  .public-page:not(.competitor-race-page) .public-summary > .public-wind-instrument:last-child,
+  .public-page:not(.competitor-race-page) .public-summary > .public-wind-instrument:nth-last-child(2):not(:has(+ .countdown)) { grid-column: 1 / -1; }
   .public-page:not(.competitor-race-page) .public-summary > * { width: auto; }
   .public-page .public-wind-instrument .wind-dial { width: min(100%, 160px); }
   .public-page:not(.competitor-race-page) .countdown { min-width: 0; padding: 10px 8px; }

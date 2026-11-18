@@ -3104,7 +3104,7 @@ def run_finish_detection(only_devices: Optional[Iterable[str]] = None) -> int:
 # time for half the distance, and projecting pro-rata puts it ~33% slow — while a
 # boat halfway down the run is wrong by a different amount. That differential is
 # what scrambles the order.
-ESTIMATE_AFTER_S = 600.0     # nothing for the first ten minutes (the YB convention)
+ESTIMATE_AFTER_S = 600.0     # nothing for the first ten minutes (the usual tracker convention)
 VMC_WINDOW_S = 1200.0        # the "recent" window: twenty minutes
 # Five was the original, and it is too short. Over the night race a five-minute
 # window produced a worst-case finish estimate of 32218 minutes - twenty-two days -

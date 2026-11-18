@@ -95,11 +95,11 @@ If the current race is not assigned to a series, the page still shows the curren
 
 The page is organised into **tabs** below the race header, so it stays short — especially on a phone. The race name, warning/start times, course sequence, flag panel and countdown sit above the tabs and are always visible.
 
-While the race is on there are three: **Entries** (or **Start times** for a pursuit race), **Chart** and **Course analysis** &mdash; and, where the hut has a camera, a fourth, **Start photo** (v1.014). Once every boat has stopped racing, a **Leader board** tab appears holding the results. The others stay available as a record of the race. **The page opens on the Chart**, before, during and after the race: it is what people come to look at. (The live handicap-corrected order during a race lives under the **Chart** tab, next to the boats it is about; the *Leader board* tab holds the confirmed result.)
+While the race is on there are three: **Entries** (or **Start times** for a pursuit race), **Chart** and **Course analysis** &mdash; and, where the hut has a camera, a fourth, **Start photo** (v1.014). Once every boat has stopped racing, **Provisional results** takes the place of **Entries**: every boat on the entries list is in the results with its class, its rating and its status, so after the finish the list was the same boats again with less to say. A pursuit race keeps its **Start times**, which its results do not show. Chart and Course analysis stay as a record of the race. **The page opens on the Chart**, before, during and after the race: it is what people come to look at. (The live handicap-corrected order during a race is the **Leaderboard** under the chart, next to the boats it is about; the *Provisional results* tab holds the result. That tab was called *Leader board* until November 2026, and two things with one name on one page was one too many.)
 
 **Start photo** holds the camera's own 3840 x 2160 still taken at each start signal, with the start line drawn from the pole to the outer distance mark and the club logo. It appears a few seconds after the gun &mdash; during the race, unlike the start and finish videos &mdash; and the page reloads itself to show it — so leave a phone on the **Start photo** tab before the gun and the photo arrives on its own, scrolled into view. Tapping it opens the full-size photo to zoom in on. It is an early guide only; the race officer's calls stand. See [`VIDEO_RECORDING.md`](VIDEO_RECORDING.md#start-photo-v1014).
 
-The selected tab is remembered in the page address (`#ptab-entries`, `#ptab-chart`, `#ptab-analysis`, `#ptab-startphoto`, `#ptab-results`), so a link can point at a particular tab.
+The selected tab is remembered in the page address (`#ptab-entries`, `#ptab-chart`, `#ptab-analysis`, `#ptab-startphoto`, `#ptab-results`), so a link can point at a particular tab. A link to `#ptab-entries` on a race that has finished opens the results, which is where somebody sitting on Entries finds themselves when the last boat finishes.
 
 The specific race page shows race-level information before and during racing:
 
@@ -126,7 +126,7 @@ The specific race page shows race-level information before and during racing:
 
   The rating is then applied — `x TCC` for IRC, `x 1000 / YTC` for YTC — by the same code the published results use, so a live board and the final result cannot disagree. A boat that has already finished shows its **real** elapsed time, not a projection.
 
-  Some things are deliberately withheld rather than guessed. **Nothing is estimated for the first ten minutes of racing** — the convention competitors know from YB Tracking, and sound, because before the first mark a boat's pace is mostly which end of the line it started. A boat whose tracker has been quiet for three minutes, or that is sailing *away* from its next mark, is listed without a position rather than projected from bad data. An estimate implying the boat will crawl the rest of the course is dropped rather than shown. Every corrected board is captioned as an estimate, not a result.
+  Some things are deliberately withheld rather than guessed. **Nothing is estimated for the first ten minutes of racing** — the usual convention on race trackers, and sound, because before the first mark a boat's pace is mostly which end of the line it started. A boat whose tracker has been quiet for three minutes, or that is sailing *away* from its next mark, is listed without a position rather than projected from bad data. An estimate implying the boat will crawl the rest of the course is dropped rather than shown. Every corrected board is captioned as an estimate, not a result.
 
   Those ten minutes are counted **from the gun**, and so is the chart's own elapsed clock, so ten minutes on the clock is ten minutes of racing. The replay *window* opens at the warning signal five minutes earlier; the clock used to count from there, which made the estimates look five minutes late when they were not.
 
@@ -158,7 +158,7 @@ The flag panel uses the same state as the race-office page. It only displays fla
 
 ## What it shows after racing
 
-When all entries are no longer racing, the **Leader board** tab appears:
+When all entries are no longer racing, **Provisional results** takes the place of Entries:
 
 - Provisional IRC/YTC results, split by configured rating class where available.
 - Public video links when configured and allowed: **View start video** above the results and, beside it, **Watch the 3D replay** once the film exists.
@@ -170,7 +170,7 @@ Wind samples inside a race window are exempt from the normal 24-hour history pur
 
 ### The 3D replay film (v1.002)
 
-Once a race has been rendered as a [3D replay film](RACE_REPLAY_3D.md), a link to it appears by itself: a **3D replay** button beside *Open* in the races list, and **Watch the 3D replay** on the race page's **Leader board** tab, beside the start video. It is also in each race's section of a published results document.
+Once a race has been rendered as a [3D replay film](RACE_REPLAY_3D.md), a link to it appears by itself: a **3D replay** button beside *Open* in the races list, and **Watch the 3D replay** on the race page's **Provisional results** tab, beside the start video. It is also in each race's section of a published results document.
 
 Nothing appears until the film is actually in the bucket, so an unrendered race looks exactly as it did before, and race day is unchanged — a film exists about an hour after the racing, usually by the time the crews are ashore, not on the water. The link goes straight to the storage bucket rather than through the hut, so it plays whether or not the clubhouse PC is switched on and a large download never crosses the hut's 4G connection.
 
