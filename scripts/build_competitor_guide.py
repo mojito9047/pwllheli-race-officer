@@ -507,6 +507,14 @@ story.append(bullets([
     "The chart <b>opens at the latest positions</b> — during a race that is simply the live view. Drag the "
     "timeline underneath it, or press play, to wind back through the race so far and watch it again at up to "
     "60x. <b>Live</b> returns you to the front.",
+    "<b>Tap a boat</b>, or its row in the leaderboard, and a card opens for it: its place, next mark, "
+    "distance to go, speed, the distance it has sailed and its estimated times, all at the moment the chart "
+    "is showing. <b>Follow</b> keeps that boat in view as it moves, and <b>Share</b> sends somebody a link "
+    "to the race with that boat already picked out.",
+    "The <b>star</b> beside a boat makes it a <b>favourite</b>. Favourites carry a star on the chart and are "
+    "picked out for you when you open a race they are sailing in. They are kept on your own phone; nothing is "
+    "sent to the club.",
+    "<b>View</b> moves the chart to the start line, the whole course, the finish line or all the boats.",
     "<b>Full screen</b> gives the chart your whole display, which is worth doing on a phone.",
     "The <b>Entries</b> table also gains columns for each boat: <b>Marks</b> (how many of the course marks it "
     "has rounded, e.g. 6/10), <b>Next</b> (the mark it is heading for), <b>To go</b> (how far it still has to "
@@ -585,6 +593,9 @@ story += chapter_heading("Chapter 7", "Good to know")
 story.append(bullets([
     "<b>Everything updates automatically.</b> Leave the page open and it will refresh itself - there's no "
     "reload button you need to press.",
+    "<b>You can keep it on your home screen.</b> On an Android phone the page offers <b>Add to home "
+    "screen</b>; on an iPhone, tap <b>Share</b> and then <b>Add to Home Screen</b>. It then opens from "
+    "its own icon, full-screen, like an app. It still needs the internet.",
     "<b>Hut wind, not course wind.</b> The wind reading and history come from a sensor at the start hut, and "
     "can differ from conditions out on the course.",
     "<b>Nothing here needs a login.</b> If a page asks you to sign in, you've reached the race-office side of "

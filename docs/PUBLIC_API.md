@@ -307,6 +307,8 @@ state fields include `course_set`, `postponed_flag`, `postponement_ends_at` and
 
 `/public/race/<race_id>/positions` returns the live GPS positions and position-on-the-water order for a race (used by the public race page). It is read-only, returns nothing while GPS tracking is disabled, and only serves races the public may view.
 
+`/public/app.webmanifest` is the web app manifest a phone reads when the competitor pages are added to its home screen: the club's name and short name from Settings, `start_url` `/public/current`, `scope` `/public/` and the icons. `/public/app-icon/<size>.png` is the club logo as a square icon, at `180`, `192` or `512` pixels and nothing else (`404` for any other size). Both are public because the phone fetching them is signed in to nothing.
+
 Everything in this document is read-only and carries the same kind of race, course and mark information competitors can already see. The race office's own APIs stay behind the `/admin` login.
 
 ---

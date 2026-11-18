@@ -87,9 +87,11 @@ always be a beat behind a race officer pressing the button on sight.
 
 With tracking on, the public race page's **Chart** tab is one view that does both. It opens at
 the **latest positions** — during a race that is simply the live chart — and winds back through
-everything recorded so far. Drag the timeline under the map or press play (1x / 4x / 16x / 60x);
-each boat trails the last ten minutes of its track, and clicking one highlights it. The order on
-the water beside the map follows whatever moment is shown.
+everything recorded so far. Drag the timeline under the map or press play (1x, 2x, 5x, 10x, 30x
+or 60x); each boat trails the last ten minutes of its track, and tapping one, on the chart or in
+the leaderboard, opens a card of its details and highlights its track. The order on the water
+beside the map follows whatever moment is shown. The card, favourite boats and the **View** list
+are described in [`PUBLIC_COMPETITOR_PAGE.md`](PUBLIC_COMPETITOR_PAGE.md#specific-race-page).
 
 While you are at the live edge it keeps up on its own, asking every ten seconds for **only the
 fixes it does not already have**. The moment you wind back it stops dragging you forward and lets

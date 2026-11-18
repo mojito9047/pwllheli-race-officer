@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
   {% include 'partials/theme_links.html' %}
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  {% include 'partials/public_app_head.html' %}
   <script src="{{ url_for('static', filename='countdown.js') }}?v={{ app_version }}"></script>
 </head>
 <body class="public-page competitor-race-page{% if mobile_view %} public-mobile{% endif %}">
@@ -37,6 +38,9 @@
    one, and `course_set` is what tells the two apart. The header already said
    "not set yet" while the board below it drew the fallback's marks. #}
 {% set course_shown = course_set or is_custom_course %}
+{# What a phone remembers a favourite boat by (see core/publicapp.py), on every
+   row that names a boat. static/public_follow.js gives each such row its star. #}
+{% macro boat_attrs(e) %}{% set bi = public_boat_info.get(e.id|string) if public_boat_info is defined else none %}{% if bi and bi.key %} data-boat-key="{{ bi.key }}" data-boat-name="{{ e.boat_name }}"{% endif %}{% endmacro %}
 <section class="race-header race-summary public-summary">
   <div class="race-summary-main">
     <h2>{{ race.name }}{% if not pinned_race %}
@@ -123,7 +127,7 @@
     <thead><tr><th>Position</th><th>Boat</th><th>Sail no.</th><th>Status</th><th>Start video</th></tr></thead>
     <tbody>
       {% for e in pursuit_ranked %}
-      <tr>
+      <tr{{ boat_attrs(e) }}>
         <td data-label="Position">{{ e.pursuit_position }}</td>
         <td data-label="Boat">{{ e.boat_name }}</td>
         <td data-label="Sail no.">{{ e.sail_no or '—' }}</td>
@@ -169,7 +173,7 @@
             {% for row in table.rows %}
               {% set e = row.entry %}
               {% set b = row.boat %}
-              <tr>
+              <tr{{ boat_attrs(e) }}>
                 <td data-label="Rank">{{ row.rank or '—' }}</td>
                 <td data-label="Boat">{{ b.boat_name if b else e.boat_name }}</td>
                 <td data-label="Sail">{{ b.sail_no if b else (e.sail_no or '') }}</td>
@@ -234,7 +238,7 @@
       <tbody>
         {% for row in pursuit_start_rows %}
         {% set e = row.entry %}
-        <tr {% if row.start_iso %}data-start="{{ row.start_iso }}"{% endif %}>
+        <tr {% if row.start_iso %}data-start="{{ row.start_iso }}"{% endif %}{{ boat_attrs(e) }}>
           <td data-label="#">{{ loop.index }}</td>
           <td data-label="Boat">{{ e.boat_name }}</td>
           <td data-label="Sail no.">{{ e.sail_no or '—' }}</td>
@@ -258,7 +262,7 @@
       </thead>
       <tbody>
         {% for e in entries %}
-        <tr data-entry-id="{{ e.id }}">
+        <tr data-entry-id="{{ e.id }}"{{ boat_attrs(e) }}>
           <td data-label="Boat">{{ e.boat_name }}</td>
           <td data-label="Sail no.">{{ e.sail_no or '—' }}</td>
           <td data-label="Class">{% if entry_class_labels %}{{ entry_class_labels.get(e.id) or '—' }}{% else %}{{ e.class_name or '—' }}{% endif %}</td>
@@ -288,6 +292,8 @@
   <div class="tab-pane" id="ptab-chart">
   {% if gps_tracking_enabled %}
     <div data-replay data-track-url="{{ public_urls.track }}"
+         data-race-id="{{ race.id }}"
+         data-share-url="{{ url_for('competitor_race', race_id=race.id) }}"
          data-race-finished="{{ 1 if race_finished else 0 }}">
       <div class="section-head">
         <h3>Chart</h3>
@@ -301,16 +307,49 @@
         <p class="chart-wind-caption small" hidden>Wind at the hut</p>
         <div class="course-map" data-base-tile-url="{{ course_chart.course_chart_tile_url }}" data-overlay-tile-url="{{ course_chart.course_chart_overlay_url }}" data-all-marks='{{ marks_data|tojson }}' data-course-marks='{{ (course.marks if course_shown else [])|tojson }}' data-wind-direction="{{ analysis_twd if analysis_twd is not none else '' }}" data-start-finish-mark="{{ course_chart.start_finish_mark }}" data-bridge-lat="{{ course_chart.bridge_window_lat }}" data-bridge-lon="{{ course_chart.bridge_window_lon }}" data-start-shore-label="{{ course_chart.start_shore_label }}" data-start-shore-short-label="{{ course_chart.start_shore_short_label }}" data-line-seaward-lat="{{ course_chart.line_seaward_lat }}" data-line-seaward-lon="{{ course_chart.line_seaward_lon }}" data-line-shore-lat="{{ course_chart.line_shore_lat }}" data-line-shore-lon="{{ course_chart.line_shore_lon }}" data-line-seaward-label="{{ course_chart.line_seaward_label }}" data-line-shore-label="{{ course_chart.line_shore_label }}" data-shortened="{{ 1 if course_shortened else 0 }}"></div>
         <p class="small muted course-map-message"></p>
+        {# One boat, at the moment the chart is showing. Filled in and kept up to
+           date by static/race_replay.js; what it may say about a boat comes from
+           #publicBoatInfo below. Opened by tapping a boat or a leaderboard row. #}
+        <aside class="boat-card" hidden aria-label="The selected boat">
+          <div class="boat-card-head">
+            <span class="replay-swatch boat-card-swatch"></span>
+            <div class="boat-card-title"><strong class="boat-card-name"></strong>
+              <span class="boat-card-sail"></span></div>
+            <button type="button" class="fav-star boat-card-fav"></button>
+            <button type="button" class="boat-card-close" aria-label="Close">✕</button>
+          </div>
+          <p class="boat-card-about small muted"></p>
+          <dl class="boat-card-facts"></dl>
+          <p class="boat-card-near small"></p>
+          <div class="boat-card-actions">
+            <button type="button" class="button small secondary boat-card-follow" aria-pressed="false">Follow</button>
+            <a class="button small secondary boat-card-video" target="_blank" rel="noopener" hidden>Finish video</a>
+            <button type="button" class="button small secondary boat-card-share">Share</button>
+            {# Only shown on a phone, where the card opens small: see style.css. #}
+            <button type="button" class="button small secondary boat-card-more" aria-expanded="false">More</button>
+          </div>
+        </aside>
       </div>
       <div class="replay-controls">
         <button type="button" class="replay-play button small" disabled aria-pressed="false">▶ Play</button>
-        <button type="button" class="replay-speed button secondary small" title="Playback speed">4×</button>
+        {# The same list as SPEEDS in race_replay.js, here so the control is right
+           on first paint; the script rebuilds it from its own list. #}
+        <select class="replay-speed" title="Playback speed" aria-label="Playback speed">
+          <option value="1">1×</option><option value="2">2×</option><option value="5" selected>5×</option><option value="10">10×</option><option value="30">30×</option><option value="60">60×</option>
+        </select>
         <input type="range" class="replay-slider" min="0" max="1" value="0" step="1" disabled
                aria-label="Position in the race">
         <span class="replay-clock">--:--:--</span>
         <span class="replay-elapsed small muted">0:00</span>
         <button type="button" class="replay-live button secondary small"
                 title="Jump to the latest positions">Live</button>
+        <select class="replay-view" title="Move the chart to" aria-label="Move the chart to">
+          <option value="" selected>View…</option>
+          <option value="start">Start line</option>
+          <option value="course">Whole course</option>
+          <option value="finish">Finish line</option>
+          <option value="fleet">All boats</option>
+        </select>
         <button type="button" class="replay-full button secondary small"
                 aria-pressed="false" title="Fill the screen with the chart">⛶ Full screen</button>
       </div>
@@ -343,7 +382,7 @@
       <p class="small muted replay-board-at"></p>
       <table class="replay-board stack-table">
         <thead>
-          <tr><th>#</th><th>Boat</th><th>Marks</th><th>Next</th><th>To go</th><th>SOG</th></tr>
+          <tr><th>#</th><th>Boat</th><th>Marks</th><th>Next</th><th>To go</th><th>SOG</th><th>VMC</th><th>Sailed</th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -352,8 +391,9 @@
       </div>
     </div>
       <p class="small muted replay-footnote">Boats are drawn between their reported positions, so the line between two fixes is interpolated, not observed.
-        Click a boat to highlight its track. While the race is on this keeps up with the latest positions;
-        wind it back to see where the boats have been.</p>
+        Tap a boat, or its row in the leaderboard, to see its details and highlight its track; the star
+        makes it a favourite. While the race is on this keeps up with the latest positions; wind it back
+        to see where the boats have been.</p>
   {% else %}
     <h3>Course chart</h3>
     {% if wind_record %}<p class="small muted">Wind shown is the average over the race ({{ '%.0f°T'|format(wind_record.twd) if wind_record.twd is not none else '—' }}), not the wind now.</p>{% endif %}
@@ -461,6 +501,7 @@
   </div>
   {% endif %}
 </section>
+<script type="application/json" id="publicBoatInfo">{{ (public_boat_info if public_boat_info is defined else {})|tojson }}</script>
 {% if is_pursuit %}
 <script>
 (function () {
@@ -716,7 +757,7 @@ document.addEventListener('click', (ev) => {
 {% endif %}
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="{{ url_for('static', filename='course_map.js') }}"></script>
+<script src="{{ url_for('static', filename='course_map.js') }}?v={{ app_version }}"></script>
 {% if gps_tracking_enabled %}<script src="{{ url_for('static', filename='wind_gauge.js') }}?v={{ app_version }}" defer></script>
 <script src="{{ url_for('static', filename='race_replay.js') }}?v={{ app_version }}" defer></script>{% endif %}
 {% endif %}

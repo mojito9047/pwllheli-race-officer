@@ -1,0 +1,17 @@
+{# The public pages as a home-screen app.
+
+   Included in the <head> of the two competitor pages, which are standalone
+   documents (they do not extend base.html). The manifest and the icons are
+   served by routes/public_app.py; the apple-* tags are what an iPhone reads
+   instead of the manifest. static/public_app.js offers "Add to home screen". #}
+<link rel="manifest" href="{{ url_for('public_app_manifest') }}">
+<meta name="theme-color" content="#f7f4ec">
+<link rel="apple-touch-icon" href="{{ url_for('public_app_icon', size=180) }}">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="{{ club_brand.short_name }}">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+{# Favourite boats, kept on the phone. Before any script that draws boats, so
+   the chart can ask which are starred as soon as it runs. #}
+<script src="{{ url_for('static', filename='public_follow.js') }}?v={{ app_version }}" defer></script>
+<script src="{{ url_for('static', filename='public_app.js') }}?v={{ app_version }}" defer></script>

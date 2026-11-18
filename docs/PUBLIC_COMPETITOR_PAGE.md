@@ -138,6 +138,16 @@ The specific race page shows race-level information before and during racing:
 
   Two honest limits are on the face of it. The caption says **Wind at the hut**, because that is what the club measures and it is not the wind where the boats are once a course rounds a headland. And a reading more than ten minutes older than the moment on screen is not shown at all: the gauge disappears rather than presenting a stale reading as current, which is how the board already treats a boat whose tracker has gone quiet.
 
+- **Tap a boat for its details.** Tapping a boat on the chart, or its row in the leaderboard, opens a **card** for that boat, rings it on the chart and dims every other boat's track. The card reads at the moment the chart is showing, so it follows the replay as well as the live race: place on the water, next mark, distance to go, speed and heading, **VMC**, distance **sailed**, the estimated elapsed and corrected times, and the two nearest boats, each of which can be tapped to move the card to that boat. Above the readings it says what the boat is: design, club, class and ratings. It does **not** show the owner's name, which the race office holds and a public page has no business printing beside where a boat is.
+
+  The card has four buttons. **Follow** keeps the boat in view as it moves: the chart shifts only when the boat nears the edge, and dragging the chart stops it. **Finish video** opens that boat's finish, once there is one to watch. **Share** hands over a link to this race with this boat already picked out (`?boat=` and the sail number), through the phone's own share sheet where it has one. **✕** closes the card. On a phone the card opens small, across the bottom of the chart, with the first four readings; **More** opens the rest. It stands aside while the leaderboard is rolled up.
+
+- **Favourite boats.** A **☆** beside a boat, on the card, in the leaderboard and in the Entries and results tables, makes it a favourite. A favourite carries a **★** on the chart, its rows are flagged, and when a favourite is sailing in the race the page opens with it already picked out. Favourites are kept **on the phone that chose them** and nowhere else: nothing is sent to the club, and another phone has its own. They are remembered by sail number, so a boat starred in one race is still starred in the next. The competitor home page lists who is being followed, with a **Clear** button.
+
+- **Playback speed and views.** Speed is a list: **1×, 2×, 5×, 10×, 30×, 60×**. A club race plays through in a few minutes at 10×; 60× is there for a passage race, where seven hours takes 42 minutes at 10×. **View…** moves the chart to the **start line**, the **whole course**, the **finish line** or **all boats**, and to the **favourites** when one is racing. The speed, the boat picked out and whether it is being followed all survive the page reloading itself when the race officer changes something.
+
+- **VMC and Sailed on the line-honours board.** **VMC** is how fast the distance left to sail has been falling, over the last 20 minutes or the race so far: the same recent pace the *Recent pace* estimate carries forward, and negative when a boat is sailing away from its next mark. **Sailed** is distance along the boat's own track since the start signal, stopping at its finish. It ignores moves of less than 10 m, because a tracker reporting every two seconds is a few metres out each time and adding all of that up counts miles the boat never sailed. On the night race of 8 August it read 33.6, 33.1 and 34.2 nm for the three boats, against 34, 32 and 34 from the satellite trackers the same boats were carrying.
+
 - **The chart owns the tab, and the leaderboard floats over it.** The chart used to be a capped square with the board stacked underneath, which on a phone meant a 300-pixel chart and most of the display spent on everything except the thing you opened. The panel now gives the chart everything left after the playback controls, and the board is a **translucent roll-up** over the bottom of it. It starts **rolled away** — opening the Chart tab is a request to see the chart — and one tap on the *Leaderboard* tab brings it up, one more puts it back. It never covers the playback controls, and it never takes more than about half the panel.
 
 - **⛶ Full screen** is the same layout pinned to the whole display, for when the chart is all you want. A **✕** in the corner leaves, as does Escape; it has a control of its own because the roll-up board can cover the one in the control bar.
@@ -171,6 +181,17 @@ There is now **one responsive public page** for every device. On a phone the wid
 **Held sideways, a phone is a tablet.** It is wider than the point where the cards give way to ordinary tables, so a phone in landscape and a tablet get the same layout — and there the results table is nine columns. If it does not fit, **the table scrolls sideways inside its own panel**; the page itself never moves, so the rest of the screen stays put while you drag the columns across. Before v0.257 it was simply cut off at the right-hand edge, with nothing on the page to say the *Finish video* column was there at all.
 
 The page also stops spending a third of a phone screen on borders. The results used to sit inside three nested frames — the tab panel, a card round each class's results, then a card per boat — each with its own border and padding. On a phone the middle frame keeps its heading and gives up its box, and the page gutter now scales with the screen instead of giving a sideways phone the margin meant for a desktop.
+
+### On the home screen, like an app
+
+The competitor pages can be **added to a phone's home screen**, where they get the club's logo as an icon and open full-screen, without the browser's bars, on the competitor home page.
+
+- **Android (Chrome):** a line above the page offers **Add to home screen**. It can also be found in the browser's menu.
+- **iPhone and iPad:** an iPhone gives a page no way to ask, so the line says where the button is: **Share**, then **Add to Home Screen**.
+
+The line appears once and stays away when dismissed, and it never shows inside the installed app. The app's name and icon are the club's own from **Settings → Club name and branding**, so another club's installation gets its own. Only the competitor pages are part of it: the race office stays a web page behind its login.
+
+It needs the internet exactly as the page in a browser does. Nothing is kept on the phone except the favourites and the dismissed line.
 
 The old separate mobile addresses (`/public/mobile/current`, `/public/mobile/race/<id>`) still work — they now redirect to the responsive page — so links already shared with competitors keep working. There is no longer a desktop/mobile toggle to choose between.
 

@@ -96,6 +96,7 @@ from core.ratings import (
     rating_type_from_class_name,
 )
 from core import marks as core_marks
+from core import publicapp
 from core import replay3d
 from core import resultspublish
 from core.courses import course_leg_analysis  # noqa: F401 — re-exported for routes/templates
@@ -2604,6 +2605,11 @@ def public_endpoint() -> bool:
         "public_video_live_frame",
         "public_video_status",
         "public_branding_file",
+        # The competitor pages as a home-screen app: the manifest a phone reads
+        # and the club logo as a square icon. The club's name and logo, which
+        # the public pages already show.
+        "public_app_manifest",
+        "public_app_icon",
         "api_branding_live",
         "api_course_leg_analysis",
         "api_custom_leg_analysis",
@@ -3686,10 +3692,19 @@ def competitor_race_context(race: sqlite3.Row, mobile_view: bool = False,
             [e for e in entries if row_get(e, "pursuit_position")],
             key=lambda e: int(e["pursuit_position"]),
         )
+    entry_boats = get_boats_by_id(e["boat_id"] for e in entries)
+    class_labels = entry_class_labels_map(race_class_config(race), entries)
+    finish_clips = video_maps["by_entry"] or {}
+
+    def finish_video_href(entry: sqlite3.Row) -> str:
+        """The finish video a competitor can actually watch, or nothing."""
+        clip = finish_clips.get(entry["id"])
+        return public_video_clip_href(clip) if clip and public_video_clip_is_viewable(clip) else ""
+
     return {
         "race": race,
         "is_pursuit": pursuit_race,
-        "pursuit_start_rows": pursuit.pursuit_display_rows(race, entries, get_boats_by_id(e["boat_id"] for e in entries)) if pursuit_race else [],
+        "pursuit_start_rows": pursuit.pursuit_display_rows(race, entries, entry_boats) if pursuit_race else [],
         "pursuit_timing_ready": bool(pursuit_race and race_first_start_dt(race) and pursuit.pursuit_duration_seconds(race)),
         "pursuit_start_video_by_entry": pursuit_start_clip_by_entry(entries, video_maps["clips"]) if pursuit_race else {},
         "pursuit_rating_type": pursuit_rating_type(race) if pursuit_race else "",
@@ -3705,7 +3720,12 @@ def competitor_race_context(race: sqlite3.Row, mobile_view: bool = False,
         "postponement_ends_at": str(row_get(race, "postponement_ends_at", "") or ""),
         "shorten_mark": row_get(race, "shortened_at_mark", "") or "",
         "entries": entries,
-        "entry_class_labels": entry_class_labels_map(race_class_config(race), entries),
+        "entry_class_labels": class_labels,
+        # What the boat card on the chart shows about each boat, and the key a
+        # phone remembers a favourite by. Design, club, class and ratings: no
+        # owner's name, which core.publicapp leaves out on purpose.
+        "public_boat_info": publicapp.public_boat_info(entries, entry_boats, class_labels,
+                                                       finish_video_href),
         "finished_count": finished_count,
         "racing_count": racing_count,
         "race_finished": race_finished,
@@ -3953,6 +3973,7 @@ from routes import boats  # noqa: E402,F401
 from routes import series  # noqa: E402,F401
 from routes import api  # noqa: E402,F401
 from routes import competitor  # noqa: E402,F401
+from routes import public_app  # noqa: E402,F401
 from routes import auth  # noqa: E402,F401
 from routes import assistant  # noqa: E402,F401
 

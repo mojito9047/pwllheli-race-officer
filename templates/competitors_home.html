@@ -10,6 +10,7 @@
   <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
   {% include 'partials/theme_links.html' %}
+  {% include 'partials/public_app_head.html' %}
 </head>
 <body class="public-page{% if mobile_view %} public-mobile{% endif %}">
 <header>
@@ -30,6 +31,10 @@
     {% else %}
       <p class="muted">No current race has been created yet.</p>
     {% endif %}
+    {# Favourite boats are kept on the phone that starred them (static/public_follow.js),
+       so the server has nothing to put here: the line appears once there is one. #}
+    <p class="follow-line small" id="publicFollowLine" hidden>★ Following <strong class="follow-names"></strong>
+      <button type="button" class="button small secondary follow-clear">Clear</button></p>
   </div>
   {# The same wind instrument the race officer sees, plus the current race's
      countdown, so both are visible without opening a tab or a race page. #}

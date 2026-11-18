@@ -10,6 +10,9 @@
   // The start mark comes with the page, as data-start-finish-mark, from
   // start_finish.json. This is only for a page that does not say: Pwllheli's.
   const MARK_START = 'O';
+  // How near a tap must land to a boat to count as a tap on it. A hull is drawn
+  // 22px across and a fingertip covers about twice that.
+  const BOAT_TAP_PX = 28;
   const BASE_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
   const SEAMARK_TILE_URL = 'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png';
 
@@ -440,6 +443,18 @@
 
     const fit = route.length ? route.map(p => [p.lat, p.lon]) : known.map(p => [p.lat, p.lon]);
     if (startFinish) fit.push([startFinish.shore.lat, startFinish.shore.lon], [startFinish.seaward.lat, startFinish.seaward.lon]);
+    // The three places somebody asks to look at: the start line, the finish line
+    // (the same line unless this race finishes elsewhere) and the whole course.
+    // Kept, so a page can offer them as views without working the geometry out a
+    // second time and coming to a different answer.
+    const startView = startFinish
+      ? [[startFinish.shore.lat, startFinish.shore.lon], [startFinish.seaward.lat, startFinish.seaward.lon]]
+      : [];
+    const finishView = separateFinish
+      ? [[separateFinish.shore.lat, separateFinish.shore.lon],
+         [separateFinish.seaward.lat, separateFinish.seaward.lon]]
+      : startView;
+    state.views = {start: startView, finish: finishView, course: fit.concat(finishView)};
     if (fit.length) {
       state.map.fitBounds(L.latLngBounds(fit), {padding: [28, 28], maxZoom: 14});
     } else {
@@ -450,7 +465,16 @@
       if (shoreLat !== null && shoreLon !== null) state.map.setView([shoreLat, shoreLon], 13);
       else state.map.setView([0, 0], 2);
     }
-    const missing = (courseMarks || []).map(normaliseMark).filter(m => m && !validLatLon(allMarks[m.mark])).map(m => m.mark);
+    // A compound mark (Y, A) has no position of its own: it stands for its
+    // corner buoys, and those are what is drawn. It is on the chart when every
+    // corner is, so it must not be reported as missing while both are in view.
+    const located = m => {
+      if (validLatLon(allMarks[m.mark])) return true;
+      const parts = compoundComponents(allMarks, m.mark, m.rounding);
+      return parts.length > 0 && parts.every(c => c !== m.mark && validLatLon(allMarks[c]));
+    };
+    const missing = (courseMarks || []).map(normaliseMark).filter(m => m && !located(m))
+      .map(m => markDisplayCode(allMarks, m.mark));
     const msg = container.closest('.course-map-wrap')?.querySelector('.course-map-message');
     if (msg) msg.textContent = missing.length ? `Chart note: no coordinates are available for ${missing.join(', ')}.` : '';
     setTimeout(() => state.map.invalidateSize(), 100);
@@ -587,13 +611,37 @@
       if (!state.boatLayers) state.boatLayers = [];
       state.boatLayers.forEach(l => state.map.removeLayer(l));
       state.boatLayers = [];
+      // A page that wants to know which boat was tapped says so with
+      // opts.onBoatClick(entryId). Each marker answers a tap on itself, which is
+      // what puts a boat ahead of the mark it is rounding. But the markers are
+      // rebuilt on every frame of a replay, and a tap that lands between one
+      // frame and the next finds its marker gone before the finger lifts: that
+      // tap falls through to the map, which matches it to the nearest boat.
+      const pick = typeof options.onBoatClick === 'function';
+      if (pick) {
+        state.onBoatClick = options.onBoatClick;
+        if (!state.boatClickBound) {
+          state.boatClickBound = true;
+          state.map.on('click', ev => {
+            let best = null, bestPx = BOAT_TAP_PX;
+            (state.boatHits || []).forEach(h => {
+              const px = state.map.latLngToContainerPoint([h.lat, h.lon]).distanceTo(ev.containerPoint);
+              if (px <= bestPx) { best = h; bestPx = px; }
+            });
+            if (best && state.onBoatClick) state.onBoatClick(best.entry_id);
+          });
+        }
+      }
+      state.boatHits = [];
       const points = [];
       (boats || []).forEach(b => {
         if (b.lat === null || b.lon === null || b.lat === undefined || b.lon === undefined) return;
         const cog = (b.cog === null || b.cog === undefined) ? null : norm360(b.cog);
-        const label = escapeHtml(b.sail_no || b.boat_name || '');
+        // A favourite carries a star, so it can be found in a crowded fleet.
+        const label = escapeHtml((b.favourite ? '★ ' : '') + (b.sail_no || b.boat_name || ''));
         const finished = b.status && b.status !== 'RACING';
-        const cls = 'course-map-boat' + (b.stale ? ' stale' : '') + (finished ? ' finished' : '');
+        const cls = 'course-map-boat' + (b.stale ? ' stale' : '') + (finished ? ' finished' : '')
+                  + (b.selected ? ' selected' : '');
         // Each boat in its own colour where the caller has one (the replay gives
         // every boat a colour for its trail), so hull and trail read as one boat.
         const fill = finished ? '#15803d' : (b.colour || '#1d4ed8');
@@ -606,9 +654,16 @@
           iconSize: [22, 22], iconAnchor: [11, 11]
         });
         const sog = (b.sog === null || b.sog === undefined) ? '' : ` · ${Number(b.sog).toFixed(1)} kn`;
-        const marker = window.L.marker([b.lat, b.lon], {icon, zIndexOffset: 2000, title: `${b.boat_name || ''}${sog}`});
+        const marker = window.L.marker([b.lat, b.lon], {
+          icon, zIndexOffset: b.selected ? 2500 : 2000, title: `${b.boat_name || ''}${sog}`,
+        });
         marker.addTo(state.map);
         state.boatLayers.push(marker);
+        if (pick && b.entry_id !== undefined && b.entry_id !== null) {
+          const entryId = b.entry_id;
+          marker.on('click', () => { if (state.onBoatClick) state.onBoatClick(entryId); });
+          state.boatHits.push({entry_id: entryId, lat: b.lat, lon: b.lon});
+        }
         points.push([b.lat, b.lon]);
       });
       if (options.fit && points.length) {
@@ -733,8 +788,23 @@
     });
   }
 
+  // The Leaflet map under `root`, for a page that needs to move it or listen to
+  // it (the competitor chart follows a chosen boat, and stops when the viewer
+  // drags the map away). Null with no Leaflet, or before the chart is drawn.
+  function mapOf(root) {
+    const container = (root || document).querySelector('.course-map');
+    return (container && container._courseMap && container._courseMap.map) || null;
+  }
+
+  // {start, finish, course}: the points each of those views should hold, as
+  // [lat, lon] pairs. See makeLeafletMap, which is where they are worked out.
+  function views(root) {
+    const container = (root || document).querySelector('.course-map');
+    return (container && container._courseMap && container._courseMap.views) || null;
+  }
+
   window.RaceCourseMap = {initAll, render, setWind, updateAllWind, updateBoats,
-                          updateTrails, invalidate, fitTo};
+                          updateTrails, invalidate, fitTo, mapOf, views};
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => initAll(document));
   else initAll(document);
 })();
