@@ -516,7 +516,9 @@ story.append(bullets([
     "The <b>star</b> beside a boat makes it a <b>favourite</b>. Favourites carry a star on the chart and are "
     "picked out for you when you open a race they are sailing in: tap one for its card. They are kept on your own phone; nothing is "
     "sent to the club.",
-    "<b>View</b> moves the chart to the start line, the whole course, the finish line or all the boats.",
+    "<b>View</b> moves the chart to the start line, the whole course or the finish line. Choose <b>All "
+    "boats</b> or <b>Favourites</b> and the chart stays with those boats as the race plays, until you drag or "
+    "zoom the chart yourself.",
     "<b>Full screen</b> gives the chart your whole display, which is worth doing on a phone.",
     "The <b>Entries</b> table also gains columns for each boat: <b>Marks</b> (how many of the course marks it "
     "has rounded, e.g. 6/10), <b>Next</b> (the mark it is heading for), <b>To go</b> (how far it still has to "

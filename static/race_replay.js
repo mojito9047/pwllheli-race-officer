@@ -34,6 +34,13 @@
   const CARD_REFRESH_MS = 500;        // how often the boat card is redrawn during playback
   const FOLLOW_EDGE = 0.22;           // share of the chart, each side, a followed boat is kept out of
   const FOLLOW_SETTLE_MS = 900;       // let one pan finish before judging whether to pan again
+  const VIEW_PAD_PX = 36;             // room left round a group of boats the chart is holding in view
+  const VIEW_EDGE_PX = 12;            // a boat this close to the edge of the chart has left the view
+  const VIEW_MIN_SPAN_M = 400;        // never closer than this: boats in company would fill the chart
+  const VIEW_AHEAD_S = 12;            // ...nor so close that a boat crosses the chart in less real time than this
+  const KNOTS_TO_MPS = 0.5144;
+  const VIEW_MAX_ZOOM = 17;
+  const VIEW_CHECK_MS = 400;          // how often a held view asks itself whether it still holds
   // Boat colours deliberately avoid the hues the course is drawn in: red is a
   // port rounding, green a starboard one, black the finish, and the marks are
   // yellow. A red boat on a red leg is genuinely hard to pick out on a phone —
@@ -179,6 +186,7 @@
     let selected = null;        // entry_id of the boat the card and the highlight are on, or null
     let cardOpen = false;       // its card is showing (a favourite is picked out without one)
     let following = false;      // the chart keeps the selected boat in view
+    let groupView = null;       // 'fleet' | 'favourites': the chart keeps those boats in view instead
     let finishAt = {};          // entry id -> time of the first snapshot showing it finished
     let lastFrame = null;       // performance.now() of the previous animation frame
     let shownBoardIx = -1;      // which pre-computed snapshot is on screen
@@ -201,7 +209,6 @@
 
     const LINE_HEAD = ['#', 'Boat', 'Marks', 'Next', 'To go', 'SOG', 'VMC', 'Sailed'];
     const CORRECTED_HEAD = ['#', 'Boat', 'Marks', 'To go', 'Est. elapsed', 'Corrected'];
-    const LINE_NOTE = 'Order <strong>on the water</strong> at the moment shown — not corrected for handicap.';
 
     function setStatus(text, kind) {
       if (!statusEl) return;
@@ -252,6 +259,7 @@
       window.RaceCourseMap.updateTrails(mapRoot, trails);
       window.RaceCourseMap.updateBoats(mapRoot, boats, {onBoatClick: id => selectBoat(id)});
       if (following && selectedAt) keepInView(selectedAt, false);
+      if (groupView) holdGroupView(false);
       // Every frame while somebody is scrubbing, twice a second during playback:
       // the numbers on the card do not change faster than they can be read.
       renderCard(!playing);
@@ -359,31 +367,23 @@
           `<td data-label="Corrected">${item.corrected === null ? '—' : elapsedText(item.corrected)}</td>`;
         boardEl.appendChild(tr);
       });
-      if (boardNoteEl) boardNoteEl.innerHTML = boardNote(out.early);
+      if (boardNoteEl) {
+        boardNoteEl.innerHTML = boardNote(out.early);
+        boardNoteEl.hidden = false;
+      }
     }
 
+    // One line under a corrected board, and nothing under the order on the
+    // water. It used to be a paragraph explaining the method picked; the picker
+    // names the method and the competitor's guide explains it. What the page
+    // itself has to say, every time, is that this order is an estimate.
     function boardNote(early) {
       const name = boardMode === 'irc' ? 'IRC' : 'YTC';
       if (early) {
         const mins = Math.round((data.boards.estimate_after_s || 600) / 60);
-        return `<strong>Estimated ${name} order</strong> — nothing to show yet. ` +
-               `Estimates start after the first ${mins} minutes of racing, once a boat has ` +
-               `sailed enough of the course to say anything useful about the rest of it.`;
+        return `<strong>Estimated ${name} order</strong>: nothing for the first ${mins} minutes of racing.`;
       }
-      const method = (methodSel && methodSel.value) || 'start';
-      const mins = Math.round((data.boards.vmc_window_s || 1200) / 60);
-      const how = method === 'recent'
-        ? `how fast each boat has been closing on the finish <strong>over the last ${mins} minutes</strong>, ` +
-          `carried over the distance it has left. This one notices a boat parking, and is the jumpiest`
-        : method === 'pace'
-        ? `each boat's <strong>pace against the polar</strong> — how its time so far compares with the ` +
-          `target time for the legs it has sailed, applied to the legs it has not. This one needs the ` +
-          `wind, and the only wind the club measures is at the hut`
-        : `each boat's <strong>average pace since the start</strong> — how much of the course it has ` +
-          `covered, and how long that has taken. No wind and no polar come into it`;
-      return `<strong>Estimated ${name} corrected order</strong>, not a result. ` +
-             `The finish time is projected from ${how}, then the boat's rating is applied. ` +
-             `A boat already finished shows its real elapsed time.`;
+      return `<strong>Estimated ${name} corrected order</strong>, not a result.`;
     }
 
     function renderLineBoard(rows, total, at) {
@@ -443,7 +443,7 @@
     function saveState() {
       try {
         window.sessionStorage.setItem(STATE_KEY, JSON.stringify(
-          {sel: selected, card: cardOpen, follow: following, speed: SPEEDS[speedIx]}));
+          {sel: selected, card: cardOpen, follow: following, view: groupView, speed: SPEEDS[speedIx]}));
       } catch (err) { /* no storage: the choices last until the next reload */ }
     }
 
@@ -674,6 +674,8 @@
 
     function setFollowing(on) {
       following = !!on && selected !== null;
+      // One boat or a group of them, not both: the chart cannot hold two views.
+      if (following && groupView) { groupView = null; if (viewSel) viewSel.value = ''; }
       saveState();
       const boat = following ? boatById[selected] : null;
       const p = boat ? positionAt(boat.fixes || [], clock) : null;
@@ -687,7 +689,19 @@
       const map = window.RaceCourseMap.mapOf(mapRoot);
       if (!map) return;
       mapBound = true;
-      map.on('dragstart', () => { if (following) setFollowing(false); });
+      // The chart never fights the viewer. Dragging it, or zooming it by hand,
+      // is somebody saying where they want to look, and whatever was being
+      // followed is let go. The zoom is read off the gestures rather than off
+      // Leaflet's own zoom events, which fire for the chart's own moves too.
+      const letGo = () => { if (groupView) setGroupView(null); };
+      map.on('dragstart', () => { if (following) setFollowing(false); letGo(); });
+      const box = map.getContainer();
+      // Caught on the way down: Leaflet stops a click on its zoom buttons from
+      // ever coming back up to the chart.
+      box.addEventListener('dblclick', letGo, true);
+      box.addEventListener('click', ev => { if (ev.target.closest('.leaflet-control-zoom')) letGo(); }, true);
+      box.addEventListener('touchstart', ev => { if (ev.touches && ev.touches.length > 1) letGo(); },
+                           {passive: true, capture: true});
     }
     // The chart says when it can first be seen (static/course_map.js): anything
     // that was placed for a chart of no size -- a boat kept clear of its card --
@@ -697,6 +711,7 @@
         if (!data) return;
         drawFrame();
         revealSelected();
+        holdGroupView(true);
       });
     }
 
@@ -751,27 +766,94 @@
     }
 
     // --- Views -------------------------------------------------------------
-    // Somewhere to look, chosen from a list: the start line, the finish, the
-    // whole course, or wherever the boats are now.
+    // Somewhere to look, chosen from a list. The start line, the finish and the
+    // whole course are places: the chart goes there and that is that. "All
+    // boats" and "Favourites" are boats, and boats move: the chart goes to them
+    // and then stays with them as the clock runs -- playing, wound back, or
+    // live -- until the viewer drags or zooms it, follows one boat, or picks
+    // something else from the list ("View…" itself lets the chart go).
+    function groupNow(which) {
+      const at = [];
+      ((data && data.boats) || []).forEach(b => {
+        if (which === 'favourites' && !isFavourite(b.entry_id)) return;
+        const p = positionAt(b.fixes || [], clock);
+        if (p) at.push(p);
+      });
+      return at;
+    }
+    function groupPoints(which) { return groupNow(which).map(p => [p.lat, p.lon]); }
+
+    // How much sea to keep round the group, in metres. Played at 60x a boat
+    // doing six knots covers 180 metres of chart a second, and one favourite
+    // held as close as the minimum was off the chart before the chart could
+    // follow. So while the race is playing, the view is wide enough that the
+    // quickest boat in it takes VIEW_AHEAD_S of real time to cross.
+    function groupSpanM(which) {
+      if (!playing) return VIEW_MIN_SPAN_M;
+      const fastest = groupNow(which).reduce((v, p) => Math.max(v, Number(p.sog) || 0), 0);
+      return Math.max(VIEW_MIN_SPAN_M, fastest * KNOTS_TO_MPS * SPEEDS[speedIx] * VIEW_AHEAD_S);
+    }
+
+    function setGroupView(which) {
+      groupView = (which && groupPoints(which).length) ? which : null;
+      saveState();
+      if (viewSel) viewSel.value = groupView || '';   // the list shows what is being held
+      if (groupView) holdGroupView(true);
+    }
+
+    // Keep the group on the chart. Like following one boat, it moves the chart
+    // only when it has to: when a boat has reached the edge, or when the group
+    // has closed up enough that a whole zoom level nearer would still hold all
+    // of it. Whole levels are what stop it hunting: once it has moved, neither
+    // is true again until the boats have gone somewhere.
+    let groupHoldUntil = 0;
+    function holdGroupView(force) {
+      if (!groupView || !data) return;
+      const map = window.RaceCourseMap.mapOf(mapRoot);
+      const L = window.L;
+      if (!map || !L) return;
+      const nowMs = window.performance.now();
+      if (!force && nowMs < groupHoldUntil) return;
+      groupHoldUntil = nowMs + VIEW_CHECK_MS;
+      const size = map.getSize();
+      if (!size.x || !size.y) return;          // the Chart tab is not open: nothing to move
+      const points = groupPoints(groupView);
+      if (!points.length) return;
+      const target = L.latLngBounds(points);
+      const c = target.getCenter();
+      const dLat = groupSpanM(groupView) / 2 / 111320;
+      const dLon = dLat / Math.max(0.2, Math.cos(c.lat * Math.PI / 180));
+      target.extend([c.lat - dLat, c.lng - dLon]).extend([c.lat + dLat, c.lng + dLon]);
+      // On a phone an open boat card lies across the bottom of the chart.
+      const covered = (card && !card.hidden && window.matchMedia('(max-width: 700px)').matches)
+        ? card.offsetHeight + 40 : 0;
+      const seen = L.bounds([VIEW_EDGE_PX, VIEW_EDGE_PX],
+                            [size.x - VIEW_EDGE_PX, size.y - VIEW_EDGE_PX - covered]);
+      const strayed = points.some(p => !seen.contains(map.latLngToContainerPoint(p)));
+      const nearest = Math.min(VIEW_MAX_ZOOM, map.getBoundsZoom(
+        target, false, L.point(2 * VIEW_PAD_PX, 2 * VIEW_PAD_PX + covered)));
+      const bunched = nearest >= map.getZoom() + 1;
+      if (!force && !strayed && !bunched) return;
+      groupHoldUntil = nowMs + FOLLOW_SETTLE_MS + VIEW_CHECK_MS;
+      map.flyToBounds(target, {
+        paddingTopLeft: [VIEW_PAD_PX, VIEW_PAD_PX],
+        paddingBottomRight: [VIEW_PAD_PX, VIEW_PAD_PX + covered],
+        maxZoom: VIEW_MAX_ZOOM, duration: 0.8,
+      });
+    }
+
     function showView(which) {
+      if (following) setFollowing(false);      // a view chosen by hand replaces following
+      if (which === 'fleet' || which === 'favourites') { setGroupView(which); return; }
+      setGroupView(null);
       const views = window.RaceCourseMap.views(mapRoot) || {};
       let points = null, minSpanM = 0;
       if (which === 'start') { points = views.start; minSpanM = 500; }
       else if (which === 'finish') { points = views.finish; minSpanM = 500; }
       else if (which === 'course') { points = views.course; }
-      else if (which === 'fleet' || which === 'favourites') {
-        points = [];
-        ((data && data.boats) || []).forEach(b => {
-          if (which === 'favourites' && !isFavourite(b.entry_id)) return;
-          const p = positionAt(b.fixes || [], clock);
-          if (p) points.push([p.lat, p.lon]);
-        });
-        minSpanM = 400;
-      }
       if (!points || !points.length) return;
-      if (following) setFollowing(false);      // a view chosen by hand replaces following
       window.RaceCourseMap.fitTo(mapRoot, points,
-        {minSpanM: minSpanM, slack: 1.02, padding: [36, 36], maxZoom: 17, duration: 0.8});
+        {minSpanM: minSpanM, slack: 1.02, padding: [VIEW_PAD_PX, VIEW_PAD_PX], maxZoom: VIEW_MAX_ZOOM, duration: 0.8});
     }
 
     // "Favourites" is only offered when one of them is in this race. Added and
@@ -787,14 +869,19 @@
         viewSel.appendChild(option);
       } else if (!want && have) {
         have.remove();
+        if (groupView === 'favourites') groupView = null;   // the last of them unstarred
       }
+      viewSel.value = groupView || '';
     }
 
     if (viewSel) {
       viewSel.addEventListener('change', () => {
         const which = viewSel.value;
-        viewSel.value = '';          // a list of places to go, not a setting that sticks
-        if (which) showView(which);
+        if (!which) { setGroupView(null); return; }   // "View…": let the chart go
+        showView(which);
+        // A place is somewhere to go, not a setting that sticks; a group of
+        // boats is held, and the list goes on saying so.
+        viewSel.value = groupView || '';
       });
     }
 
@@ -973,7 +1060,7 @@
         boardHeadEl.innerHTML = (corrected ? CORRECTED_HEAD : LINE_HEAD)
           .map(h => `<th>${h}</th>`).join('');
       }
-      if (!corrected && boardNoteEl) boardNoteEl.innerHTML = LINE_NOTE;
+      if (!corrected && boardNoteEl) { boardNoteEl.textContent = ''; boardNoteEl.hidden = true; }
       refreshBoard(true);
     }
     [modeSel, classSel, methodSel].forEach(sel => {
@@ -1200,6 +1287,7 @@
         selected = (saved.sel !== null && boatById[saved.sel]) ? Number(saved.sel) : null;
         cardOpen = selected !== null && saved.card === true;
         following = !!saved.follow && selected !== null;
+        groupView = (!following && (saved.view === 'fleet' || saved.view === 'favourites')) ? saved.view : null;
         return;
       }
       const asked = new URLSearchParams(window.location.search).get('boat') || '';

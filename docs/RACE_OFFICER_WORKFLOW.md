@@ -208,7 +208,7 @@ Use the pop-out public competitor page for a read-only display.
 
 The page is organised into tabs under the race header. During the race those are **Entries**, **Chart**, **Course analysis** and **Start photo**, and the page opens on the Chart. Once every boat has stopped racing, **Provisional results** takes the place of Entries (a pursuit race keeps its Start times as well).
 
-**Start photo** is the camera's still at each start signal, with the start line drawn on it, up a few seconds after the gun for competitors to see whether they were over. It is labelled as an early guide &mdash; your calls stand. The race page shows it beside the start video, with a link to the camera's own still without the line or logo (see [`VIDEO_RECORDING.md`](VIDEO_RECORDING.md#start-photo-v1014)).
+**Start photo** is the camera's still at each start signal, with the start line drawn on it, up a few seconds after the gun for competitors to see whether they were over. It is an early guide only &mdash; your calls stand, and the page's footer says whose decisions count. The race page shows it beside the start video, with a link to the camera's own still without the line or logo (see [`VIDEO_RECORDING.md`](VIDEO_RECORDING.md#start-photo-v1014)).
 
 The **Chart** tab is the one competitors spend the race on. It shows the fleet on the course and winds back through everything recorded so far, with a translucent leaderboard rolling up over it: the order on the water, or an **estimated IRC/YTC corrected** order projected from each boat's pace. That estimate is labelled as such on the page and is not a result — the Results tab and the published scores remain authoritative.
 

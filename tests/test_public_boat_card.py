@@ -173,6 +173,69 @@ class TestTheRacePageHandsItOver:
         assert "follow-clear" in html and "public_follow.js" in html
 
 
+class TestAViewOfBoatsStaysWithThem:
+    """View -> Start line is a place: the chart goes there. View -> Favourites
+    (or All boats) is boats, and boats move: asked for in November 2026, the
+    chart now stays with them as the race plays."""
+
+    def _js(self):
+        return (STATIC / "race_replay.js").read_text(encoding="utf-8")
+
+    def test_the_two_groups_are_held_and_the_three_places_are_not(self):
+        body = self._js().split("function showView(which)")[1].split("\n    }\n")[0]
+        assert "if (which === 'fleet' || which === 'favourites') { setGroupView(which); return; }" in body
+        assert body.index("setGroupView(null);") < body.index("fitTo(")
+
+    def test_it_is_looked_at_on_every_frame_but_moves_only_when_it_must(self):
+        js = self._js()
+        frame = js.split("function drawFrame()")[1].split("\n    }\n")[0]
+        assert "if (groupView) holdGroupView(false);" in frame
+        hold = js.split("function holdGroupView(force)")[1].split("\n    }\n")[0]
+        assert "if (!force && !strayed && !bunched) return;" in hold
+        assert "const bunched = nearest >= map.getZoom() + 1;" in hold, "whole zoom levels stop it hunting"
+        assert "if (!force && nowMs < groupHoldUntil) return;" in hold
+
+    def test_played_fast_it_keeps_more_sea_round_them(self):
+        """At 60x a boat doing six knots covers 180 m of chart a second. Held
+        at the minimum span, one favourite was off the chart in 2 samples of 12."""
+        js = self._js()
+        span = js.split("function groupSpanM(which)")[1].split("\n    }\n")[0]
+        assert "if (!playing) return VIEW_MIN_SPAN_M;" in span
+        assert "fastest * KNOTS_TO_MPS * SPEEDS[speedIx] * VIEW_AHEAD_S" in span
+        assert "groupSpanM(groupView) / 2 / 111320" in js
+
+    def test_the_viewer_can_always_take_the_chart_back(self):
+        js = self._js()
+        bind = js.split("function bindMap()")[1].split("\n    }\n")[0]
+        assert "map.on('dragstart', () => { if (following) setFollowing(false); letGo(); });" in bind
+        # In the capture phase: Leaflet's zoom buttons stop their clicks bubbling.
+        assert "if (ev.target.closest('.leaflet-control-zoom')) letGo(); }, true);" in bind
+        assert "box.addEventListener('dblclick', letGo, true);" in bind
+        assert "ev.touches.length > 1" in bind, "a pinch"
+
+    def test_the_list_shows_what_is_held_and_its_first_line_lets_go(self):
+        js = self._js()
+        assert "if (viewSel) viewSel.value = groupView || '';" in js
+        assert "if (!which) { setGroupView(null); return; }" in js
+
+    def test_one_boat_or_a_group_never_both(self):
+        js = self._js()
+        follow = js.split("function setFollowing(on)")[1].split("\n    }\n")[0]
+        assert "if (following && groupView) { groupView = null;" in follow
+        assert js.split("function showView(which)")[1].lstrip().startswith("{\n      if (following) setFollowing(false);")
+
+    def test_it_comes_back_after_the_page_reloads_itself(self):
+        js = self._js()
+        assert "view: groupView" in js
+        assert "(!following && (saved.view === 'fleet' || saved.view === 'favourites')) ? saved.view : null" in js
+        shown = js.split("addEventListener('coursemap:shown'")[1][:260]
+        assert "holdGroupView(true)" in shown
+
+    def test_unstarring_the_last_favourite_lets_go(self):
+        picker = self._js().split("function fitViewPicker()")[1].split("\n    }\n")[0]
+        assert "if (groupView === 'favourites') groupView = null;" in picker
+
+
 class TestThePageAndTheScriptUseTheSameLists:
     def _js(self):
         return (STATIC / "race_replay.js").read_text(encoding="utf-8")
@@ -251,7 +314,7 @@ class TestTheChartScript:
     def test_the_viewers_choices_survive_the_page_reloading_itself(self):
         js = self._js()
         assert "'roChart:'" in js and "sessionStorage" in js
-        assert "{sel: selected, card: cardOpen, follow: following, speed: SPEEDS[speedIx]}" in js
+        assert "{sel: selected, card: cardOpen, follow: following, view: groupView, speed: SPEEDS[speedIx]}" in js
 
     def test_a_finished_race_does_not_open_saying_live(self):
         assert "panel.dataset.raceFinished === '1'" in self._js().split("function describe()", 1)[1][:900]

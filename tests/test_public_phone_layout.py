@@ -127,7 +127,7 @@ class TestAFavouriteIsPickedOutWithoutItsCard:
 
     def test_a_reload_puts_the_card_back_as_it_was(self):
         js = self._js()
-        assert "{sel: selected, card: cardOpen, follow: following, speed: SPEEDS[speedIx]}" in js
+        assert "{sel: selected, card: cardOpen, follow: following, view: groupView, speed: SPEEDS[speedIx]}" in js
         assert "cardOpen = selected !== null && saved.card === true;" in js
 
     def test_tapping_the_picked_out_boat_opens_its_card_rather_than_letting_it_go(self):
@@ -233,6 +233,12 @@ class TestTheExplanationsAreGone:
         "Taken by the hut camera at the start signal",
         "This is one particular race",
         "may differ from the wind on the race course",
+        "This is a pursuit race",
+        "Start times below are offsets",
+        "Boat positions come from GPS trackers",
+        "not corrected for handicap",
+        "Tap the photo to open it full size",
+        "table.formula",
     )
     GONE_FROM_THE_HOME_PAGE = (
         "Series are rolled up",
@@ -257,6 +263,50 @@ class TestTheExplanationsAreGone:
         _race("Race being sailed")
         html = client.get(f"/public/race/{first}").get_data(as_text=True)
         assert '<p class="small current-race-link"><a href="/public/race">Go to the current race</a></p>' in html
+
+    def test_a_results_table_is_headed_by_its_name_alone(self, client):
+        """It carried "Corrected = elapsed x IRC TCC" and the start time above
+        every table. The rating and the start are on each boat's own row."""
+        race_id = _race()
+        _finish(race_id)
+        html = client.get(f"/public/race/{race_id}").get_data(as_text=True)
+        pane = html.split('id="ptab-results"')[1].split('id="ptab-chart"')[0]
+        assert "<h4>" in pane and "Corrected =" not in pane
+        for column in ("<th>Start</th>", "<th>Elapsed</th>", "<th>Corrected</th>"):
+            assert column in pane, column
+
+    def test_a_corrected_board_still_says_it_is_an_estimate_in_one_line(self):
+        """The paragraph explaining the method went; the label did not. The
+        competitor's guide says the board "is labelled as one on the page"."""
+        js = _read(STATIC / "race_replay.js")
+        note = js.split("function boardNote(early)")[1].split("\n    }\n")[0]
+        assert "corrected order</strong>, not a result.`" in note
+        assert "nothing for the first ${mins} minutes of racing" in note
+        assert "projected from" not in note and len(note) < 500
+        assert "LINE_NOTE" not in js
+        assert "boardNoteEl.hidden = true" in js and "boardNoteEl.hidden = false" in js
+
+    def test_the_start_photo_says_how_soon_it_was_taken_and_no_more(self):
+        """It read "taken by the camera within 0.3 s". Everything on that tab is
+        taken by the camera; the one that is not says "from the start video"."""
+        tpl = _read(TEMPLATES / "competitor_race.html")
+        assert "taken by the camera" not in tpl
+        assert "taken within {{ '%.1f'|format(photo.answer_s) }} s" in tpl
+        assert "from the start video" in tpl and "from the camera" in tpl
+
+    def test_a_finished_race_that_never_had_a_photo_has_no_empty_tab_for_one(self):
+        """It kept a tab whose whole content was "A photo of the line is taken
+        at each start signal and shown here a few seconds later", for a gun
+        fired months ago."""
+        src = _read(ROOT / "app.py")
+        rule = src.split('"start_photo_tab": (')[1].split("\n")[0:2]
+        assert "bool(startphoto.start_photos_for_race(" in rule[0]
+        assert "start_photo_enabled(video_config()) and not race_finished" in rule[1]
+
+    def test_the_start_photo_still_opens_full_size(self):
+        tpl = _read(TEMPLATES / "competitor_race.html")
+        link = tpl.split("data-start-photo=")[0].rsplit("<a ", 1)[1]
+        assert 'target="_blank"' in link and 'title="Open the photo full size"' in link
 
     def test_the_wind_still_says_where_it_was_measured(self, client):
         """The sentence warning that hut wind is not course wind went too. What

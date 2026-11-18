@@ -315,12 +315,22 @@ class TestTheChartTab:
         assert "RaceCourseMap.updateBoats(chartTab" not in html
         assert "RaceCourseMap.updateBoats(document" not in html
 
-    def test_it_says_the_order_is_not_handicap_corrected(self, client, monkeypatch):
+    def test_the_board_is_named_for_what_it_is_and_a_corrected_one_says_it_is_an_estimate(self, client, monkeypatch):
+        """The board under the chart said "Order on the water at the moment
+        shown, not corrected for handicap" beneath itself. Its picker already
+        says which order it is (Line honours / IRC corrected / YTC corrected),
+        so the sentence went when the page was cut down for a phone. What must
+        still be said on the page is that a corrected order is an estimate."""
         self._tracking(monkeypatch, True)
         race_id, _ids, _gun = _seed_race(client)
         html = client.get(f"/public/race/{race_id}").get_data(as_text=True)
         pane = html.split('id="ptab-chart"', 1)[1].split('id="ptab-analysis"', 1)[0]
-        assert "on the water" in pane and "not corrected for handicap" in pane
+        assert "not corrected for handicap" not in pane
+        assert '<option value="line" selected>Line honours</option>' in pane
+        assert '<p class="small muted replay-board-note" hidden></p>' in pane
+        import pathlib
+        js = pathlib.Path("static/race_replay.js").read_text(encoding="utf-8")
+        assert "corrected order</strong>, not a result.`" in js
 
     def test_the_guide_says_the_track_between_fixes_is_interpolated(self, client, monkeypatch):
         """The chart said so itself, in a paragraph under it, until the page was

@@ -3778,8 +3778,12 @@ def competitor_race_context(race: sqlite3.Row, mobile_view: bool = False,
         "film_url": replay3d.film_url_for(int(race["id"])),
         "start_video_clip": video_maps["start_clip"],
         "start_photos": startphoto.start_photos_for_race(int(race["id"])),
-        "start_photo_tab": (startphoto.start_photo_enabled(video_config())
-                            or bool(startphoto.start_photos_for_race(int(race["id"])))),
+        # A race with photos always has the tab. One without has it only while
+        # a photo may still come: before and during the race, with the camera
+        # set to take them. A finished race that never had one used to keep an
+        # empty tab promising a photo "a few seconds" after a gun long gone.
+        "start_photo_tab": (bool(startphoto.start_photos_for_race(int(race["id"])))
+                            or (startphoto.start_photo_enabled(video_config()) and not race_finished)),
         "finish_video_by_entry": video_maps["by_entry"],
         "video_clip_link_text": video_clip_link_text,
         "public_video_clip_link_text": public_video_clip_link_text,

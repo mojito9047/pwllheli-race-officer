@@ -175,7 +175,6 @@
         {% for table in group.tables %}
         <div class="result-card">
           <h4>{{ table.title }}</h4>
-          <p class="small muted">{{ table.formula }}{% if table.start_note %} · {{ table.start_note }}{% endif %}</p>
           {% if table.rows %}
           <table class="stack-table">
             <thead><tr><th>Rank</th><th>Boat</th><th>Sail</th><th>Start</th><th>{{ table.rating_label }}</th><th>Status</th><th>Elapsed</th><th>Corrected</th><th>Finish video</th></tr></thead>
@@ -243,7 +242,6 @@
   {% if is_pursuit %}
     <div id="publicPursuitPanel">
     <h3>Start times</h3>
-    <p class="muted">This is a pursuit race: slower boats start first, then the others, so on handicap they would finish together. {% if pursuit_timing_ready %}The next boat to start is highlighted.{% else %}Start times below are offsets from the first boat until the race officer sets the start time.{% endif %}</p>
     {% if pursuit_start_rows %}
     <table class="entry-list stack-table" id="publicPursuitLadder">
       <thead><tr><th>#</th><th>Boat</th><th>Sail no.</th><th>{{ pursuit_rating_type }}</th><th>Start time</th><th>In</th></tr></thead>
@@ -288,9 +286,6 @@
         {% endfor %}
       </tbody>
     </table>
-    {% if show_tracking %}
-    <p class="small muted">Boat positions come from GPS trackers and are shown on the course chart below. Progress is the order <strong>on the water</strong>, not corrected for handicap.</p>
-    {% endif %}
     {% else %}
     <p class="muted">No entries yet.</p>
     {% endif %}
@@ -356,7 +351,10 @@
         <span class="replay-elapsed small muted">0:00</span>
         <button type="button" class="replay-live button secondary small"
                 title="Jump to the latest positions">Live</button>
-        <select class="replay-view" title="Move the chart to" aria-label="Move the chart to">
+        {# The first three are places. "All boats" (and "Favourites", which the
+           script adds when one is racing) are boats: the chart stays with them
+           as the race plays, and this list goes on showing which. #}
+        <select class="replay-view" title="Move the chart to, or keep it on" aria-label="Move the chart to, or keep it on">
           <option value="" selected>View…</option>
           <option value="start">Start line</option>
           <option value="course">Whole course</option>
@@ -399,7 +397,10 @@
         </thead>
         <tbody></tbody>
       </table>
-      <p class="small muted replay-board-note">Order <strong>on the water</strong> at the moment shown — not corrected for handicap.</p>
+      {# Empty while the board is the order on the water, which its picker says
+         ("Line honours"). A corrected order is an estimate, and says so here in
+         one line: see boardNote() in static/race_replay.js. #}
+      <p class="small muted replay-board-note" hidden></p>
         </div>
       </div>
     </div>
@@ -482,12 +483,11 @@
     {% for photo in start_photos %}
     <figure class="start-photo">
       <figcaption><strong>{{ photo.label }}</strong> &middot; start signal {{ photo.time }}
-        {% if photo.status == 'ready' %}<span class="muted small">&middot; {% if photo.source == 'camera' %}taken by the camera{% if photo.answer_s is not none %} within {{ '%.1f'|format(photo.answer_s) }} s{% endif %}{% else %}from the start video{% endif %}</span>{% endif %}
+        {% if photo.status == 'ready' %}<span class="muted small">&middot; {% if photo.source != 'camera' %}from the start video{% elif photo.answer_s is not none %}taken within {{ '%.1f'|format(photo.answer_s) }} s{% else %}from the camera{% endif %}</span>{% endif %}
       </figcaption>
       {% if photo.status == 'ready' and (photo.url or photo.has_file) %}
         {% set href = photo.url or url_for('public_start_photo_file', clip_id=photo.clip_id) %}
-        <a href="{{ href }}" target="_blank" rel="noopener"><img src="{{ href }}" data-start-photo="{{ photo.clip_id }}" alt="The start line at the {{ photo.label|lower }} signal, {{ photo.time }}" loading="lazy" width="3840" height="2160"></a>
-        <p class="small muted">Tap the photo to open it full size and zoom in.</p>
+        <a href="{{ href }}" target="_blank" rel="noopener" title="Open the photo full size"><img src="{{ href }}" data-start-photo="{{ photo.clip_id }}" alt="The start line at the {{ photo.label|lower }} signal, {{ photo.time }}" loading="lazy" width="3840" height="2160"></a>
       {% elif photo.status == 'pending' %}
         <p class="muted">Taken at the start signal and shown here a few seconds later.</p>
       {% elif photo.status == 'taking' %}
