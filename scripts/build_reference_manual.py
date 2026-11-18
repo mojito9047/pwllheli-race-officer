@@ -1462,7 +1462,9 @@ story.append(Paragraph(
 story.append(figure("backup_restore.png", "Backup / restore: one restore form, from an off-site backup or a "
                                           "ZIP, the selectable sections, and what each contains."))
 story.append(Paragraph(
-    "The app keeps race data in <b>three</b> SQLite databases, and all three have their own section: "
+    "The app keeps race data in <b>three</b> SQLite databases, and all three have their own section, as does "
+    "a fourth, <b>Phone notifications</b> (<b>data/push.db</b>: the phones that asked for notifications and the "
+    "club's push key pair, which every one of those subscriptions is tied to). The three are: "
     "<b>Database</b> (races, entries, boats, settings, users, and the activity log in <b>data/logs/</b>, of "
     "which a restore adds only the missing days), <b>GPS tracks</b> "
     "(<b>data/track_positions.db</b> — every recorded tracker fix, and so the evidence behind GPS finishes) "

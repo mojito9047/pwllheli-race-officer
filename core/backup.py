@@ -68,6 +68,16 @@ BACKUP_SECTION_DEFINITIONS: List[Dict[str, Any]] = [
         "warning": "Restoring this replaces the recorded power history.",
     },
     {
+        "id": "notifications",
+        "label": "Phone notifications",
+        "description": "The phones that asked for notifications and the club's push key pair (data/push.db). "
+                       "Every subscription is tied to that key pair: without it each phone has to turn "
+                       "notifications on again.",
+        "default_backup": True,
+        "default_restore": True,
+        "warning": "Restoring this replaces the list of subscribed phones and the push key pair.",
+    },
+    {
         "id": "marks_courses",
         "label": "Marks, Courses, start/finish line",
         "description": "Fixed course definitions, mark positions and start/finish line files.",
@@ -123,6 +133,7 @@ def backup_section_prefixes(section_id: str) -> List[str]:
         "database": ["data/race_officer.db", "data/logs/"],
         "tracks": ["data/track_positions.db"],
         "power_history": ["data/power_history.db"],
+        "notifications": ["data/push.db"],
         "marks_courses": ["data/marks.json", "data/courses.json", "data/start_finish.json"],
         "polars_sailcharts": ["data/DefaultSailChart.txt", "data/polars/", "data/sailcharts/"],
         "branding": ["data/branding/"],
@@ -239,10 +250,11 @@ def extra_database_files() -> Dict[str, Tuple[Path, str]]:
     core.power that tests redirect to a temp file, and binding them at import
     would make a test write to the developer's real history.
     """
-    from core import power, track          # local: avoids an import cycle
+    from core import notify, power, track  # local: avoids an import cycle
     return {
         "tracks": (Path(track.TRACK_DB_PATH), "data/track_positions.db"),
         "power_history": (Path(power.POWER_DB_PATH), "data/power_history.db"),
+        "notifications": (Path(notify.PUSH_DB_PATH), "data/push.db"),
     }
 
 

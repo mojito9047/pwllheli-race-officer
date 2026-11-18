@@ -643,6 +643,20 @@ Commands aimed at it are not refused — correcting a finished race is a real
 thing to want — but the read-back says "(which has finished)" and warns you
 to say *new race* if that is what you meant.
 
+## Phone notifications are not arriving
+
+Open **Settings → Phone notifications** and read the status box.
+
+- **Switched off**, or **Cannot send yet**: the box says which and why. The usual reason is the public address under **Web server** being empty or not `https`.
+- **0 phones subscribed**: nobody has pressed **Turn on notifications** on the competitor page, or the phone that did has since dropped off. Turn them on again on the phone.
+- **On an iPhone the switch is not offered**: the page has to be opened from the home screen icon, not from Safari. Add it with **Share → Add to Home Screen**.
+- **"Notifications are blocked for this site"** on the phone: the owner said no to the browser's question at some point. That is undone in the browser's or the phone's own settings for the site, not in the app.
+- **Last error** shows a number: `401` or `403` means the push service refused the hut's own signature, which is the same for every phone (check the public address is the real one; nobody is removed from the list for it). `0` with a timeout means the hut could not reach the push service: check its internet connection. Those messages are tried again after 30 seconds, 2 minutes and 10 minutes.
+- **A finish arrived a minute late**: that is the 45-second hold, described in the settings guide.
+- **After a restore, or moving to a new PC, nothing arrives**: if `data/push.db` did not come across, the hut has made a new key pair and the old subscriptions cannot be sent to. Each phone puts this right by itself the next time its owner opens the competitor page.
+
+Use **Save and send a test notification** to check: it reaches every subscribed phone and reports back in the status box.
+
 ## Public page does not update quickly
 
 The public page polls for state changes. Check:

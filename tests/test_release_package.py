@@ -51,6 +51,8 @@ def _excluded(name: str) -> bool:
 class TestNoDatabaseEverShips:
     @pytest.mark.parametrize("name", [
         "race_officer.db", "track_positions.db", "power_history.db",
+        # Phone notifications: the subscribed phones and the club's private push key.
+        "push.db",
     ])
     def test_the_databases_are_excluded(self, name):
         assert _excluded(name)
@@ -63,6 +65,7 @@ class TestNoDatabaseEverShips:
 
     @pytest.mark.parametrize("name", [
         "race_officer.db.devcopy", "track_positions.db.devcopy", "power_history.db.devcopy",
+        "push.db.devcopy",
     ])
     def test_and_so_are_the_developer_copies_kept_beside_them(self, name):
         """scripts/use_hut_data.py parks the developer's own databases as

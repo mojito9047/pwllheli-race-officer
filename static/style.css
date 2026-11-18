@@ -3569,3 +3569,10 @@ button.boat-card-close:hover { background: var(--ink, #1c1a15); color: var(--pap
 @media (min-width: 701px) {
   [data-replay].replay-sheet-open .boat-card { max-height: calc(54% - 20px); }
 }
+
+/* The notifications switch on the competitor pages (static/public_app.js). */
+.notify-line { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; margin: 10px 0 0; }
+.notify-line[hidden] { display: none; }
+.notify-line label { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+.notify-line input[type="checkbox"] { width: auto; }
+.notify-line .notify-note { flex: 1 1 100%; color: var(--ink-faint, #667085); }

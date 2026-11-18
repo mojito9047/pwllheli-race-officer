@@ -82,6 +82,9 @@
       <span><strong>{{ racing_count }}</strong> racing</span>
       <span>Predicted: <strong id="publicPredictedTime">{% if course_shown %}{{ course_analysis.predicted_display }}{% else %}&mdash;{% endif %}</strong></span>
     </div>
+    {# The notifications switch: see static/public_app.js. Empty and hidden
+       unless the club has switched notifications on. #}
+    <div class="notify-line small" id="publicNotify" hidden></div>
     {% if film_url %}
     {# In the header rather than beside the start video in the Results tab,
        because that line only exists once there are results and a pursuit race

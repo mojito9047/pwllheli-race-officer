@@ -35,6 +35,9 @@
        so the server has nothing to put here: the line appears once there is one. #}
     <p class="follow-line small" id="publicFollowLine" hidden>★ Following <strong class="follow-names"></strong>
       <button type="button" class="button small secondary follow-clear">Clear</button></p>
+    {# The notifications switch. Filled in by static/public_app.js, and left
+       empty and hidden when the club has not switched notifications on. #}
+    <div class="notify-line small" id="publicNotify" hidden></div>
   </div>
   {# The same wind instrument the race officer sees, plus the current race's
      countdown, so both are visible without opening a tab or a race page. #}

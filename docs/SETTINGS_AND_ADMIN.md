@@ -144,6 +144,21 @@ The **Push ingest token** is what lets Traccar POST each fix to the app as it ar
 
 Managing which tracker is on which boat — and adding or removing trackers — is done on the separate **Trackers** page (in the bottom group of the side menu), which is available to **race officers** as well as admins, since it is a race-day task. The app can create and delete the Traccar devices for you via the API, and a tracker that Traccar has heard from but that is not set up here yet can be picked off a list rather than typed in as a 15-digit IMEI. Full details, including the live map, *Position on the water* and automated finishes, are in [`TRACKING.md`](TRACKING.md). What each model of tracker actually does — battery, accuracy, how quickly its fixes arrive, and the ways each will mislead you — is in [`TRACKERS.md`](TRACKERS.md).
 
+## Phone notifications
+
+The **Phone notifications** section switches on notifications for people following a race. It is **off** until an administrator ticks **Offer phone notifications on the competitor pages**; until then the public pages offer nothing and the hut accepts no subscriptions.
+
+With it on, a phone that accepts is told when a race starts, is postponed, has its course shortened or is abandoned, and when the results are up; and, for each boat its owner has starred, when that boat finishes. What the competitor sees is described in [`PUBLIC_COMPETITOR_PAGE.md`](PUBLIC_COMPETITOR_PAGE.md#notifications).
+
+- **It needs the public address**, set under **Web server → Public address**, and it must be `https`. Phones only accept notifications from a secure address, and the address is given to the push services as the sender's contact. Without it the status box says *Cannot send yet* and why.
+- **The status box** says whether it is on, how many phones are subscribed, and what was last sent: how many phones it reached, how many are being tried again, how many failed, and how many were no longer subscribed and have been removed. A phone that uninstalls the app or clears its browser drops off the list by itself the next time something is sent.
+- **Save and send a test notification** sends one message to every subscribed phone saying that nothing has happened. Turn notifications on from the competitor page on your own phone first, then use it once after switching on, and again after a restore.
+- **iPhones** only receive notifications once the competitor page has been added to the home screen. That is Apple's rule, not a fault.
+- **A finish is announced about a minute late on purpose**, so that a wrong automatic finish the race officer removes is never sent. Nothing that had already happened is announced when the app starts or when notifications are first switched on.
+- **What is kept** is in `data/push.db`: each phone's push address, its two choices and the sail numbers of its starred boats, and the club's own push key pair. No names or accounts. It is the **Phone notifications** option on Backup / restore, and should be ticked under Off-site backup as well: every subscription is tied to the key pair, so if that file is lost every phone has to turn notifications on again.
+
+Notifications are sent by the hut itself, over its own internet connection, to the browser makers' push services (Google, Apple, Mozilla, Microsoft), which deliver them. A message is a few hundred bytes. The hut cannot be made to send anywhere else: a subscription whose address is not one of those services is refused.
+
 ## Hut power (Victron VE.Direct)
 
 The hut runs off-grid, and this section reads three Victron devices connected to the race-office PC by VE.Direct-to-USB cables. Monitoring is **read-only** — the app never sends anything to the Victron equipment.

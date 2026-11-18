@@ -544,6 +544,43 @@
   </section>
 </details>
 
+<details class="card settings-section" id="notifications">
+  <summary><h3>Phone notifications</h3><span>Tell followers when a race starts and their boat finishes</span></summary>
+  <p class="muted">With this on, the competitor pages offer <strong>Turn on notifications</strong>. A phone that accepts is told when a race
+    starts, is postponed, has its course shortened or is abandoned, and when the results are up; and, for each boat its owner has starred,
+    when that boat finishes. Nothing is asked for but the say-so: no name, no account. What is kept is a push address and the sail numbers
+    of the starred boats.</p>
+
+  <div class="status-box {{ 'ok' if push_status.enabled and push_status.ready and not push_status.watch_error else 'warn' }}">
+    <strong>Phone notifications:</strong>
+    {% if not push_status.enabled %}Switched off.
+    {% elif not push_status.ready %}Cannot send yet. {{ push_status.reason }}
+    {% else %}On.{% endif %}
+    <br>{{ push_status.subscribers }} phone{{ '' if push_status.subscribers == 1 else 's' }} subscribed.
+    {% if push_status.last %}
+      <br>Last sent {{ dt_full_display(push_status.last.at) or push_status.last.at }}:
+      {% if push_status.last.title %}<em>{{ push_status.last.title }}: {{ push_status.last.body }}</em> &mdash; {% endif %}
+      reached {{ push_status.last.sent }}{% if push_status.last.waiting %}, trying {{ push_status.last.waiting }} again{% endif %}{% if push_status.last.failed %}, {{ push_status.last.failed }} failed{% endif %}{% if push_status.last.gone %}, {{ push_status.last.gone }} no longer subscribed and removed{% endif %}.
+      {% if push_status.last.error %}<br>Last error: <code>{{ push_status.last.error }}</code>{% endif %}
+    {% endif %}
+    {% if push_status.watch_error %}<br>The watcher could not read the race records: <code>{{ push_status.watch_error }}</code>{% endif %}
+  </div>
+
+  <label class="checkbox-inline"><input form="settingsSaveForm" type="checkbox" name="push_enabled" value="1" {% if push_status.enabled %}checked{% endif %}> Offer phone notifications on the competitor pages</label>
+
+  <p class="muted small">Notifications reach Chrome on Android and on a computer straight away. On an <strong>iPhone</strong> they work only once the
+    competitor page has been added to the home screen, which is Apple's rule; the page says so. They need the public address set under
+    <a href="#server">Server</a>, and it must be <code>https</code>. A finish is announced about a minute after it is recorded, so that a wrong
+    automatic finish the race officer removes is never sent.</p>
+  <p class="muted small">The list of phones and the club's push key pair are in <code>data/push.db</code>, which is the <strong>Phone notifications</strong>
+    option on <a href="{{ url_for('backup_restore_page') }}">Backup / restore</a>. Tick it under <a href="#offsite-backup">Off-site backup</a> too: if the
+    key pair is lost, every phone has to turn notifications on again.</p>
+  <div class="form-row small-top">
+    <button form="settingsSaveForm" type="submit" formaction="{{ url_for('settings_push_test') }}" formmethod="post" class="secondary">Save and send a test notification</button>
+  </div>
+  <p class="muted small">The test goes to every subscribed phone and says that nothing has happened.</p>
+</details>
+
 <details class="card settings-section" id="weather">
   <summary><h3>Weather Station</h3><span>Start-hut wind feed or manual wind</span></summary>
   <p class="muted">Choose where the start-hut wind comes from. Only the fields for the selected source are shown.</p>

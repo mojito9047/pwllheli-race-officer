@@ -309,6 +309,8 @@ state fields include `course_set`, `postponed_flag`, `postponement_ends_at` and
 
 `/public/app.webmanifest` is the web app manifest a phone reads when the competitor pages are added to its home screen: the club's name and short name from Settings, `start_url` `/public/current`, `scope` `/public/` and the icons. `/public/app-icon/<size>.png` is the club logo as a square icon, at `180`, `192` or `512` pixels and nothing else (`404` for any other size). Both are public because the phone fetching them is signed in to nothing.
 
+`/public/sw.js` is the service worker that shows a notification when one arrives. It has no `fetch` handler and keeps no cache. `POST /public/push/subscribe` and `POST /public/push/unsubscribe` are how a phone asks for notifications and asks for them to stop; they are what the **Turn on notifications** switch calls, and are not meant for anything else. A subscribe body is `{"subscription": <the browser's PushSubscription as JSON>, "notices": true, "boats": true, "boat_keys": ["GBR4822R"]}` and an unsubscribe body is `{"endpoint": "..."}`. Both answer `{"ok": true}`, or `{"ok": false, "error": "..."}` with `404` while notifications are switched off, `400` for something that is not a browser's subscription, `413` for a body over 4 kB, `429` after 30 requests from one address in 15 minutes and `503` if the hut is busy. A subscription's address must be one of the browser makers' push services (Google, Mozilla, Apple, Microsoft); anything else is refused.
+
 Everything in this document is read-only and carries the same kind of race, course and mark information competitors can already see. The race office's own APIs stay behind the `/admin` login.
 
 ---

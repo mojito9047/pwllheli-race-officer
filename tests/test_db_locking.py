@@ -231,8 +231,13 @@ class TestRestoreClearsStaleJournals:
 
     def test_every_database_section_is_covered(self, client):
         """Derived from the catalogue, so a fourth database is covered without
-        anyone remembering to update a hand-written list."""
-        assert backup_core.database_backup_section_ids() == {"database", "tracks", "power_history"}
+        anyone remembering to update a hand-written list.
+
+        The fourth arrived with phone notifications (data/push.db), and was
+        covered by adding it to the catalogue and nothing else.
+        """
+        assert backup_core.database_backup_section_ids() == {"database", "tracks", "power_history",
+                                                             "notifications"}
 
     def test_a_restore_still_replaces_the_database(self, client, tmp_path, monkeypatch):
         """End to end: the rows after a restore are the backup's, not the live ones."""

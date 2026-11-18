@@ -7,6 +7,11 @@ waitress>=3.0,<4
 # WinZip AES format, so 7-Zip or WinRAR can open an off-site archive with just
 # the passphrase on a day this app is not available to do it.
 pyzipper>=0.3,<1
+# The arithmetic behind phone notifications (core/webpush.py): the signature on
+# each message and its encryption. pyzipper already installs it for the backup
+# ZIPs, so this adds nothing to download; it is named because the app now uses
+# it directly, and should not lose it if pyzipper ever stops needing it.
+pycryptodomex>=3.19,<4
 # Renders the bundled docs/*.md documentation on the Documentation page. Optional
 # in practice: without it the app shows the raw text rather than failing.
 Markdown>=3.5,<4

@@ -80,6 +80,7 @@ From v0.124, the race-office app has a **Backup / restore** page at the bottom o
 - **Database (Races & settings)** — `data/race_officer.db`, including races, entries, boats, settings, users, event logs, weather samples and video metadata, and `data/logs/`, the **activity log** of who did what. The log goes with the database because it is the record of who changed what in it, and so it is in the nightly off-site copy too. A restore adds only the days of the log that are missing; a day already on the PC is kept as it is, so the days since the backup — the record of the restore itself among them — are never lost to it.
 - **GPS tracks** — `data/track_positions.db`, every recorded tracker fix: the race map history, replays, and the evidence behind GPS finishes. This is a *separate* database from the one above, and until v0.192 it was not in any backup.
 - **Hut power history** — `data/power_history.db`, battery/solar/load readings from the power monitor. Also its own database, also missing before v0.192.
+- **Phone notifications** — `data/push.db`, the phones that asked for notifications and the club's push key pair. Every subscription is tied to that key pair, so without this file each phone has to turn notifications on again. A fourth database of its own, so that a subscribe request from the public internet can never hold a lock on the one the finishes are written to. An installation that was already making off-site backups keeps its saved list of sections: tick this one under **Settings → Off-site backup**.
 - **Marks, Courses, start/finish line** — `data/marks.json`, `data/courses.json`, `data/start_finish.json`.
 - **Polars & Sail charts** — `data/polars/`, `data/sailcharts/`, `data/DefaultSailChart.txt`.
 - **Branding Images** — `data/branding/`, including the branding manifest and uploaded club/sponsor logos.
@@ -172,6 +173,7 @@ Before racing, back up the whole `data/` folder. At minimum, this includes:
 data/race_officer.db
 data/track_positions.db  the recorded GPS tracks
 data/power_history.db    hut battery/solar history
+data/push.db             phones subscribed to notifications, and the push key pair
 data/polars/
 data/sailcharts/
 data/DefaultSailChart.txt

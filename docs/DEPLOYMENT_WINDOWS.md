@@ -216,7 +216,7 @@ For a large hut-PC monitor, make a desktop shortcut to `http://localhost:5050/sp
 
 The easiest way is the app's own **Backup / restore** page at the bottom of the side menu: tick the sections and download one ZIP. Otherwise stop the app and copy the whole `data` folder. It holds everything worth keeping:
 
-- **three** databases, not one: `race_officer.db` (races, entries, boats, settings, users), `track_positions.db` (recorded GPS tracks) and `power_history.db` (hut battery and solar history);
+- **four** databases, not one: `race_officer.db` (races, entries, boats, settings, users), `track_positions.db` (recorded GPS tracks), `power_history.db` (hut battery and solar history) and `push.db` (the phones subscribed to notifications, and the club's push key pair);
 - the course and mark files, polars, sail charts and branding;
 - the activity log, in `data\logs` (the Backup / restore page includes it with the database);
 - the saved evidence clips, in `data\video_clips`.

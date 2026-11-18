@@ -96,6 +96,7 @@ from core.ratings import (
     rating_type_from_class_name,
 )
 from core import marks as core_marks
+from core import notify
 from core import publicapp
 from core import replay3d
 from core import resultspublish
@@ -1486,6 +1487,9 @@ def restore_backup_archive(fetch: Callable[[Path], Any], selected_sections: Iter
         if restored_counts.get("power_history"):
             power.POWER_DB_INITIALIZED = False
             power.init_power_db()
+        if restored_counts.get("notifications"):
+            notify.PUSH_DB_INITIALIZED = False
+            notify.init_push_db()
         if restored_course_files:
             reload_course_mark_data()
         return {
@@ -2106,6 +2110,12 @@ def save_app_settings(settings: Dict[str, Any]) -> str:
         "offsite_backup_keep": str(int_in_range(settings.get("offsite_backup_keep"), offsite.DEFAULT_OFFSITE_KEEP, 1, 365)),
         "offsite_backup_sections": ",".join(offsite.normalise_offsite_sections(settings.get("offsite_backup_sections"))),
         "offsite_backup_passphrase": offsite_passphrase,
+        # Phone notifications. A caller that says nothing about it (a restore, a
+        # partial save from code) keeps what is saved; the Settings form always
+        # says, because an unticked box is how a form says "off".
+        "push_enabled": bool_to_text(text_to_bool(
+            existing.get("push_enabled") if settings.get("push_enabled") is None
+            else settings.get("push_enabled"), False)),
         # A form without these fields keeps what is saved rather than resetting
         # the club to the defaults.
         "club_name": clean_club_text(existing.get("club_name", "") if settings.get("club_name") is None
@@ -2324,6 +2334,7 @@ def ensure_background_tasks_running() -> None:
     start_track_monitor_worker()
     start_offsite_backup_worker()
     start_versions_worker()
+    notify.start_notify_worker()
 
 
 def public_access_allowed_for_race(race: Optional[sqlite3.Row]) -> bool:
@@ -2522,6 +2533,8 @@ ADMIN_ONLY_ENDPOINTS = frozenset({
     "settings_video_ptz_login_test", "settings_video_ptz_test",
     "settings_video_r2_test", "settings_video_r2_retry", "settings_video_uploads_abandon",
     "settings_offsite_backup_now",
+    # Sends a message to every subscribed phone.
+    "settings_push_test",
     "settings_branding_club_logo_upload", "settings_branding_club_logo_delete",
     "settings_branding_public_header_upload", "settings_branding_public_header_delete",
     "settings_branding_sponsor_upload", "settings_branding_sponsor_delete",
@@ -2610,6 +2623,15 @@ def public_endpoint() -> bool:
         # the public pages already show.
         "public_app_manifest",
         "public_app_icon",
+        # Phone notifications. The service worker is a script the browser
+        # fetches on its own, signed in to nothing; subscribing and
+        # unsubscribing are what a competitor's phone does when its owner
+        # presses the switch. Both POSTs are bounded in routes/public_app.py:
+        # small bodies, a known push service's address only, a limit per
+        # address, and a cap on how many are kept.
+        "public_service_worker",
+        "public_push_subscribe",
+        "public_push_unsubscribe",
         "api_branding_live",
         "api_course_leg_analysis",
         "api_custom_leg_analysis",
@@ -2669,6 +2691,13 @@ CSRF_EXEMPT_ENDPOINTS = {
     # it names by id and nothing else -- less than anyone in the room could do by
     # walking over to the television.
     "bar_replay_finished",
+    # A competitor's phone asking for notifications, or asking for them to stop.
+    # The public pages carry no session, so there is no token to send. Nothing a
+    # forged request could do here is worth forging: it can only add or remove
+    # the subscription it names, and it must already hold that subscription's
+    # keys to add it.
+    "public_push_subscribe",
+    "public_push_unsubscribe",
 }
 
 
@@ -2836,6 +2865,10 @@ def inject_helpers():
         "source_url": SOURCE_URL,
         # The club's name, logo and public header, from Settings -> Club branding.
         "club_brand": club_branding_for_template(),
+        # Whether the public pages should offer phone notifications, and the key
+        # a phone subscribes with. A function, called only by the two public
+        # pages, so no other page pays for the answer.
+        "push_public_config": notify.public_config,
     }
 
 
@@ -3821,6 +3854,7 @@ def read_settings_form() -> Tuple[Dict[str, Any], Dict[str, Any]]:
         "club_name": request.form.get("club_name"),
         "club_short_name": request.form.get("club_short_name"),
         "offsite_backup_enabled": request.form.get("offsite_backup_enabled", "0"),
+        "push_enabled": request.form.get("push_enabled", "0"),
         "offsite_backup_bucket": request.form.get("offsite_backup_bucket", ""),
         "offsite_backup_prefix": request.form.get("offsite_backup_prefix", ""),
         "offsite_backup_hour": request.form.get("offsite_backup_hour", str(offsite.DEFAULT_OFFSITE_HOUR)),
@@ -3990,6 +4024,7 @@ if __name__ == "__main__":
     start_track_monitor_worker()
     start_offsite_backup_worker()
     start_versions_worker()
+    notify.start_notify_worker()
 
     from waitress import serve
 

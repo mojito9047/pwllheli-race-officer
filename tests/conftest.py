@@ -20,7 +20,8 @@ os.environ.setdefault("RO_INITIAL_ADMIN_PASSWORD", "testadminpass")
 
 import app as ro  # noqa: E402 — must follow sys.path and env setup
 from core import (  # noqa: E402 — extracted modules to monkeypatch
-    appstate, audio, db, loginguard, offsite, power, settings, startsequence, track, versions, weather_store,
+    appstate, audio, db, loginguard, notify, offsite, power, settings, startsequence, track, versions,
+    weather_store,
 )
 
 
@@ -33,6 +34,9 @@ _REAL_DB_PATH = Path(appstate.DB_PATH)
 # path is bound at import, so a test that did not redirect it wrote SIM boats
 # into the developer's real track_positions.db (found in v0.189 testing).
 _REAL_TRACK_DB_PATH = Path(track.TRACK_DB_PATH)
+# And the notifications database, which holds the club's push key pair: a test
+# that made a new one in the real file would cut off every subscribed phone.
+_REAL_PUSH_DB_PATH = Path(notify.PUSH_DB_PATH)
 
 
 @pytest.fixture(autouse=True)
@@ -47,7 +51,8 @@ def never_touch_the_real_database(monkeypatch):
     guard turns a silent data loss into a failing test.
     """
     real_connect = db.sqlite3.connect
-    protected = {_REAL_DB_PATH.resolve(): "database", _REAL_TRACK_DB_PATH.resolve(): "GPS track database"}
+    protected = {_REAL_DB_PATH.resolve(): "database", _REAL_TRACK_DB_PATH.resolve(): "GPS track database",
+                 _REAL_PUSH_DB_PATH.resolve(): "notifications database"}
 
     def guarded_connect(database, *args, **kwargs):
         try:
@@ -215,6 +220,11 @@ def no_r2_uploader_thread(monkeypatch):
         # Asks GitHub and the relay what is running. A test has no business
         # reaching either.
         (versions, "versions_loop"),
+        # Watches the race database for news and POSTs to the browser makers'
+        # push services. Left running it would do both from a test, and go on
+        # watching the developer's real database after the test had finished.
+        (notify, "notify_watch_loop"),
+        (notify, "notify_send_loop"),
     ):
         if hasattr(module, loop_name):
             monkeypatch.setattr(module, loop_name, lambda *a, **k: None)
@@ -232,6 +242,13 @@ def no_r2_uploader_thread(monkeypatch):
             ro.video.PUBLIC_LIVE_R2_STATE["started"] = False
     except Exception:
         pass
+    with notify.NOTIFY_LOCK:
+        notify.NOTIFY_STATE.update(started=False, last={}, watch_error="")
+    while not notify.NOTIFY_QUEUE.empty():
+        notify.NOTIFY_QUEUE.get_nowait()
+    # Every test's requests come from the same address, so the subscribe limit
+    # would otherwise be reached part-way through the session.
+    notify.reset_rate_limit()
     # Reset the login brute-force guard so failed-login tests don't accumulate
     # lockouts across the session (same test-client ip + username).
     loginguard.reset_all()
@@ -273,6 +290,9 @@ def reset_module_state(sandbox_data_dir, tmp_path, monkeypatch):
     # tests append samples to the developer's real power_history.db.
     monkeypatch.setattr(power, "POWER_DB_PATH", tmp_path / "test_power_history.db")
     monkeypatch.setattr(power, "POWER_DB_INITIALIZED", False)
+    # Phone notifications: subscriptions and the push key pair, in their own file.
+    monkeypatch.setattr(notify, "PUSH_DB_PATH", tmp_path / "test_push.db")
+    monkeypatch.setattr(notify, "PUSH_DB_INITIALIZED", False)
     # Backups build their temporary ZIP in runtime/. Left pointing at the real
     # folder, a backup test drops archives (video backups are hundreds of MB)
     # into the developer's runtime directory and nothing ever clears them.

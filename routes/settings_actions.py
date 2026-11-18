@@ -7,6 +7,7 @@ used are read off the running app module (see routes.app_module) rather than
 ``from app import ...`` so it works whether app.py was started with ``python
 app.py`` (module ``__main__``) or imported.
 """
+from core import notify
 from core.weather_store import WEATHER_POLLER_LOCK, WEATHER_POLLER_STATE
 from routes import app_module
 
@@ -472,6 +473,32 @@ def settings_sail_chart_delete():
     else:
         flash(f"No polar-specific sail chart was installed for {polar_name}.", "error")
     return redirect(url_for("settings_page") + "#polars")
+
+
+@app.route("/settings/notifications/test", methods=["POST"])
+@app.route("/admin/settings/notifications/test", methods=["POST"])
+def settings_push_test():
+    """Save settings, then send one test notification to every subscribed phone.
+
+    Handed to the sender thread rather than sent here, for the reason the
+    off-site backup is: a few hundred phones over 4G can outlast the tunnel's
+    patience with one request. The status box says how it went.
+    """
+    save_settings_from_form()
+    status = notify.notify_runtime_status()
+    if not status["enabled"]:
+        flash("Phone notifications are switched off. Tick the box, then send the test.", "error")
+    elif not status["ready"]:
+        flash(f"A notification cannot be sent yet. {status['reason']}", "error")
+    elif not status["subscribers"]:
+        flash("No phone has turned notifications on yet, so there is nobody to send a test to. "
+              "Turn them on from the competitor page on your own phone first.", "error")
+    else:
+        notify.queue_test()
+        audit("test notification sent", f"{status['subscribers']} phone(s)")
+        flash(f"A test notification is on its way to {status['subscribers']} phone(s). "
+              "Reload this page in a moment to see how it went.", "success")
+    return redirect(url_for("settings_page") + "#notifications")
 
 
 @app.route("/settings/offsite_backup/run", methods=["POST"])

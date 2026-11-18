@@ -191,7 +191,23 @@ The competitor pages can be **added to a phone's home screen**, where they get t
 
 The line appears once and stays away when dismissed, and it never shows inside the installed app. The app's name and icon are the club's own from **Settings → Club name and branding**, so another club's installation gets its own. Only the competitor pages are part of it: the race office stays a web page behind its login.
 
-It needs the internet exactly as the page in a browser does. Nothing is kept on the phone except the favourites and the dismissed line.
+It needs the internet exactly as the page in a browser does. Nothing is kept on the phone except the favourites, the dismissed line and the notification choices below.
+
+### Notifications
+
+Where the club has switched them on (**Settings → Phone notifications**), both competitor pages carry **Turn on notifications**. The phone asks its owner's permission, and from then on it is told, whether or not the page is open:
+
+- **Race notices**: a race has **started**, been **postponed** (and when the postponement is ending, with the new warning time), had its **course shortened**, been **abandoned**, and when **all boats are in** and the provisional results are up.
+- **My favourite boats**: when a starred boat **finishes**, with its finish time.
+
+The two can be ticked separately, and **Turn off** stops them. Tapping a notification opens that race.
+
+- **Android and computers:** it works in the browser straight away.
+- **iPhone and iPad:** Apple only allows notifications for a page that has been **added to the home screen**. In Safari the page says so; add it to the home screen, open it from there and turn them on.
+
+A finish is announced about a minute after it is recorded. That is deliberate: an automatic GPS finish can be wrong, the race officer removes it, and a notification cannot be taken back, so a finish is only announced if it is still there 45 seconds later. Only the **first** start of a race is announced; a second fleet's start minutes later is the same race still starting.
+
+Nothing is asked for but the say-so. There is no name, no email address and no account: the hut keeps the phone's push address, the two choices and the sail numbers of its starred boats, and forgets them when notifications are turned off or the phone's browser stops accepting them.
 
 The old separate mobile addresses (`/public/mobile/current`, `/public/mobile/race/<id>`) still work — they now redirect to the responsive page — so links already shared with competitors keep working. There is no longer a desktop/mobile toggle to choose between.
 

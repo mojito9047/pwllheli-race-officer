@@ -60,7 +60,7 @@ OFFSITE_STATE: Dict[str, Any] = {
 
 # Sections in a nightly off-site backup unless Settings says otherwise: all of
 # them except the video clips, which are the one section measured in gigabytes.
-DEFAULT_OFFSITE_SECTIONS = ("database", "tracks", "power_history", "marks_courses",
+DEFAULT_OFFSITE_SECTIONS = ("database", "tracks", "power_history", "notifications", "marks_courses",
                             "polars_sailcharts", "branding")
 DEFAULT_OFFSITE_PREFIX = "race-officer-backups"
 DEFAULT_OFFSITE_HOUR = 3

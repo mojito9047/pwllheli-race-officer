@@ -596,6 +596,11 @@ story.append(bullets([
     "<b>You can keep it on your home screen.</b> On an Android phone the page offers <b>Add to home "
     "screen</b>; on an iPhone, tap <b>Share</b> and then <b>Add to Home Screen</b>. It then opens from "
     "its own icon, full-screen, like an app. It still needs the internet.",
+    "<b>You can be told when things happen.</b> Where your club has switched it on, the page offers "
+    "<b>Turn on notifications</b>: your phone is then told when a race starts, is postponed or shortened, "
+    "when the results are up, and when a boat you have starred finishes. On an iPhone, add the page to your "
+    "home screen first and turn them on from there. Nothing is asked for but your say-so, and <b>Turn off</b> "
+    "stops them.",
     "<b>Hut wind, not course wind.</b> The wind reading and history come from a sensor at the start hut, and "
     "can differ from conditions out on the course.",
     "<b>Nothing here needs a login.</b> If a page asks you to sign in, you've reached the race-office side of "

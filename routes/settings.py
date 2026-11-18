@@ -8,6 +8,7 @@ used are read off the running app module (see routes.app_module) rather than
 app.py`` (module ``__main__``) or imported.
 """
 from core.assistant_llm import interpreter_status
+from core import notify
 from routes import app_module
 
 _app = app_module()
@@ -86,6 +87,7 @@ def settings_page():
         config=hardware_config(),
         offsite=offsite_config(),
         offsite_status=offsite_dashboard_status(),
+        push_status=notify.notify_runtime_status(),
         offsite_backups=offsite_backups,
         backup_sections=_app.backup_sections_for_template(),
         listings=listing_config(),

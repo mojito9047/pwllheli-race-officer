@@ -11,6 +11,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="{{ club_brand.short_name }}">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+{# Phone notifications, when the club has switched them on: the key a phone
+   subscribes with and where to send the subscription. Absent otherwise, and the
+   page then offers nothing. #}
+{% set push = push_public_config() if push_public_config is defined else {'enabled': false} %}
+{% if push.enabled %}<meta name="ro-push-key" content="{{ push.key }}" data-worker="{{ url_for('public_service_worker') }}" data-subscribe="{{ url_for('public_push_subscribe') }}" data-unsubscribe="{{ url_for('public_push_unsubscribe') }}">{% endif %}
 {# Favourite boats, kept on the phone. Before any script that draws boats, so
    the chart can ask which are starred as soon as it runs. #}
 <script src="{{ url_for('static', filename='public_follow.js') }}?v={{ app_version }}" defer></script>
