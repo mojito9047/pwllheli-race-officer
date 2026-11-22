@@ -1,4 +1,4 @@
-# Pwllheli Race Officer v1.020
+# Pwllheli Race Officer v1.021
 
 A human-supervised race-management app for Pwllheli Sailing Club racing. It helps the race officer prepare races, recommend or build courses, manage entries, run configurable RRS 26-style start sequences, log horn events, record finish times, calculate IRC/YTC race results, score race series, publish competitor information pages and keep video evidence of starts and finishes.
 
@@ -27,6 +27,16 @@ Setup, hardware, video, tracking, the public pages and the rest are listed under
 
 
 ## Recent releases
+
+### v1.021 update
+
+- **The competitor pages work like an app on a phone**: add them to the home screen, tap a boat for its
+  card, star favourite boats, and a layout that gets to the chart and the times sooner. The race page opens
+  on the Chart, and Provisional results takes the place of Entries after the finish.
+- **Phone notifications**, switched on in Settings: race started, postponed, shortened, results up, and a
+  starred boat finishing. A new `data/push.db`; tick it under Off-site backup if you make those.
+- **A passage race across the Irish Sea can be followed end to end**: saved fixes are kept, the chart runs
+  to 48 hours. The Windows guide covers setting up the hut PC to come back after a power cut. MIT licence.
 
 ### v1.020 update
 
@@ -60,13 +70,6 @@ Setup, hardware, video, tracking, the public pages and the rest are listed under
 - **The race sheet says how long after the gun each start photo was ready.**
 - **The start photo is in the Series Guide and the Competitor Guide**, with a screenshot for competitors.
 - **Published results and View start video are buttons** on the public pages.
-
-### v1.016 update
-
-- **The start line is on the start photo even when the fleet hides the buoy at the gun.** The buoy is
-  found in camera stills taken before the start as well, and the line drawn where they agree.
-- **Start photos for races sailed before v1.014**, made afterwards from the 4K evidence clips by
-  `scripts/make_start_photos.py` on the hut (`--preview` first).
 
 ## Main features
 

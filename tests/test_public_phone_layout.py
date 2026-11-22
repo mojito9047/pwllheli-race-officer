@@ -209,12 +209,15 @@ class TestTheDocumentationNamesNoOtherTracker:
     the tracking service competitors used before. The mark corners YA and YB
     are another matter, and are everywhere."""
 
-    NAMES = ("YB Tracking", "YB Races", "YB convention", "YB app", "YB's", "yb.tl", "the YB ")
+    # Put together from its initials, so that this file does not name it either.
+    _IT = "Y" + "B"
+    NAMES = (_IT + " Tracking", _IT + " Races", _IT + " convention", _IT + " app", _IT + "'s",
+             _IT.lower() + ".tl", "the " + _IT + " ")
 
     def test_nothing_that_ships_names_it(self):
         found = []
         places = [ROOT / "docs", ROOT / "scripts", ROOT / "templates", ROOT / "static", ROOT / "core",
-                  ROOT / "routes"]
+                  ROOT / "routes", ROOT / "tests", ROOT / "deploy"]
         for place in places:
             for path in place.rglob("*"):
                 if path.suffix.lower() not in (".md", ".py", ".html", ".js", ".css", ".txt"):

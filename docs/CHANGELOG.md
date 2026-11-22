@@ -1,5 +1,76 @@
 # Change log
 
+## v1.021
+
+**The competitor pages work like an app on a phone.** Competitors follow these races
+on their phones, and the club's own pages were a web address with every boat drawn
+alike. They can now be kept on the home screen, a boat can be picked out and followed,
+favourites are remembered, a phone can be told when a race starts and when its boat
+finishes, and on a phone the pages get to the race sooner. All of it is on the existing
+public pages: there is no app store and nothing to pay for.
+
+- **On the home screen.** An Android phone offers **Add to home screen**; on an iPhone
+  it is **Share**, then **Add to Home Screen**. The pages then open from the club's own
+  logo, full screen, on the competitor home. The offer shows once and stays away when
+  turned down. It still needs the internet: nothing is kept on the phone but the
+  favourites and its owner's choices.
+- **Tap a boat.** On the chart, or on its row in the leaderboard, for a card that
+  follows the replay: place, next mark, distance to go, speed, **VMC**, distance
+  **sailed**, the estimated times and the two nearest boats, with its design, club,
+  class and ratings. Never the owner's name. **Follow** keeps it in view and **Share**
+  sends a link to the race with that boat picked out.
+- **Favourite boats.** A star beside any boat, kept on the phone that chose it and
+  nowhere else. A favourite is ringed on the chart when its race is opened.
+- **Phone notifications**, off until switched on in **Settings → Phone notifications**.
+  A phone that accepts is told when a race starts, is postponed, has its course
+  shortened or is abandoned, when the results are up, and when a boat its owner has
+  starred finishes. No name and no account. A finish is held 45 seconds before it is
+  told, because an automatic GPS finish can be wrong and a notification cannot be
+  unsent. It needs the public address to be https, and on an iPhone the pages have to
+  be on the home screen first, which is Apple's rule. Subscriptions and the club's push
+  key are in a fourth database, `data/push.db`, with its own Backup / restore section.
+  **An installation already making off-site backups keeps its saved list of sections:
+  tick Phone notifications under Settings → Off-site backup.** `requirements.txt` now
+  names `pycryptodomex`, which was already installed for the backup ZIPs.
+- **The race page opens on the Chart**, before, during and after the race, and the
+  chart no longer comes out wrong when its tab is opened: it used to be measured while
+  hidden. Playback speed is a list (1, 2, 5, 10, 30, 60×). **View** goes to the start
+  line, the whole course or the finish, and **All boats** and **Favourites** stay with
+  those boats as the race plays, until the chart is dragged or zoomed by hand. The
+  line-honours board gains **VMC** and **Sailed**.
+- **Provisional results takes the place of Entries** once no boat is racing. It was a
+  "Leader board" tab beside the entries list, which by then was the same boats again;
+  a pursuit race keeps its Start times. **Watch the 3D replay** is there, beside the
+  start video.
+- **Laid out for a phone.** One slim header, tabs that stay on screen under it, a
+  summary of a few lines, no flag board while nothing is flying, and cards that read
+  as a line of facts: a boat's result is three lines where it was eight, and the
+  competitor home is half as long. The sentences under the headings are gone (they are
+  in the competitor's guide), the footer is two short lines and the same on both pages,
+  and notifications, the favourites and the home-screen offer are behind one cog on the
+  competitor home. **Go to current race** sits under the wind and the clock.
+- **A passage race across the Irish Sea can be followed end to end.** A tracker out of
+  signal in mid-channel sends what it saved once it is back, and those fixes are now
+  kept instead of thrown away; a hole closed by a new fix is asked for again from
+  Traccar for half an hour. Race polling no longer queues hundreds of requests for a
+  tracker that cannot be reached. The chart runs to 48 hours, not 12. Every open page
+  shares one build of the order on the water, and the chart's wind gauge no longer
+  goes blank ten minutes into a live race.
+- **Setting up Windows for the hut.** Section 5 of `DEPLOYMENT_WINDOWS.md` is now
+  "Make it come back after a power cut, and keep it running": the BIOS set to switch on
+  when power returns, automatic sign-in, never sleep, USB selective suspend off (the
+  horn is a USB serial adapter) and Delivery Optimization off, with the command or
+  click path for each. `check_hut_pc.ps1` reports the three Windows can see.
+- **Published under the MIT licence.** `LICENSE`, and `NOTICE.md` for what it does not
+  cover: the club's crest and header and the sponsors' logos.
+- **The competitor's guide has new pictures**, taken from the pages as they are now,
+  and a phone in them is one readable screen.
+- **Fixed on the way:** "Chart note: no coordinates are available for Y" under a chart
+  that showed both corners of Y; the dashboard's versions card said "this PC" on every
+  laptop and phone that read it, and says "hut PC"; a finished race that never had a
+  start photo kept an empty tab promising one; the club's own papers are no longer in
+  the release ZIP.
+
 ## v1.020
 
 **An off-site backup restores straight from the bucket.** Restoring one meant the
