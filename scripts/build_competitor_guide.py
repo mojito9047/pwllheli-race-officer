@@ -379,11 +379,11 @@ story.append(Paragraph(
     "the two horn blasts and the spoken announcement on the water as well.", styles["Body"]))
 story.append(figure("03_race_live_desktop.png",
                      "A race page during the start sequence: class flag and preparatory flag up, "
-                     "countdown running, and the course chart with predicted leg timing."))
+                     "countdown running, and the page open on its Chart tab."))
 story.append(PageBreak())
 story.append(phone_figures([
     ("04_race_live_mobile.png", "The same race page on a phone: the Entries tab, one card per boat."),
-    ("04b_race_chart_mobile.png", "The Chart tab on the same phone."),
+    ("04b_race_chart_mobile.png", "The Chart tab on a phone, part-way through a tracked race."),
 ], max_h=19 * cm))
 
 story.append(PageBreak())
@@ -398,7 +398,7 @@ story.append(Paragraph(
 story.append(phone_figures([
     ("07_race_start_photo_mobile.png", "The Start photo tab on a phone. At the gun the buoy is behind the dark "
      "sails; the line goes to where it was in the minute before."),
-], max_h=13 * cm))
+], max_h=16 * cm))
 story += note_box(
     "The start photo is an early guide for you, not a decision. The race officer decides who was over the line, "
     "and those calls stand.")
@@ -467,9 +467,9 @@ story.append(figure("crop_results_bottom.png", "Race results (2 of 2): remaining
 
 story.append(PageBreak())
 story.append(Paragraph("On a phone, the same results are shown in the same order:", styles["Body"]))
-story.append(phone_figures([("06_race_results_mobile.png", "Results on a phone. Each boat is shown as its own "
-                                                             "card with the column heading beside every value, "
-                                                             "so nothing is cut off.")], max_h=20 * cm))
+story.append(phone_figures([("06_race_results_mobile.png", "Results on a phone. Each boat is its own card: "
+                                                             "its place and name, then its times and the rest "
+                                                             "as a line of facts.")], max_h=20 * cm))
 
 story.append(PageBreak())
 

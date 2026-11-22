@@ -3774,4 +3774,10 @@ dialog.public-settings { width: min(26rem, calc(100vw - 2rem)); }
   #htab-races .stack-table td[data-label="First start"]::before { display: none; }
   #htab-races .stack-table td:not(:first-child):not([data-label="Link"]) { order: 1; }
   #htab-races details.subsection > summary { line-height: 1.3; }
+
+  /* Under a mouse (a narrow window on a PC, not a phone) a table row is tinted
+     cell by cell. On a card of loose facts that was a scatter of grey patches,
+     so the card takes the tint instead. */
+  .public-page .stack-table:not(.replay-board) tbody tr:hover td { background: transparent; }
+  .public-page .stack-table:not(.replay-board) tbody tr:hover { background: var(--paper-sunk, #f0ece0); }
 }
